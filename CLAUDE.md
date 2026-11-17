@@ -139,9 +139,14 @@ Aujourd'hui, une demande ne conserve que l'arbre des statuts de la cascade : le 
 
 **BFF — `GET /api/demandes/{id}/contenu`** (JWT citoyen, `Authorization: Bearer`)
 
-1. Vérifie que la demande appartient au citoyen connecté, ou à un enfant dont il est tuteur. Sinon → `404 DEMANDE_NON_TROUVEE`, comme `GET /demandes/{id}`.
-2. Si la pièce racine n'est pas résolue (demande en `fallback_physique`) → `409 PIECE_INDISPONIBLE`.
-3. Appelle la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`, où `iue` est le titulaire de la pièce (le citoyen ou l'enfant).
+1. **Contrôle d'accès sur le titulaire de la pièce**, pas sur l'auteur de la demande. L'accès est autorisé seulement si le `titulaire_iue` de la demande est :
+   - l'IUE du citoyen connecté ;
+   - ou l'IUE d'un enfant dont il est **actuellement** tuteur (tutelle relue en base à chaque appel).
+
+   Sinon → `404 DEMANDE_NON_TROUVEE`, sans révéler que la demande existe. Après un transfert de compte, l'ancien tuteur perd donc l'accès aux pièces de l'enfant, même pour les demandes qu'il a faites lui-même. C'est la même règle que pour les consentements, où le tuteur « perd ce droit dès qu'il a transféré le compte » (`consentements.service.js` du BFF).
+2. Si la demande n'est pas `complete` (quel que soit son statut) → `409 PIECE_INDISPONIBLE`.
+3. Appelle la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`, où `iue` est le titulaire de la pièce (le citoyen ou l'enfant). La passerelle fournit `titulaire` et `donnees` : le BFF ne fait qu'**un seul appel**.
+4. Si la passerelle répond `404 PIECE_INDISPONIBLE` alors que la demande est `complete` → `409 PIECE_INDISPONIBLE`. Ce cas arrive notamment au test du jury, quand un registre est remplacé par celui d'une autre équipe et que les anciennes demandes visent des pièces absentes du nouveau registre. La page n'a qu'un seul cas d'indisponibilité à gérer.
 
 Réponse `200` :
 ```json
@@ -156,16 +161,26 @@ Réponse `200` :
 
 **Passerelle — `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`** (en-tête `X-Cle-Service`, réservée au BFF comme les autres routes `/interne`)
 
-Lit la pièce dans son registre, **uniquement via les routes des contrats des registres** (un registre d'une autre équipe doit fonctionner) :
+Lit la pièce dans son registre, **uniquement via les routes des contrats des registres** (un registre d'une autre équipe doit fonctionner).
+
+Réponse `200` :
+```json
+{
+  "titulaire": { "iue": "784302956148", "nom": "OUEDRAOGO", "prenom": "Amadou" },
+  "donnees": { "casier_vierge": true, "condamnations": [], "date_delivrance": "2026-11-17" }
+}
+```
+
+`titulaire` est toujours lu à l'état civil (`GET /citoyens/{iue}?champs=iue,nom,prenom`), car le casier, le certificat de nationalité et la situation fiscale ne contiennent pas le nom du titulaire.
 
 | Pièce | Route du registre | `donnees` |
 |-------|-------------------|-----------|
-| `extrait-naissance` | état-civil `GET /citoyens/{iue}` | tous les champs `DonneesEtatCivil` + `pere` / `mere` : `{ iue, nom, prenom }` (lus aussi à l'état civil) |
+| `extrait-naissance` | état-civil `GET /citoyens/{iue}` | les champs `DonneesEtatCivil`, avec `pere` et `mere` (`{ iue, nom, prenom }`, lus à l'état civil) qui **remplacent** `pere_iue` et `mere_iue`. Chacun vaut `null` si le parent est inconnu de l'état civil. |
 | `certificat-nationalite` | justice `GET /citoyens/{iue}/nationalite` | tous les champs `CertificatNationalite` |
 | `casier-judiciaire` | justice `GET /citoyens/{iue}/casier` | tous les champs `CasierJudiciaire` |
 | `attestation-fiscale` | fiscal `GET /citoyens/{iue}/fiscal` | tous les champs `SituationFiscale` |
 
-Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répond 404 : pièce absente, fallback physique).
+Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répond 404 : pièce absente). Le BFF convertit `PIECE_INDISPONIBLE` en `409` (voir l'étape 4 ci-dessus).
 
 **Règles**
 - Pas de minimisation : le citoyen consulte **ses propres** données, sans intermédiaire.
