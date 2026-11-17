@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mot de passe oublié — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--vert-clair) 0%, var(--gris-50) 50%, var(--or-clair) 100%);
+      padding: var(--space-4);
+    }
+    .auth-card {
+      background: var(--blanc);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: var(--space-10);
+      width: 100%;
+      max-width: 440px;
+      position: relative;
+      overflow: hidden;
+      padding-top: calc(var(--space-10) + 4px);
+    }
+    .auth-logo { text-align: center; margin-bottom: var(--space-6); }
+    .auth-logo h1 { font-size: var(--font-size-3xl); color: var(--vert); font-weight: 800; }
+    .auth-logo .star { color: var(--or); font-size: 1.5em; }
+    .auth-logo p { color: var(--gris-500); font-size: var(--font-size-sm); margin-top: var(--space-2); }
+    .flag-banner {
+      height: 4px;
+      background: linear-gradient(90deg, var(--vert) 33%, var(--rouge) 33% 66%, var(--or) 66%);
+      position: absolute; top: 0; left: 0; right: 0;
+    }
+    #alert { margin-bottom: var(--space-4); }
+  </style>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="flag-banner"></div>
+      <div class="auth-logo">
+        <h1>e<span class="star">★</span>FASO</h1>
+        <p id="subtitle">Récupérer l'accès à votre compte</p>
+      </div>
+
+      <div id="alert" class="alert hidden"></div>
+
+      <!-- Étape 1 : IUE + téléphone → code SMS -->
+      <form id="stepDemande">
+        <div class="form-group">
+          <label class="form-label" for="iue">IUE (12 chiffres)</label>
+          <input type="text" id="iue" class="form-input" placeholder="784302956148" maxlength="12" pattern="\d{12}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="telephone">Téléphone associé au compte</label>
+          <div class="phone-input-group">
+            <span class="phone-prefix"><span class="flag">🇧🇫</span> +226</span>
+            <input type="tel" id="telephone" class="form-input" placeholder="70 12 34 56" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnDemande">Recevoir un code par SMS</button>
+      </form>
+
+      <!-- Étape 2 : code SMS + nouveau mot de passe -->
+      <form id="stepReset" class="hidden">
+        <div class="form-group">
+          <label class="form-label" for="code">Code reçu par SMS</label>
+          <input type="text" id="code" class="form-input" inputmode="numeric" maxlength="6" placeholder="123456" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Nouveau mot de passe</label>
+          <input type="password" id="password" class="form-input" placeholder="Minimum 8 caractères" minlength="8" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password2">Confirmer le mot de passe</label>
+          <input type="password" id="password2" class="form-input" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnReset">Enregistrer le mot de passe</button>
+      </form>
+
+      <p style="text-align:center; margin-top:var(--space-6);">
+        <a href="/pages/login.html">← Retour à la connexion</a>
+      </p>
+      <p style="text-align:center; margin-top:var(--space-2); font-size:var(--font-size-xs); color:var(--gris-500);">
+        Démo : les SMS sont simulés, le code apparaît dans les logs du BFF
+        (<code>docker compose logs espace-usager</code>).
+      </p>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const alertEl = document.getElementById('alert');
+    let tokenTemporaire = null;
+
+    function showAlert(msg, type) {
+      alertEl.textContent = msg;
+      alertEl.className = `alert alert-${type}`;
+    }
+
+    document.getElementById('stepDemande').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnDemande');
+      btn.disabled = true;
+      try {
+        const tel = '+226' + document.getElementById('telephone').value.replace(/\s/g, '').replace(/^(\+|00)226/, '');
+        const res = await authApi.motDePasseOublie(document.getElementById('iue').value.trim(), tel);
+        tokenTemporaire = res.token_temporaire;
+        showAlert(res.message || 'Code de vérification envoyé par SMS', 'success');
+        document.getElementById('stepDemande').classList.add('hidden');
+        document.getElementById('stepReset').classList.remove('hidden');
+        document.getElementById('subtitle').textContent = 'Choisissez un nouveau mot de passe';
+        document.getElementById('code').focus();
+      } catch (err) {
+        showAlert(err.message || 'Impossible d\'envoyer le code', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('stepReset').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pwd = document.getElementById('password').value;
+      if (pwd !== document.getElementById('password2').value) {
+        showAlert('Les mots de passe ne correspondent pas', 'error');
+        return;
+      }
+      const btn = document.getElementById('btnReset');
+      btn.disabled = true;
+      try {
+        const res = await authApi.reinitialiserMotDePasse(tokenTemporaire, document.getElementById('code').value.trim(), pwd);
+        showAlert((res.message || 'Mot de passe réinitialisé avec succès') + ' — redirection…', 'success');
+        setTimeout(() => { window.location.href = '/pages/login.html'; }, 1500);
+      } catch (err) {
+        showAlert(err.message || 'Code invalide ou expiré', 'error');
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

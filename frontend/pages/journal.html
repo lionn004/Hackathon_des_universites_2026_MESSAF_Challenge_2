@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Journal d'accès — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="main-content">
+    <div class="page-content">
+      <h1 class="page-title">Journal d'accès</h1>
+      <p class="page-subtitle">Traçabilité complète de tous les accès à vos données personnelles</p>
+
+      <!-- Statistiques -->
+      <div class="stat-cards mb-6">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#E8F4FD;color:#1976D2">📊</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-total">—</div>
+            <div class="stat-label">Total des accès</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--or-clair);color:var(--or-fonce)">📅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-30j">—</div>
+            <div class="stat-label">30 derniers jours</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--vert-clair);color:var(--vert-fonce)">🏛</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-admins">—</div>
+            <div class="stat-label">Administrations</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tableau des accès -->
+      <div class="card">
+        <div style="padding:var(--space-4);border-bottom:1px solid var(--gris-200)">
+          <strong>Historique des accès</strong>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Administration</th>
+              <th>Démarche</th>
+              <th>Champs consultés</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-journal">
+            <tr><td colspan="5" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
+          </tbody>
+        </table>
+        <!-- Pagination -->
+        <div class="flex-between" style="padding:var(--space-4);border-top:1px solid var(--gris-200)" id="pagination">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    let currentPage = 1;
+    const perPage = 20;
+
+    async function loadJournal(page = 1) {
+      currentPage = page;
+      try {
+        const data = await journalApi.list({ page, limite: perPage });
+        const entries = data.entrees || [];
+        const total = data.pagination?.total ?? entries.length;
+        const totalPages = data.pagination?.pages ?? Math.ceil(total / perPage);
+        const tbody = document.getElementById('tbody-journal');
+        document.getElementById('stat-total').textContent = total;
+
+        if (entries.length === 0) {
+          tbody.innerHTML = `
+            <tr><td colspan="5" class="text-center" style="padding:var(--space-8);color:var(--gris-400)">
+              <div style="font-size:2rem;margin-bottom:var(--space-2)">📖</div>
+              Aucun accès enregistré pour le moment
+            </td></tr>`;
+          document.getElementById('pagination').innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = entries.map(j => `
+          <tr>
+            <td>
+              <div style="font-weight:500">${formatDate(j.date_acces)}</div>
+              <div style="font-size:var(--font-size-xs);color:var(--gris-400)">${formatTime(j.date_acces)}</div>
+            </td>
+            <td>${statusBadge(j.type_acces)}</td>
+            <td>
+              ${escapeHtml(j.administration_nom) || '—'}
+              ${j.administration_type ? `<div style="font-size:var(--font-size-xs);color:var(--gris-400)">${j.administration_type === 'privee' ? 'Privée' : 'Publique'}</div>` : ''}
+            </td>
+            <td>
+              ${escapeHtml(j.demarche) || '—'}
+              ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">👶 ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
+            </td>
+            <td style="font-size:var(--font-size-xs);color:var(--gris-500);max-width:200px">
+              ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(j.champs_consultes.join(', ')) : '—'}
+            </td>
+          </tr>
+        `).join('');
+
+        // Pagination
+        if (totalPages > 1) {
+          let paginationHtml = `<span style="font-size:var(--font-size-sm);color:var(--gris-500)">Page ${page} / ${totalPages}</span><div style="display:flex;gap:var(--space-2)">`;
+          if (page > 1) paginationHtml += `<button class="btn btn-sm btn-outline" onclick="loadJournal(${page - 1})">← Précédent</button>`;
+          if (page < totalPages) paginationHtml += `<button class="btn btn-sm btn-outline" onclick="loadJournal(${page + 1})">Suivant →</button>`;
+          paginationHtml += '</div>';
+          document.getElementById('pagination').innerHTML = paginationHtml;
+        } else {
+          document.getElementById('pagination').innerHTML = '';
+        }
+      } catch (e) {
+        document.getElementById('tbody-journal').innerHTML = emptyRow(5, 'Erreur de chargement', true);
+      }
+    }
+
+    async function loadStats() {
+      // Accès des 30 derniers jours : fourni par le tableau de bord
+      try {
+        const data = await dashboardApi.get();
+        document.getElementById('stat-30j').textContent = data.acces_recents ?? 0;
+      } catch (e) {
+        console.error('Stats journal:', e);
+      }
+      // Administrations distinctes (sur les 100 accès les plus récents)
+      try {
+        const j = await journalApi.list({ limite: 100 });
+        const admins = new Set((j.entrees || []).map(a => a.administration_nom));
+        document.getElementById('stat-admins').textContent = admins.size;
+      } catch (_) {}
+    }
+
+    loadJournal();
+    loadStats();
+  </script>
+</body>
+</html>

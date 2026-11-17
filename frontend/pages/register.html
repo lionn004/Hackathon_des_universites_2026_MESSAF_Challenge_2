@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscription — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--vert-clair) 0%, var(--gris-50) 50%, var(--or-clair) 100%);
+      padding: var(--space-4);
+    }
+    .auth-card {
+      background: var(--blanc);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: var(--space-10);
+      width: 100%;
+      max-width: 440px;
+      position: relative;
+      overflow: hidden;
+      padding-top: calc(var(--space-10) + 4px);
+    }
+    .auth-logo {
+      text-align: center;
+      margin-bottom: var(--space-6);
+    }
+    .auth-logo h1 { font-size: var(--font-size-3xl); color: var(--vert); font-weight: 800; }
+    .auth-logo .star { color: var(--or); font-size: 1.5em; }
+    .auth-logo p { color: var(--gris-500); font-size: var(--font-size-sm); margin-top: var(--space-2); }
+    .flag-banner {
+      height: 4px;
+      background: linear-gradient(90deg, var(--vert) 33%, var(--rouge) 33% 66%, var(--or) 66%);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      position: absolute; top: 0; left: 0; right: 0;
+    }
+    .alert {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      margin-bottom: var(--space-4);
+      display: none;
+    }
+    .alert-error { background: var(--rouge-clair); color: var(--rouge); border: 1px solid var(--rouge); }
+  </style>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="flag-banner"></div>
+      <div class="auth-logo">
+        <h1>e<span class="star">★</span>FASO</h1>
+        <p>Créer votre compte citoyen</p>
+      </div>
+
+      <div id="alert" class="alert"></div>
+
+      <form id="registerForm">
+        <div class="form-group">
+          <label class="form-label" for="iue">IUE (12 chiffres)</label>
+          <input type="text" id="iue" class="form-input" placeholder="Votre Identifiant Unique Électronique" maxlength="12" pattern="\d{12}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="telephone">Téléphone</label>
+          <div class="phone-input-group">
+            <span class="phone-prefix"><span class="flag">🇧🇫</span> +226</span>
+            <input type="tel" id="telephone" class="form-input" placeholder="70 12 34 56" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Mot de passe</label>
+          <input type="password" id="password" class="form-input" placeholder="Minimum 8 caractères" minlength="8" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password2">Confirmer le mot de passe</label>
+          <input type="password" id="password2" class="form-input" placeholder="Retapez votre mot de passe" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submitBtn">
+          Créer mon compte
+        </button>
+      </form>
+
+      <p style="text-align:center; margin-top:var(--space-6);">
+        <a href="/pages/login.html">Déjà un compte ? Se connecter</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const form = document.getElementById('registerForm');
+    const alertEl = document.getElementById('alert');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pwd = document.getElementById('password').value;
+      const pwd2 = document.getElementById('password2').value;
+
+      if (pwd !== pwd2) {
+        alertEl.textContent = 'Les mots de passe ne correspondent pas';
+        alertEl.className = 'alert alert-error';
+        alertEl.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Inscription...';
+
+      try {
+        const tel = '+226' + document.getElementById('telephone').value.replace(/\s/g, '').replace(/^(\+|00)226/, '');
+        await authApi.inscription(document.getElementById('iue').value, pwd, tel);
+        window.location.href = '/pages/dashboard.html';
+      } catch (err) {
+        alertEl.textContent = err.message || 'Erreur lors de l\'inscription';
+        alertEl.className = 'alert alert-error';
+        alertEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Créer mon compte';
+      }
+    });
+  </script>
+</body>
+</html>

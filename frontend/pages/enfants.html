@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mes enfants — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="main-content">
+    <div class="page-content">
+      <h1 class="page-title">Mes enfants</h1>
+      <p class="page-subtitle">Enfants mineurs à votre charge — vous gérez leurs consentements en tant que tuteur légal</p>
+
+      <div id="enfants-list">
+        <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    async function loadEnfants() {
+      const container = document.getElementById('enfants-list');
+      try {
+        const [data, pending] = await Promise.all([
+          enfantsApi.list(),
+          consentsApi.list({ statut: 'en_attente', limite: 100 }).catch(() => ({ consentements: [] })),
+        ]);
+        const enfants = data.enfants || [];
+        // Consentements en attente par enfant (ConsentementResume.pour_enfant)
+        const enAttente = {};
+        (pending.consentements || []).forEach(c => {
+          if (c.pour_enfant?.iue) enAttente[c.pour_enfant.iue] = (enAttente[c.pour_enfant.iue] || 0) + 1;
+        });
+
+        if (enfants.length === 0) {
+          container.innerHTML = `
+            <div class="card text-center" style="padding:var(--space-8)">
+              <div style="font-size:3rem;margin-bottom:var(--space-4)">👶</div>
+              <h3 style="color:var(--gris-600);margin-bottom:var(--space-2)">Aucun enfant à charge</h3>
+              <p style="color:var(--gris-400)">Aucun enfant mineur n'est enregistré sous votre tutelle dans le registre d'état civil.</p>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = enfants.map(e => {
+          const iue = escapeHtml(e.iue);
+          const prenom = escapeHtml(e.prenom);
+          const nbAttente = enAttente[e.iue] || 0;
+          return `
+          <div class="card mb-4" style="padding:var(--space-6)">
+            <div class="flex-between mb-4">
+              <div style="display:flex;align-items:center;gap:var(--space-4)">
+                <div class="user-avatar" style="width:48px;height:48px;font-size:var(--font-size-lg);background:var(--or-clair);color:var(--or-fonce)">
+                  ${escapeHtml((e.prenom || '?')[0])}${escapeHtml((e.nom || '?')[0])}
+                </div>
+                <div>
+                  <h3 style="font-size:var(--font-size-lg);font-weight:600;margin-bottom:2px">${prenom} ${escapeHtml(e.nom)}</h3>
+                  <span style="font-size:var(--font-size-xs);color:var(--gris-500)">IUE : ${iue}</span>
+                </div>
+              </div>
+              <span class="badge badge-info">Mineur</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-4);margin-bottom:var(--space-4)">
+              ${e.date_naissance ? `
+              <div>
+                <div style="font-size:var(--font-size-xs);color:var(--gris-400);margin-bottom:2px">Date de naissance</div>
+                <div style="font-size:var(--font-size-sm);font-weight:500">${formatDate(e.date_naissance)}</div>
+              </div>` : ''}
+              ${e.age !== null && e.age !== undefined ? `
+              <div>
+                <div style="font-size:var(--font-size-xs);color:var(--gris-400);margin-bottom:2px">Âge</div>
+                <div style="font-size:var(--font-size-sm);font-weight:500">${escapeHtml(e.age)} ans</div>
+              </div>` : ''}
+            </div>
+
+            <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+              <a href="/pages/consentements.html?enfant=${iue}" class="btn btn-sm btn-outline">🔐 Consentements</a>
+              <a href="/pages/demandes.html?enfant=${iue}" class="btn btn-sm btn-outline">📄 Faire une demande</a>
+            </div>
+
+            ${nbAttente ? `
+            <div class="alert alert-warning mt-4" style="font-size:var(--font-size-sm)">
+              ⚠ <strong>${nbAttente}</strong> consentement(s) en attente pour cet enfant
+            </div>` : ''}
+
+            ${e.transfert_recommande ? `
+            <div class="alert alert-info mt-4" style="font-size:var(--font-size-sm);align-items:center">
+              <span class="alert-icon">🎓</span>
+              <span style="flex:1">${prenom} a ${escapeHtml(e.age)} ans : nous vous recommandons de lui transférer le contrôle de son compte.
+              Il ou elle recevra un SMS pour créer son propre mot de passe.</span>
+              <button class="btn btn-sm btn-primary" data-iue="${iue}" data-prenom="${prenom}" onclick="transferer(this)">Transférer le compte</button>
+            </div>` : ''}
+          </div>`;
+        }).join('');
+      } catch (e) {
+        container.innerHTML = `<div class="alert alert-error">Erreur lors du chargement des enfants : ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    async function transferer(btn) {
+      const { iue, prenom } = btn.dataset;
+      if (!confirm(`Transférer le compte à ${prenom} ? Vous ne pourrez plus gérer ses consentements ni ses demandes.`)) return;
+      btn.disabled = true;
+      try {
+        const res = await enfantsApi.transfert(iue);
+        showToast(res.message || 'Transfert initié', 'success');
+        loadEnfants();
+      } catch (e) {
+        showToast(e.message || 'Transfert impossible', 'error');
+        btn.disabled = false;
+      }
+    }
+
+    loadEnfants();
+  </script>
+</body>
+</html>
