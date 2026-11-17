@@ -39,12 +39,16 @@
 
       <!-- Tableau des accès -->
       <div class="card">
-        <div style="padding:var(--space-4) var(--space-4) 0">
-          <strong>Historique des accès</strong>
+        <div class="list-toolbar">
+          <div>
+            <strong>Historique des accès</strong>
+            <div class="filter-count" id="f-count" aria-live="polite"></div>
+          </div>
+          <button type="button" class="search-toggle" id="btn-recherche"></button>
         </div>
 
-        <!-- Recherche et filtres -->
-        <form class="filter-bar" id="filtres" onsubmit="event.preventDefault()">
+        <!-- Panneau de recherche (ouvert par la loupe) -->
+        <form class="filter-bar filter-panel hidden" id="filtres" onsubmit="event.preventDefault()">
           <div class="filter-field grow">
             <label for="f-recherche">Rechercher</label>
             <div class="search-field">
@@ -69,7 +73,6 @@
           </div>
           <button type="button" class="btn btn-sm btn-outline" id="f-reset" onclick="reinitialiser()">Réinitialiser</button>
         </form>
-        <div class="filter-count" id="f-count" aria-live="polite"></div>
 
         <div class="table-container">
           <table class="table">
@@ -131,8 +134,15 @@
         </tr>`;
     }
 
+    const panneau = initPanneauRecherche('btn-recherche', 'filtres');
+
+    /** Nombre de critères renseignés (la plage de dates compte pour un). */
+    function nbFiltres() {
+      return [el('f-recherche').value.trim(), el('f-type').value, el('f-debut').value || el('f-fin').value].filter(Boolean).length;
+    }
+
     function filtresActifs() {
-      return Boolean(el('f-recherche').value.trim() || el('f-type').value || el('f-debut').value || el('f-fin').value);
+      return nbFiltres() > 0;
     }
 
     /** Applique la recherche texte et le type d'accès aux accès chargés. */
@@ -160,6 +170,7 @@
         }
       }
       el('f-count').textContent = compteur;
+      panneau.majBadge(nbFiltres());
 
       if (resultats.length === 0) {
         tbody.innerHTML = filtresActifs()

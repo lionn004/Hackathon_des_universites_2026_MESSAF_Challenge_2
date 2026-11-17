@@ -540,6 +540,54 @@ function debounce(fn, delai = 250) {
   };
 }
 
+const ICON_LOUPE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+
+/**
+ * Bouton loupe qui ouvre / ferme un panneau d'options de recherche.
+ * Le bouton porte une pastille avec le nombre de filtres actifs (visible panneau fermé).
+ * @param {string} boutonId Bouton <button class="search-toggle">.
+ * @param {string} panneauId Panneau à afficher / masquer.
+ * @returns {{ majBadge: (n: number) => void, ouvrir: () => void, fermer: () => void }}
+ */
+function initPanneauRecherche(boutonId, panneauId) {
+  const bouton = document.getElementById(boutonId);
+  const panneau = document.getElementById(panneauId);
+  bouton.innerHTML = ICON_LOUPE + '<span class="search-toggle-badge hidden" aria-hidden="true"></span>';
+  bouton.setAttribute('aria-controls', panneauId);
+  bouton.setAttribute('aria-expanded', 'false');
+  bouton.setAttribute('aria-label', 'Rechercher et filtrer');
+  bouton.title = 'Rechercher et filtrer';
+  const badge = bouton.querySelector('.search-toggle-badge');
+
+  function ouvrir() {
+    panneau.classList.remove('hidden');
+    bouton.setAttribute('aria-expanded', 'true');
+    panneau.querySelector('input, select')?.focus();
+  }
+  function fermer() {
+    panneau.classList.add('hidden');
+    bouton.setAttribute('aria-expanded', 'false');
+  }
+
+  bouton.addEventListener('click', () => (panneau.classList.contains('hidden') ? ouvrir() : fermer()));
+  panneau.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      fermer();
+      bouton.focus();
+    }
+  });
+
+  return {
+    ouvrir,
+    fermer,
+    majBadge(n) {
+      badge.textContent = n;
+      badge.classList.toggle('hidden', !n);
+      bouton.setAttribute('aria-label', n ? `Rechercher et filtrer (${n} filtre${n > 1 ? 's' : ''} actif${n > 1 ? 's' : ''})` : 'Rechercher et filtrer');
+    },
+  };
+}
+
 /** Ligne de tableau « vide » ou « erreur ». */
 function emptyRow(colspan, message, isError = false) {
   const color = isError ? 'var(--rouge)' : 'var(--gris-400)';

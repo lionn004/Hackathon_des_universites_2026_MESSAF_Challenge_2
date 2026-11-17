@@ -207,6 +207,7 @@ Les listes qui grandissent avec le temps ont une recherche ou des filtres. Le ca
 | Nouvelle demande | choix de la pièce par recherche (motif ARIA combobox : ↑ ↓ Entrée Échap) au lieu d'une liste déroulante | navigateur |
 
 Règles :
+- Journal et Mes demandes : les options de recherche sont regroupées derrière **un seul bouton loupe**. Le panneau est replié par défaut ; un clic l'ouvre ou le referme (Échap le referme aussi). Une pastille sur la loupe indique le nombre de filtres actifs, visible même panneau fermé.
 - La recherche ignore les accents et les majuscules (« etat civil » trouve « État civil »), et chaque mot saisi doit apparaître (« banque nom »).
 - Le filtrage côté navigateur porte sur les éléments chargés, au plus **100** (le maximum de `limite` du BFF). Le journal le signale quand la période contient plus d'accès et invite à préciser les dates.
 - Les contrats ne prévoient pas de recherche texte côté serveur. Si les volumes l'exigent, il faudra ajouter un paramètre `q` (recherche texte) à `GET /journal`, `GET /consentements` et `GET /demandes`, puis le reporter dans `docs/openapi-espace-usager.yaml`. Ce n'est **pas** implémenté à ce jour.

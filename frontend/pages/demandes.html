@@ -54,7 +54,12 @@
 
       <!-- Filtres de la liste -->
       <div class="card mb-4 hidden" id="bloc-filtres">
-        <form class="filter-bar" id="filtres" onsubmit="event.preventDefault()">
+        <div class="list-toolbar">
+          <div class="filter-count" id="f-count" aria-live="polite"></div>
+          <button type="button" class="search-toggle" id="btn-recherche"></button>
+        </div>
+        <!-- Panneau de recherche (ouvert par la loupe) -->
+        <form class="filter-bar filter-panel hidden" id="filtres" onsubmit="event.preventDefault()">
           <div class="filter-field grow">
             <label for="f-piece">Type de pièce</label>
             <select class="form-input" id="f-piece">
@@ -80,7 +85,6 @@
           </div>
           <button type="button" class="btn btn-sm btn-outline" onclick="reinitialiserFiltres()">Réinitialiser</button>
         </form>
-        <div class="filter-count" id="f-count" aria-live="polite"></div>
       </div>
 
       <!-- Liste des demandes -->
@@ -154,8 +158,14 @@
         enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)}</option>`).join('');
     }
 
+    const panneau = initPanneauRecherche('btn-recherche', 'filtres');
+
+    function nbFiltres() {
+      return [el('f-piece').value, el('f-statut').value, el('f-pour').value].filter(Boolean).length;
+    }
+
     function filtresActifs() {
-      return Boolean(el('f-piece').value || el('f-statut').value || el('f-pour').value);
+      return nbFiltres() > 0;
     }
 
     function afficherDemandes() {
@@ -172,6 +182,7 @@
       el('f-count').textContent = filtresActifs()
         ? `${liste.length} demande${liste.length > 1 ? 's' : ''} sur ${demandes.length}`
         : `${demandes.length} demande${demandes.length > 1 ? 's' : ''}`;
+      panneau.majBadge(nbFiltres());
 
       if (liste.length === 0) {
         container.innerHTML = `

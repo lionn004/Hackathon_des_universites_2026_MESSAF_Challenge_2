@@ -1376,6 +1376,65 @@ input[type="password"]::-ms-clear {
   padding: 0 var(--space-4) var(--space-3);
 }
 
+/* --- Bouton loupe qui ouvre le panneau de recherche --- */
+.search-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--gris-300);
+  border-radius: var(--radius-md);
+  background: var(--blanc);
+  color: var(--gris-600);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.search-toggle:hover {
+  border-color: var(--vert);
+  color: var(--vert);
+}
+.search-toggle[aria-expanded="true"] {
+  background: var(--vert);
+  border-color: var(--vert);
+  color: var(--blanc);
+}
+.search-toggle:focus-visible {
+  outline: 2px solid var(--vert);
+  outline-offset: 2px;
+}
+.search-toggle-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--rouge);
+  color: var(--blanc);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.filter-panel {
+  border-top: 1px solid var(--gris-200);
+  background: var(--gris-50);
+}
+.list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.list-toolbar .filter-count {
+  padding: 0;
+}
+
 /* --- Liste de choix avec recherche (combobox) --- */
 .combobox {
   position: relative;
