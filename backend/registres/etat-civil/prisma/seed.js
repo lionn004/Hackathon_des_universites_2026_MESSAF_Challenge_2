@@ -8,7 +8,8 @@
  * Scénarios couverts :
  *  - Amadou (majeur) : parents connus → cascade complète possible ;
  *  - Ibrahim et Fatimata : leurs propres parents ne sont pas enregistrés → fallback physique ;
- *  - Awa (12 ans) : mineure → est_majeur = false, gérée par un tuteur.
+ *  - Awa (12 ans) : mineure → est_majeur = false, gérée par un tuteur ;
+ *  - Moussa (16 ans) : mineur de 15 ans ou plus → transfert de compte recommandé.
  */
 const { PrismaClient } = require('@prisma/client');
 
@@ -57,6 +58,18 @@ const citizens = [
     date_naissance: '2014-05-08',
     lieu_naissance: 'Ouagadougou',
     sexe: 'F',
+    nationalite: 'Burkinabè',
+    pere_iue: '291047583620',
+    mere_iue: '638501274093',
+  },
+  {
+    // Mineur de 16 ans : le système recommande au tuteur de lui transférer son compte.
+    iue: '527814903361',
+    nom: 'OUEDRAOGO',
+    prenom: 'Moussa',
+    date_naissance: '2010-02-14',
+    lieu_naissance: 'Ouagadougou',
+    sexe: 'M',
     nationalite: 'Burkinabè',
     pere_iue: '291047583620',
     mere_iue: '638501274093',

@@ -66,6 +66,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthReponse"
+        "400":
+          description: Données invalides (IUE, mot de passe < 8 caractères, téléphone)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "403":
+          description: COMPTE_MINEUR — le compte d'un mineur est créé et géré par son tuteur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: IUE_INCONNU — IUE inconnu de l'état civil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
         "409":
           description: IUE déjà enregistré
           content:
@@ -314,6 +332,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Demande"
+        "403":
+          description: ENFANT_NON_RATTACHE — pour_enfant_iue n'est pas un enfant du citoyen connecté
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: TYPE_PIECE_INCONNU
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /demandes/{id}:
     get:
@@ -634,6 +664,10 @@ paths:
                   journal_id:
                     type: string
                     format: uuid
+                  requete_id:
+                    type: string
+                    format: uuid
+                    description: Identifiant de la requête dans la passerelle
         "202":
           description: En attente de consentement (admin privée)
           content:
@@ -647,9 +681,101 @@ paths:
                   consentement_id:
                     type: string
                     format: uuid
+                  requete_id:
+                    type: string
+                    format: uuid
+                    description: À utiliser avec GET /test/requetes/{id} pour suivre la requête
                   message:
                     type: string
                     example: "Demande de consentement envoyée au citoyen"
+        "403":
+          description: Refus de la passerelle (ex : HORS_MISSION), relayé tel quel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /test/requetes/{id}:
+    get:
+      tags: [Test]
+      summary: Suivre une requête simulée
+      description: |
+        Consulte le statut d'une requête faite via POST /test/requete, au nom de la même
+        administration (ex : voir les données arriver après l'acceptation du citoyen).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: administration_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Statut de la requête (RequeteStatut de la passerelle)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requete_id:
+                    type: string
+                    format: uuid
+                  statut:
+                    type: string
+                    enum: [en_attente_consentement, consentement_accepte, consentement_refuse, expire, complete]
+                  donnees:
+                    type: object
+                    nullable: true
+
+  # ═══════════════════════════════════════
+  # INTERNE (réservé aux services backend, jamais appelé par le frontend)
+  # ═══════════════════════════════════════
+  /interne/citoyens/{iue}/telephone:
+    get:
+      tags: [Interne]
+      summary: Téléphone d'un citoyen (appelé par la passerelle)
+      description: |
+        Protégé par la clé de service partagée (en-tête X-Cle-Service).
+        Utilisé quand une administration relance un citoyen qui tarde à répondre.
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Cle-Service
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Numéro du compte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  telephone:
+                    type: string
+        "401":
+          description: Clé de service absente ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: TELEPHONE_INCONNU — pas de compte pour cet IUE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
 components:
   securitySchemes:
@@ -802,6 +928,17 @@ components:
         date_expiration:
           type: string
           format: date-time
+        pour_enfant:
+          type: object
+          nullable: true
+          description: Présent si la demande concerne un enfant dont le citoyen est tuteur
+          properties:
+            iue:
+              type: string
+            nom:
+              type: string
+            prenom:
+              type: string
 
     EntreeJournal:
       type: object

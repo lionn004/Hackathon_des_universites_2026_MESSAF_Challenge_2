@@ -19,15 +19,16 @@ const AppError = require('../utils/AppError');
  * @param {object} [options]
  * @param {string} [options.method='GET']
  * @param {object} [options.body] Corps envoyé en JSON.
+ * @param {object} [options.headers] En-têtes supplémentaires (ex : clé de service).
  * @returns {Promise<{status: number, body: any}>}
  * @throws {AppError} 502 SERVICE_INDISPONIBLE si le service ne répond pas.
  */
-async function request(serviceName, url, { method = 'GET', body } = {}) {
+async function request(serviceName, url, { method = 'GET', body, headers = {} } = {}) {
   let response;
   try {
     response = await fetch(url, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: { ...headers, ...(body && { 'Content-Type': 'application/json' }) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(config.callTimeoutMs),
     });

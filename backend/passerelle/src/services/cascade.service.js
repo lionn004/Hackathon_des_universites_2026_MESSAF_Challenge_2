@@ -15,8 +15,11 @@
  *  - titulaire inconnu (parent non enregistré) ou pièce absente →
  *    « manquant_fallback_physique » : le citoyen devra présenter le document au guichet.
  *
+ * Deux formes de résultat :
+ *  - resolveTrees : l'arbre complet (demandes de pièces des citoyens, via le BFF) ;
+ *  - resolve : une liste à plat sans doublon (requêtes des administrations, contrat RequeteResultat).
  * Une pièce manquante n'empêche pas la transmission des données : la cascade
- * informe l'administration de ce qui reste à fournir physiquement.
+ * informe de ce qui reste à fournir physiquement.
  */
 const catalogueModel = require('../models/catalogue.model');
 const registresClient = require('../clients/registres.client');
@@ -25,18 +28,21 @@ const registresClient = require('../clients/registres.client');
 const MAX_DEPTH = 6;
 
 /**
- * Résout l'arbre de prérequis de plusieurs pièces racines pour un citoyen.
+ * Construit l'arbre de résolution de plusieurs pièces racines pour un citoyen.
  *
- * @param {string[]} rootPieceIds Pièces requises par la démarche.
+ * Chaque vérification (pièce, titulaire) n'est faite qu'une fois par appel,
+ * même si la même pièce apparaît à plusieurs endroits de l'arbre.
+ *
+ * @param {string[]} rootPieceIds Pièces racines.
  * @param {string} iue Citoyen concerné (titulaire des pièces racines).
- * @returns {Promise<Array<{type_piece: string, proprietaire: string, registre_source: string, statut: string}>>}
- *          Liste à plat, dans l'ordre de parcours, sans doublon.
+ * @returns {Promise<object[]>} Un nœud par racine :
+ *   { type_piece, proprietaire, registre_source, statut, sous_prerequis: [...], cle }
+ *   `cle` identifie le couple (pièce, titulaire) ; il sert au dédoublonnage de resolve().
  */
-async function resolve(rootPieceIds, iue) {
-  const results = [];
-  const visited = new Set();
+async function resolveTrees(rootPieceIds, iue) {
   const pieceCache = new Map();
   const parentsCache = new Map();
+  const existsCache = new Map();
 
   /** Charge un type de pièce une seule fois par résolution. */
   async function loadPiece(id) {
@@ -54,43 +60,90 @@ async function resolve(rootPieceIds, iue) {
     return parentsCache.get(ownerIue);
   }
 
+  /** Vérifie l'existence d'une pièce une seule fois par (pièce, titulaire). */
+  async function exists(piece, ownerIue) {
+    const key = `${piece.id}|${ownerIue}`;
+    if (!existsCache.has(key)) {
+      existsCache.set(key, await registresClient.pieceExists(piece.id, piece.registre_source, ownerIue));
+    }
+    return existsCache.get(key);
+  }
+
   /**
-   * Visite une pièce puis ses prérequis.
+   * Construit le nœud d'une pièce et de ses prérequis.
    * @param {string} pieceId
    * @param {string} proprietaire Relation au titulaire de la pièce parente (citoyen | pere | mere).
    * @param {string|null} ownerIue Titulaire de cette pièce, null s'il est inconnu.
-   * @param {number} depth Profondeur dans l'arbre.
+   * @param {string} path Chemin dans l'arbre (rend uniques les titulaires inconnus).
+   * @param {number} depth Profondeur.
    */
-  async function visit(pieceId, proprietaire, ownerIue, depth) {
+  async function visit(pieceId, proprietaire, ownerIue, path, depth) {
     const piece = await loadPiece(pieceId);
-    if (!piece || depth > MAX_DEPTH) return;
+    if (!piece || depth > MAX_DEPTH) return null;
 
-    // Une même pièce du même titulaire n'est vérifiée qu'une fois
-    // (ex : l'extrait de naissance du citoyen, requis à deux endroits).
-    const key = `${pieceId}|${ownerIue || `inconnu:${proprietaire}:${depth}`}`;
-    if (visited.has(key)) return;
-    visited.add(key);
-
-    const found = ownerIue ? await registresClient.pieceExists(piece.id, piece.registre_source, ownerIue) : false;
-    results.push({
-      type_piece: piece.id,
-      proprietaire,
-      registre_source: piece.registre_source,
-      statut: found ? 'resolu' : 'manquant_fallback_physique',
-    });
-
+    const found = ownerIue ? await exists(piece, ownerIue) : false;
+    const children = [];
     for (const prereq of piece.prerequis) {
       let childIue = null;
       if (prereq.proprietaire === 'citoyen') childIue = ownerIue;
       else if (ownerIue) childIue = (await parentsOf(ownerIue))[prereq.proprietaire];
-      await visit(prereq.prerequis_id, prereq.proprietaire, childIue, depth + 1);
+      const child = await visit(prereq.prerequis_id, prereq.proprietaire, childIue, `${path}/${prereq.proprietaire}`, depth + 1);
+      if (child) children.push(child);
     }
+
+    return {
+      type_piece: piece.id,
+      proprietaire,
+      registre_source: piece.registre_source,
+      statut: found ? 'resolu' : 'manquant_fallback_physique',
+      sous_prerequis: children,
+      // Un titulaire inconnu n'a pas d'IUE : on le distingue par sa position dans l'arbre.
+      cle: `${piece.id}|${ownerIue || `inconnu:${path}`}`,
+    };
   }
 
+  const trees = [];
   for (const rootId of rootPieceIds) {
-    await visit(rootId, 'citoyen', iue, 0);
+    const node = await visit(rootId, 'citoyen', iue, 'citoyen', 0);
+    if (node) trees.push(node);
   }
-  return results;
+  return trees;
 }
 
-module.exports = { resolve };
+/**
+ * Supprime la clé technique `cle` d'un arbre, pour l'exposer à l'extérieur.
+ * @param {object} node
+ * @returns {object}
+ */
+function stripKeys({ cle, sous_prerequis: children, ...rest }) {
+  return { ...rest, sous_prerequis: children.map(stripKeys) };
+}
+
+/**
+ * Liste à plat, sans doublon, de toutes les pièces de la cascade
+ * (format du contrat RequeteResultat.cascade).
+ *
+ * @param {string[]} rootPieceIds Pièces requises par la démarche.
+ * @param {string} iue Citoyen concerné.
+ * @returns {Promise<Array<{type_piece: string, proprietaire: string, registre_source: string, statut: string}>>}
+ */
+async function resolve(rootPieceIds, iue) {
+  const trees = await resolveTrees(rootPieceIds, iue);
+  const seen = new Set();
+  const flat = [];
+
+  /** Parcours en profondeur : une pièce d'un même titulaire n'apparaît qu'une fois. */
+  function walk(node) {
+    if (!seen.has(node.cle)) {
+      seen.add(node.cle);
+      flat.push({
+        type_piece: node.type_piece, proprietaire: node.proprietaire, registre_source: node.registre_source, statut: node.statut,
+      });
+    }
+    node.sous_prerequis.forEach(walk);
+  }
+  trees.forEach(walk);
+  return flat;
+}
+
+module.exports = { resolve, resolveTrees, stripKeys };

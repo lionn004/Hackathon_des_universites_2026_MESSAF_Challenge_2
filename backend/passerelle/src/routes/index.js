@@ -4,6 +4,7 @@
 const { Router } = require('express');
 const catalogueRoutes = require('./catalogue.routes');
 const requetesRoutes = require('./requetes.routes');
+const interneRoutes = require('./interne.routes');
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.get('/sante', (req, res) => res.json({ statut: 'ok', service: 'passerelle
 
 router.use('/', catalogueRoutes);
 router.use('/requetes', requetesRoutes);
+router.use('/interne', interneRoutes);
 
 module.exports = router;
