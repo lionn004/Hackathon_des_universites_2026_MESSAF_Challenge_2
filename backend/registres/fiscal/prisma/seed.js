@@ -10,7 +10,8 @@
  *  - Ibrahim : commerçant (CME) avec un impôt restant dû → en_regle = false ;
  *  - Fatimata : non assujettie à l'impôt ;
  *  - Awa (mineure) : volontairement ABSENTE du registre fiscal → 404, cas que la
- *    passerelle doit savoir gérer.
+ *    passerelle doit savoir gérer ;
+ *  - Salif (inscription en direct) : particulier en règle.
  */
 const { PrismaClient } = require('@prisma/client');
 
@@ -40,6 +41,14 @@ const taxpayers = [
     regime_fiscal: 'non_assujetti',
     derniere_declaration: null,
     montant_impot_du: null,
+  },
+  {
+    iue: '316580942751',
+    ifu: 'IFU-00031415',
+    type_contribuable: 'particulier',
+    regime_fiscal: 'non_assujetti',
+    derniere_declaration: '2026-03-31',
+    montant_impot_du: 0,
   },
 ];
 

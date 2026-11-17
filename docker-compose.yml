@@ -150,6 +150,27 @@ services:
     depends_on:
       espace-usager:
         condition: service_started
+  # Documentation interactive des 7 contrats OpenAPI (Swagger UI) : http://localhost:3010
+  # (port 3010 plutôt que 8080, souvent déjà occupé par Tomcat ou d'autres outils).
+  # Lit directement les fichiers de docs/ (montés en lecture seule) : toujours à jour.
+  documentation:
+    image: swaggerapi/swagger-ui:v5.17.14
+    environment:
+      URLS: >-
+        [
+          {"url": "contrats/openapi-espace-usager.yaml", "name": "Espace usager (BFF) — :3000"},
+          {"url": "contrats/openapi-passerelle.yaml", "name": "Passerelle — :3004"},
+          {"url": "contrats/openapi-consentement.yaml", "name": "Consentement & minimisation — :3005"},
+          {"url": "contrats/openapi-journal.yaml", "name": "Journal — :3006"},
+          {"url": "contrats/openapi-registre-etat-civil.yaml", "name": "Registre état-civil — :3001"},
+          {"url": "contrats/openapi-registre-justice.yaml", "name": "Registre justice — :3002"},
+          {"url": "contrats/openapi-registre-fiscal.yaml", "name": "Registre fiscal — :3003"}
+        ]
+      URLS_PRIMARY_NAME: "Espace usager (BFF) — :3000"
+    volumes:
+      - ./docs:/usr/share/nginx/html/contrats:ro
+    ports:
+      - "3010:8080"
 
 volumes:
   pgdata:

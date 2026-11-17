@@ -16,6 +16,8 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+# Outils de démo (ex : remise à zéro de l'inscription en direct).
+COPY scripts ./scripts
 
 EXPOSE 3000
 

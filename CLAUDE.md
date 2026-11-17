@@ -322,7 +322,7 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 - **ORM** : Prisma
 - **Authentification** : JWT + bcrypt
 - **Déploiement** : Docker Compose
-- **Documentation API** : OpenAPI 3.0 / Swagger
+- **Documentation API** : OpenAPI 3.0 / Swagger — service `documentation` du docker-compose (image `swaggerapi/swagger-ui:v5.17.14`), http://localhost:3010, qui lit directement `docs/`. Toute description YAML contenant « : » doit être entre guillemets doubles, sinon le contrat devient invalide et Swagger ne l'affiche plus.
 
 ---
 
@@ -438,6 +438,8 @@ Préparer les données suivantes pour le développement et la démo :
 - **Fatimata SAWADOGO** (IUE: 638501274093) — mère d'Amadou
 - **Awa OUEDRAOGO** (IUE: 456123789012) — sœur d'Amadou, mineure (12 ans), tuteur = Ibrahim
 - **Moussa OUEDRAOGO** (IUE: 527814903361) — frère d'Amadou, mineur (16 ans), tuteur = Ibrahim → transfert de compte recommandé
+- **Salif OUEDRAOGO** (IUE: 316580942751) — frère aîné d'Amadou, majeur, présent dans les 3 registres mais **volontairement sans compte** : démonstration de l'inscription en direct
+- **Aïcha OUEDRAOGO** (IUE: 873045129604) — fille de Salif (5 ans), sans compte : rattachée automatiquement à Salif quand il s'inscrit. Remise à zéro de la démo : `docker compose exec espace-usager node scripts/reinitialiser-inscription-demo.js`
 
 Comptes de démo de l'espace usager (mots de passe de DÉMONSTRATION uniquement) : Amadou `Amadou2026!`, Ibrahim `Ibrahim2026!`, Fatimata `Fatimata2026!`. Awa et Moussa n'ont pas de mot de passe (comptes gérés par Ibrahim).
 
