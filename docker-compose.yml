@@ -20,7 +20,7 @@ services:
       timeout: 3s
       retries: 20
 
-  # Couche 1 — Registre état-civil (:3001). Démarre seulement quand PostgreSQL est prêt.
+  # Registre état-civil (couche 1, port 3001). Démarre seulement quand PostgreSQL est prêt.
   registre-etat-civil:
     build: ./backend/registres/etat-civil
     environment:
@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Couche 1 — Registre justice (:3002) : casier judiciaire et nationalité.
+  # Registre justice (couche 1, port 3002) : casier judiciaire et nationalité.
   registre-justice:
     build: ./backend/registres/justice
     environment:
@@ -44,7 +44,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Couche 1 — Registre fiscal (:3003) : IFU et situation fiscale.
+  # Registre fiscal (couche 1, port 3003) : IFU et situation fiscale.
   registre-fiscal:
     build: ./backend/registres/fiscal
     environment:
@@ -56,7 +56,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Couche 4 — Journal de traçabilité (:3006). Vérifie les jetons des citoyens
+  # Journal de traçabilité (couche 4, port 3006). Vérifie les jetons des citoyens
   # avec JWT_SECRET (à définir dans un fichier .env à la racine pour la production).
   journal:
     build: ./backend/journal
@@ -70,7 +70,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Couche 3 — Consentement & minimisation (:3005). Les SMS sont simulés dans ses logs.
+  # Consentement & minimisation (couche 3, port 3005). Les SMS sont simulés dans ses logs.
   consentement:
     build: ./backend/consentement
     environment:
@@ -84,7 +84,7 @@ services:
       postgres:
         condition: service_healthy
 
-  # Couche 2 — Passerelle d'échange (:3004). Les URL des registres sont
+  # Passerelle d'échange (couche 2, port 3004). Les URL des registres sont
   # configurables : c'est ici que le jury peut brancher le registre d'une autre équipe.
   passerelle:
     build: ./backend/passerelle
@@ -115,7 +115,7 @@ services:
       journal:
         condition: service_started
 
-  # Couche 5 — BFF espace usager (:3000) : SEUL service appelé par le frontend.
+  # BFF espace usager (couche 5, port 3000) : SEUL service appelé par le frontend.
   espace-usager:
     build: ./backend/espace-usager
     environment:
@@ -141,7 +141,7 @@ services:
       journal:
         condition: service_started
 
-  # Frontend — espace usager + interface de test, servi par nginx sur http://localhost:3020
+  # Frontend (espace usager et interface de test), servi par nginx sur http://localhost:3020
   # (port 3020 plutôt que 8080, souvent déjà occupé par Tomcat ou d'autres outils).
   # Le navigateur appelle uniquement le BFF (http://localhost:3000/api).
   frontend:
@@ -160,15 +160,15 @@ services:
     environment:
       URLS: >-
         [
-          {"url": "contrats/openapi-espace-usager.yaml", "name": "Espace usager (BFF) — :3000"},
-          {"url": "contrats/openapi-passerelle.yaml", "name": "Passerelle — :3004"},
-          {"url": "contrats/openapi-consentement.yaml", "name": "Consentement & minimisation — :3005"},
-          {"url": "contrats/openapi-journal.yaml", "name": "Journal — :3006"},
-          {"url": "contrats/openapi-registre-etat-civil.yaml", "name": "Registre état-civil — :3001"},
-          {"url": "contrats/openapi-registre-justice.yaml", "name": "Registre justice — :3002"},
-          {"url": "contrats/openapi-registre-fiscal.yaml", "name": "Registre fiscal — :3003"}
+          {"url": "contrats/openapi-espace-usager.yaml", "name": "Espace usager BFF (port 3000)"},
+          {"url": "contrats/openapi-passerelle.yaml", "name": "Passerelle (port 3004)"},
+          {"url": "contrats/openapi-consentement.yaml", "name": "Consentement & minimisation (port 3005)"},
+          {"url": "contrats/openapi-journal.yaml", "name": "Journal (port 3006)"},
+          {"url": "contrats/openapi-registre-etat-civil.yaml", "name": "Registre état-civil (port 3001)"},
+          {"url": "contrats/openapi-registre-justice.yaml", "name": "Registre justice (port 3002)"},
+          {"url": "contrats/openapi-registre-fiscal.yaml", "name": "Registre fiscal (port 3003)"}
         ]
-      URLS_PRIMARY_NAME: "Espace usager (BFF) — :3000"
+      URLS_PRIMARY_NAME: "Espace usager BFF (port 3000)"
     volumes:
       - ./docs:/usr/share/nginx/html/contrats:ro
     ports:

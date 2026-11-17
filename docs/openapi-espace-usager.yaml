@@ -82,13 +82,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
         "403":
-          description: COMPTE_MINEUR — le compte d'un mineur est créé et géré par son tuteur
+          description: "COMPTE_MINEUR : le compte d'un mineur est créé et géré par son tuteur"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erreur"
         "404":
-          description: IUE_INCONNU — IUE inconnu de l'état civil
+          description: "IUE_INCONNU : IUE inconnu de l'état civil"
           content:
             application/json:
               schema:
@@ -378,7 +378,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Demande"
         "403":
-          description: ENFANT_NON_RATTACHE — pour_enfant_iue n'est pas un enfant du citoyen connecté
+          description: "ENFANT_NON_RATTACHE : pour_enfant_iue n'est pas un enfant du citoyen connecté"
           content:
             application/json:
               schema:
@@ -536,7 +536,7 @@ paths:
                       montant_impot_du: 0
                     date_consultation: "2026-11-17T18:00:00.000Z"
         "401":
-          description: AUTH_REQUISE ou TOKEN_INVALIDE — jeton absent, invalide ou expiré
+          description: "AUTH_REQUISE ou TOKEN_INVALIDE : jeton absent, invalide ou expiré"
           content:
             application/json:
               schema:
@@ -562,7 +562,7 @@ paths:
                 code: "PIECE_INDISPONIBLE"
                 message: "Cette pièce n'est pas disponible en ligne : elle est à retirer au guichet"
         "502":
-          description: SERVICE_INDISPONIBLE ou SERVICE_EN_ERREUR — la passerelle ou un registre ne répond pas
+          description: "SERVICE_INDISPONIBLE ou SERVICE_EN_ERREUR : la passerelle ou un registre ne répond pas"
           content:
             application/json:
               schema:
@@ -847,7 +847,7 @@ paths:
                   example: "inscription-universite"
       responses:
         "200":
-          description: Résultat (admin publique — données retournées)
+          description: Résultat (admin publique, données retournées)
           content:
             application/json:
               schema:
@@ -972,7 +972,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
         "404":
-          description: TELEPHONE_INCONNU — pas de compte pour cet IUE
+          description: "TELEPHONE_INCONNU : pas de compte pour cet IUE"
           content:
             application/json:
               schema:
