@@ -1,4 +1,4 @@
-# Contrats API — DLNUF (Dites-le-nous une fois)
+# Contrats API
 
 ## Architecture des services
 
