@@ -1,0 +1,51 @@
+// Journal de traçabilité — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=journal).
+// Les noms de champs suivent le contrat docs/openapi-journal.yaml.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Type d'administration ayant accédé aux données.
+enum TypeAdministration {
+  publique
+  privee
+}
+
+// direct = administration publique (sans consentement explicite) ;
+// consentement = administration privée (consentement explicite du citoyen).
+enum TypeAcces {
+  direct
+  consentement
+}
+
+// Une entrée = un accès aux données d'un citoyen.
+// Le journal est en AJOUT SEUL : aucune entrée n'est jamais modifiée ni supprimée
+// (c'est une piste d'audit). Les noms d'administration et de démarche sont une
+// photo figée au moment de l'accès, envoyée par la passerelle : si une
+// administration change de nom plus tard, l'historique reste exact.
+model JournalAcces {
+  id                  String              @id @default(uuid()) @db.Uuid
+  // Double traçabilité : propriétaire des données + personne qui a autorisé
+  // (identiques pour un adulte ; pour un mineur, le décideur est le tuteur).
+  titulaire_iue       String              @db.VarChar(12)
+  decideur_iue        String              @db.VarChar(12)
+  administration_id   String              @db.Uuid
+  administration_nom  String?
+  administration_type TypeAdministration?
+  demarche_id         String
+  demarche_nom        String?
+  requete_id          String?             @db.Uuid
+  registres_consultes String[]
+  champs_transmis     String[]
+  type_acces          TypeAcces
+  date_acces          DateTime            @default(now())
+
+  @@index([titulaire_iue, date_acces])
+  @@index([decideur_iue, date_acces])
+}

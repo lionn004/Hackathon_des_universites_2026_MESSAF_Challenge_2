@@ -220,6 +220,22 @@ components:
         type_acces:
           type: string
           enum: [direct, consentement]
+        administration_nom:
+          type: string
+          description: |
+            Facultatif. Nom de l'administration au moment de l'accès (photo figée,
+            renvoyée telle quelle dans EntreeJournal.administration.nom).
+          example: "Université Joseph KI-ZERBO"
+        administration_type:
+          type: string
+          enum: [publique, privee]
+          description: Facultatif. Type de l'administration au moment de l'accès.
+        demarche_nom:
+          type: string
+          description: |
+            Facultatif. Nom lisible de la démarche (renvoyé dans EntreeJournal.demarche).
+            À défaut, le journal affiche demarche_id.
+          example: "Inscription universitaire"
 
     Pagination:
       type: object

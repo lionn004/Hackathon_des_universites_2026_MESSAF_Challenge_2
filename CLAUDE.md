@@ -439,11 +439,16 @@ Préparer les données suivantes pour le développement et la démo :
 - **Awa OUEDRAOGO** (IUE: 456123789012) — sœur d'Amadou, mineure (12 ans), tuteur = Ibrahim
 
 ### Administrations
-- Université Joseph KI-ZERBO (publique, education)
-- Direction de la police nationale (publique, securite)
-- Tribunal de Grande Instance de Ouagadougou (publique, justice)
-- Banque Atlantique (privee, finance)
-- Orange Money Burkina (privee, telecoms)
+
+UUID fixes de référence : tous les services (passerelle, consentement, journal) doivent utiliser exactement ces identifiants dans leurs seeds.
+
+| UUID | Nom | Type | Domaine |
+|------|-----|------|---------|
+| `00000000-0000-4000-8000-000000000001` | Université Joseph KI-ZERBO | publique | education |
+| `00000000-0000-4000-8000-000000000002` | Direction de la police nationale | publique | securite |
+| `00000000-0000-4000-8000-000000000003` | Tribunal de Grande Instance de Ouagadougou | publique | justice |
+| `00000000-0000-4000-8000-000000000004` | Banque Atlantique | privee | finance |
+| `00000000-0000-4000-8000-000000000005` | Orange Money Burkina | privee | telecoms |
 
 ### Types de pièces et prérequis
 - Extrait de naissance → aucun prérequis
@@ -476,7 +481,8 @@ Préparer les données suivantes pour le développement et la démo :
 - **Routes et champs JSON** : en français, exactement comme dans les contrats `docs/*.yaml` (obligatoire pour l'interopérabilité). Les fichiers sont nommés d'après la ressource du contrat (`citoyens.routes.js`, `requetes.controller.js`).
 - **Langue des données** : français (noms des administrations, messages d'erreur, etc.)
 - **API** : REST, préfixe `/api/`
-- **Auth** : JWT Bearer token dans header `Authorization`
+- **Auth** : JWT Bearer token dans header `Authorization`. Jetons citoyens émis par le BFF, signés en **HS256** avec le secret partagé `JWT_SECRET` (même valeur dans tous les services, fournie par docker-compose). Contenu minimal du jeton citoyen : `{ "iue": "<12 chiffres>" }`. Les routes internes (ex : `POST /journal/enregistrer`, appelée par la passerelle) n'ont pas de JWT, conformément aux contrats.
+- **Journal** : en ajout seul, aucune entrée n'est modifiée ni supprimée. La passerelle envoie, en plus des identifiants, une photo figée des noms (`administration_nom`, `administration_type`, `demarche_nom`).
 - **Erreurs** : Format uniforme `{ code: "STRING_CONSTANTE", message: "Message lisible" }`
 - **Pagination** : `{ page, limite, total, pages }`
 - **IDs** : UUID v4 pour les IDs internes, 12 chiffres pour les IUE
