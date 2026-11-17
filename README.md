@@ -209,7 +209,7 @@ Réponses : `200` avec les champs du contrat, `404` si le citoyen est inconnu, e
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                       FRONTEND                           │
+│              FRONTEND HTML / CSS / JS                    │
 │                  (Espace Usager)                         │
 └──────────────────────┬──────────────────────────────────┘
                        │ ← openapi-espace-usager.yaml
@@ -233,6 +233,8 @@ Réponses : `200` avec les champs du contrat, `404` si le citoyen est inconnu, e
 ```
 
 Les administrations appellent directement la **passerelle** (:3004) ; les citoyens passent par l'**espace usager** (:3000).
+
+Le frontend citoyen est d'abord une application web en HTML / CSS / JavaScript. Une application mobile pourra suivre : elle utilisera le même contrat (`openapi-espace-usager.yaml`), sans aucune modification du backend, car l'authentification passe par un jeton dans l'en-tête `Authorization` et non par des cookies.
 
 ### Ce qui se passe quand une administration demande des données
 
