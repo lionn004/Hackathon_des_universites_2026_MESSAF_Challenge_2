@@ -447,6 +447,49 @@ function renderCascade(nodes) {
     </li>`).join('')}</ul>`;
 }
 
+/**
+ * Ajoute un bouton « afficher / masquer » à chaque champ mot de passe de la page.
+ * Remplace le bouton natif d'Edge, qui disparaît dès que le champ perd le focus.
+ */
+const ICON_EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICON_EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>';
+
+function initPasswordToggles() {
+  document.querySelectorAll('input[type="password"]').forEach(input => {
+    if (input.closest('.password-field')) return;
+
+    const wrapper = document.createElement('span');
+    wrapper.className = 'password-field';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const btn = document.createElement('button');
+    btn.type = 'button'; // ne soumet pas le formulaire
+    btn.className = 'password-toggle';
+    const update = () => {
+      const visible = input.type === 'text';
+      btn.innerHTML = visible ? ICON_EYE_OFF : ICON_EYE;
+      btn.setAttribute('aria-label', visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+      btn.setAttribute('aria-pressed', String(visible));
+      btn.title = btn.getAttribute('aria-label');
+    };
+    // Garder le focus (et le curseur) dans le champ quand on clique sur le bouton
+    btn.addEventListener('mousedown', e => e.preventDefault());
+    btn.addEventListener('click', () => {
+      input.type = input.type === 'password' ? 'text' : 'password';
+      update();
+    });
+    update();
+    wrapper.appendChild(btn);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPasswordToggles);
+} else {
+  initPasswordToggles();
+}
+
 /** Ligne de tableau « vide » ou « erreur ». */
 function emptyRow(colspan, message, isError = false) {
   const color = isError ? 'var(--rouge)' : 'var(--gris-400)';
