@@ -70,5 +70,19 @@ services:
       postgres:
         condition: service_healthy
 
+  # Couche 3 — Consentement & minimisation (:3005). Les SMS sont simulés dans ses logs.
+  consentement:
+    build: ./backend/consentement
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=consentement
+      JWT_SECRET: ${JWT_SECRET:-dlnuf-dev-secret-a-changer}
+      RAPPELS_INTERVALLE_MINUTES: 15
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
