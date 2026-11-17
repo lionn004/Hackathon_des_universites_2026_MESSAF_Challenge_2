@@ -68,6 +68,9 @@
 
     /** Valeur lisible (déjà échappée) d'un champ. */
     function valeur(cle, v) {
+      if ((cle === 'pere' || cle === 'mere') && !v) {
+        return '<span style="color:var(--gris-500)">Inconnu de l\'état civil</span>';
+      }
       if (cle === 'sexe') return v === 'M' ? 'Masculin' : v === 'F' ? 'Féminin' : escapeHtml(v);
       if (cle === 'casier_vierge') return v ? 'Néant — casier vierge' : 'Mentions inscrites (voir condamnations)';
       if (cle === 'en_regle') return v ? '✓ En règle' : '✗ Non en règle';
@@ -92,10 +95,12 @@
     function renderPiece(p) {
       const donnees = { ...(p.donnees || {}) };
       // Les objets pere / mere remplacent les simples IUE des parents
-      if (donnees.pere) delete donnees.pere_iue;
-      if (donnees.mere) delete donnees.mere_iue;
+      // Spec CLAUDE.md : pere / mere remplacent pere_iue / mere_iue, et valent null si le parent est inconnu
+      if ('pere' in donnees) delete donnees.pere_iue;
+      if ('mere' in donnees) delete donnees.mere_iue;
+      const PARENTS = ['pere', 'mere'];
       const lignes = Object.entries(donnees)
-        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+        .filter(([k, v]) => PARENTS.includes(k) || (v !== null && v !== undefined && v !== ''))
         .map(([k, v]) => `<tr><th>${escapeHtml(libelle(k))}</th><td>${valeur(k, v)}</td></tr>`)
         .join('');
       const t = p.titulaire || {};
