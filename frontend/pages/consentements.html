@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consentements — e-FASO</title>
+  <title>Consentements | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -12,32 +12,21 @@
       <h1 class="page-title">Consentements</h1>
       <p class="page-subtitle">Gérez les autorisations d'accès à vos données personnelles</p>
 
-      <!-- Statistiques -->
       <div class="stat-cards mb-6" id="consent-stats">
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--or-clair);color:var(--or-fonce)">⏳</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-en-attente">—</div>
-            <div class="stat-label">En attente</div>
-          </div>
+          <div class="stat-value" id="stat-en-attente">-</div>
+          <div class="stat-label">En attente</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--vert-clair);color:var(--vert-fonce)">✓</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-acceptes">—</div>
-            <div class="stat-label">Acceptés</div>
-          </div>
+          <div class="stat-value" id="stat-acceptes">-</div>
+          <div class="stat-label">Acceptés</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--rouge-clair);color:var(--rouge)">✗</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-refuses">—</div>
-            <div class="stat-label">Refusés</div>
-          </div>
+          <div class="stat-value" id="stat-refuses">-</div>
+          <div class="stat-label">Refusés</div>
         </div>
       </div>
 
-      <!-- Filtres -->
       <div class="card mb-4">
         <div style="padding:var(--space-4) var(--space-4) 0">
           <div class="tabs" id="filter-tabs" style="margin-bottom:0;flex-wrap:wrap">
@@ -59,7 +48,6 @@
         <div class="filter-count" id="f-count" aria-live="polite"></div>
       </div>
 
-      <!-- Liste des consentements -->
       <div id="consent-list">
         <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
       </div>
@@ -71,7 +59,7 @@
   <script>
     let currentFilter = 'tous';
     let allConsentements = [];
-    // ?enfant=<iue> (depuis « Mes enfants ») : n'afficher que les demandes de cet enfant
+    // Lien depuis « Mes enfants » (?enfant=<iue>) : seules les demandes de cet enfant sont affichées.
     const enfantFiltre = new URLSearchParams(window.location.search).get('enfant');
 
     async function loadConsentements() {
@@ -115,7 +103,6 @@
       if (items.length === 0) {
         container.innerHTML = `
           <div class="card text-center" style="padding:var(--space-8);color:var(--gris-400)">
-            <div style="font-size:2rem;margin-bottom:var(--space-2)">🔐</div>
             <p>Aucun consentement ${recherche.trim() ? 'ne correspond à votre recherche' : currentFilter !== 'tous' ? 'avec ce statut' : 'pour le moment'}</p>
           </div>`;
         return;
@@ -125,27 +112,26 @@
         <div class="card mb-4" style="padding:var(--space-5)">
           <div class="flex-between mb-2">
             <div>
-              <strong style="font-size:var(--font-size-base)">${escapeHtml(c.administration_nom) || '—'}</strong>
+              <strong style="font-size:var(--font-size-base)">${escapeHtml(c.administration_nom) || VIDE}</strong>
               <span style="color:var(--gris-400);margin-left:var(--space-2);font-size:var(--font-size-xs)">${formatDate(c.date_creation)}</span>
             </div>
             ${statusBadge(c.statut)}
           </div>
           ${c.pour_enfant ? `
             <div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">
-              👶 Concerne votre enfant : ${escapeHtml([c.pour_enfant.prenom, c.pour_enfant.nom].filter(Boolean).join(' ') || c.pour_enfant.iue)}
+              Concerne votre enfant : ${escapeHtml([c.pour_enfant.prenom, c.pour_enfant.nom].filter(Boolean).join(' ') || c.pour_enfant.iue)}
             </div>` : ''}
           <p style="color:var(--gris-600);font-size:var(--font-size-sm);margin-bottom:var(--space-3)">
-            Démarche : <strong>${escapeHtml(c.demarche_nom) || '—'}</strong>
+            Démarche : <strong>${escapeHtml(c.demarche_nom) || VIDE}</strong>
           </p>
           ${Array.isArray(c.champs_demandes) && c.champs_demandes.length ? `
-            <div style="font-size:var(--font-size-xs);color:var(--gris-500);margin-bottom:var(--space-3);display:flex;flex-wrap:wrap;gap:var(--space-1);align-items:center">
-              Données demandées :
-              ${c.champs_demandes.map(ch => `<span class="badge badge-info">${escapeHtml(ch)}</span>`).join('')}
-            </div>` : ''}
+            <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-3)">
+              Données demandées : ${escapeHtml(c.champs_demandes.join(', '))}
+            </p>` : ''}
           ${c.statut === 'en_attente' ? `
             <div style="display:flex;gap:var(--space-3);margin-top:var(--space-3)">
-              <button class="btn btn-sm btn-primary" onclick="decider('${escapeHtml(c.id)}', 'accepte', this)">✓ Accepter</button>
-              <button class="btn btn-sm btn-danger" onclick="decider('${escapeHtml(c.id)}', 'refuse', this)">✗ Refuser</button>
+              <button class="btn btn-sm btn-primary" onclick="decider('${escapeHtml(c.id)}', 'accepte', this)">Accepter</button>
+              <button class="btn btn-sm btn-danger" onclick="decider('${escapeHtml(c.id)}', 'refuse', this)">Refuser</button>
             </div>` : ''}
           ${c.statut === 'en_attente' && c.date_expiration ? `
             <div style="font-size:var(--font-size-xs);color:var(--gris-400);margin-top:var(--space-2)">
@@ -168,7 +154,6 @@
       }
     }
 
-    // Tabs filtering
     document.getElementById('filter-tabs').addEventListener('click', e => {
       if (e.target.classList.contains('tab')) {
         document.querySelectorAll('#filter-tabs .tab').forEach(t => t.classList.remove('active'));

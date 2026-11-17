@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mot de passe oublié — e-FASO</title>
+  <title>Mot de passe oublié | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
     .auth-page {
@@ -11,7 +11,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, var(--vert-clair) 0%, var(--gris-50) 50%, var(--or-clair) 100%);
+      background: var(--gris-50);
       padding: var(--space-4);
     }
     .auth-card {
@@ -48,7 +48,7 @@
 
       <div id="alert" class="alert hidden"></div>
 
-      <!-- Étape 1 : IUE + téléphone → code SMS -->
+      <!-- Étape 1 : IUE et téléphone, envoi du code SMS -->
       <form id="stepDemande">
         <div class="form-group">
           <label class="form-label" for="iue">IUE (12 chiffres)</label>
@@ -64,7 +64,7 @@
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="btnDemande">Recevoir un code par SMS</button>
       </form>
 
-      <!-- Étape 2 : code SMS + nouveau mot de passe -->
+      <!-- Étape 2 : code SMS et nouveau mot de passe -->
       <form id="stepReset" class="hidden">
         <div class="form-group">
           <label class="form-label" for="code">Code reçu par SMS</label>
@@ -82,7 +82,7 @@
       </form>
 
       <p style="text-align:center; margin-top:var(--space-6);">
-        <a href="/pages/login.html">← Retour à la connexion</a>
+        <a href="/pages/login.html">Retour à la connexion</a>
       </p>
       <p style="text-align:center; margin-top:var(--space-2); font-size:var(--font-size-xs); color:var(--gris-500);">
         Démo : les SMS sont simulés, le code apparaît dans les logs du BFF
@@ -132,7 +132,7 @@
       btn.disabled = true;
       try {
         const res = await authApi.reinitialiserMotDePasse(tokenTemporaire, document.getElementById('code').value.trim(), pwd);
-        showAlert((res.message || 'Mot de passe réinitialisé avec succès') + ' — redirection…', 'success');
+        showAlert((res.message || 'Mot de passe réinitialisé avec succès') + '. Redirection vers la connexion…', 'success');
         setTimeout(() => { window.location.href = '/pages/login.html'; }, 1500);
       } catch (err) {
         showAlert(err.message || 'Code invalide ou expiré', 'error');

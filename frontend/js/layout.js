@@ -1,13 +1,9 @@
 /**
- * e-FASO — Layout commun pour les pages authentifiées
- * Injecte le sidebar et le topbar dans chaque page
- * Utilise les classes CSS existantes : .sidebar, .sidebar-link, .topbar, .main-content
- *
- * Convention : chaque page fournit <div class="main-content"><div class="page-content">...</div></div>
- * Ce script ajoute le sidebar AVANT et le topbar DANS le .main-content
+ * Couche 5, espace usager : menu latéral et barre du haut des pages connectées.
+ * Chaque page fournit <div class="main-content"><div class="page-content">...</div></div> :
+ * le menu est inséré avant .main-content, la barre du haut au début de .main-content.
  */
 
-// Vérifier l'authentification
 if (!localStorage.getItem('efaso_token')) {
   window.location.href = '/pages/login.html';
 }
@@ -17,20 +13,17 @@ const citoyen = authApi.getCitoyen() || {};
 function getNav() {
   const page = window.location.pathname.split('/').pop();
   const items = [
-    { href: '/pages/dashboard.html', icon: '📊', label: 'Tableau de bord', id: 'dashboard' },
-    { href: '/pages/consentements.html', icon: '🔐', label: 'Consentements', id: 'consentements' },
-    { href: '/pages/demandes.html', icon: '📄', label: 'Mes demandes', id: 'demandes' },
-    { href: '/pages/journal.html', icon: '📖', label: "Journal d'accès", id: 'journal' },
-    { href: '/pages/enfants.html', icon: '👶', label: 'Mes enfants', id: 'enfants' },
-    { href: '/pages/test.html', icon: '🧪', label: 'Interface de test', id: 'test' },
+    { href: '/pages/dashboard.html', label: 'Tableau de bord', id: 'dashboard' },
+    { href: '/pages/consentements.html', label: 'Consentements', id: 'consentements' },
+    { href: '/pages/demandes.html', label: 'Mes demandes', id: 'demandes' },
+    { href: '/pages/journal.html', label: "Journal d'accès", id: 'journal' },
+    { href: '/pages/enfants.html', label: 'Mes enfants', id: 'enfants' },
+    { href: '/pages/test.html', label: 'Interface de test', id: 'test' },
   ];
 
   return items.map(item => {
-    const active = page === item.id + '.html' ? ' active' : '';
-    return `<a href="${item.href}" class="sidebar-link${active}">
-      <span class="link-icon">${item.icon}</span>
-      ${item.label}
-    </a>`;
+    const active = page === item.id + '.html';
+    return `<a href="${item.href}" class="sidebar-link${active ? ' active' : ''}"${active ? ' aria-current="page"' : ''}>${item.label}</a>`;
   }).join('');
 }
 
@@ -42,11 +35,9 @@ function injectLayout() {
     ? escapeHtml((citoyen.prenom[0] + citoyen.nom[0]).toUpperCase())
     : '?';
 
-  // Créer l'app-layout wrapper
   const appLayout = document.createElement('div');
   appLayout.className = 'app-layout';
 
-  // Sidebar
   const sidebar = document.createElement('aside');
   sidebar.className = 'sidebar';
   sidebar.id = 'sidebar';
@@ -57,8 +48,7 @@ function injectLayout() {
       <span class="logo-sub">Espace citoyen</span>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Navigation</div>
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="Navigation principale">
         ${getNav()}
       </nav>
     </div>
@@ -69,13 +59,12 @@ function injectLayout() {
     </div>
   `;
 
-  // Insérer topbar en haut du main-content
   const topbar = document.createElement('div');
   topbar.className = 'topbar';
   topbar.innerHTML = `
     <div style="display:flex;align-items:center;gap:var(--space-3)">
-      <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
-      <span style="font-size:var(--font-size-sm);color:var(--gris-500)">🆔 IUE : <strong>${escapeHtml(citoyen.iue) || '—'}</strong></span>
+      <button class="sidebar-toggle" aria-label="Afficher le menu" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+      <span style="font-size:var(--font-size-sm);color:var(--gris-500)">IUE : <strong>${escapeHtml(citoyen.iue) || VIDE}</strong></span>
     </div>
     <div class="topbar-actions">
       <div class="user-info">
@@ -87,7 +76,6 @@ function injectLayout() {
   `;
   mainContent.insertBefore(topbar, mainContent.firstChild);
 
-  // Mettre sidebar + main-content dans app-layout
   mainContent.parentNode.insertBefore(appLayout, mainContent);
   appLayout.appendChild(sidebar);
   appLayout.appendChild(mainContent);
@@ -97,7 +85,6 @@ function deconnexion() {
   authApi.deconnexion();
 }
 
-// Injecter le layout dès que le DOM est prêt
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', injectLayout);
 } else {

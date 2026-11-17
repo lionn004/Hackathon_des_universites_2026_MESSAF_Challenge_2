@@ -1,10 +1,10 @@
-# DLNUF — Dites-le-nous une fois
+# DLNUF (Dites-le-nous une fois)
 
 ## Contexte
 
 Projet développé dans le cadre du **Hackathon des Universités 2026**, organisé par le MTDPCE (Ministère de la Transition Digitale, des Postes et des Communications Électroniques) du Burkina Faso pendant la Semaine du Numérique.
 
-**Challenge 02 : « Dites-le-nous une fois »** — Construire un cadre d'interopérabilité ouvert (« bien commun ») permettant aux administrations de partager les données des citoyens entre elles, au lieu d'exiger que les citoyens transportent des documents d'un guichet à l'autre.
+**Challenge 02 : « Dites-le-nous une fois ».** Construire un cadre d'interopérabilité ouvert (« bien commun ») permettant aux administrations de partager les données des citoyens entre elles, au lieu d'exiger que les citoyens transportent des documents d'un guichet à l'autre.
 
 ### Principe fondamental
 
@@ -26,7 +26,7 @@ Le jury remplacera un registre d'une équipe par celui d'une autre équipe pour 
 
 ---
 
-## Architecture imposée — 5 couches
+## Architecture imposée en 5 couches
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -52,7 +52,7 @@ Le jury remplacera un registre d'une équipe par celui d'une autre équipe pour 
               interroge les registres        └──────────┘
 ```
 
-### Couche 1 — Registres (3 API simulées)
+### Couche 1 : registres (3 API simulées)
 
 Bases de données simulées d'administrations existantes. Chaque registre est un service indépendant avec sa propre API OpenAPI.
 
@@ -64,7 +64,7 @@ Bases de données simulées d'administrations existantes. Chaque registre est un
 
 **Important** : Les registres exposent des **données structurées** (JSON), jamais des documents PDF. Un « extrait de naissance » sur la plateforme, c'est les champs structurés du registre état-civil, pas un PDF.
 
-### Couche 2 — Passerelle d'échange (port 3004)
+### Couche 2 : passerelle d'échange (port 3004)
 
 Point central qui route les requêtes entre administrations et registres. Responsabilités :
 
@@ -75,21 +75,21 @@ Point central qui route les requêtes entre administrations et registres. Respon
 - Appeler le journal pour tracer l'accès
 - Retourner les données filtrées
 
-### Couche 3 — Consentement & Minimisation (port 3005)
+### Couche 3 : consentement et minimisation (port 3005)
 
-**Minimisation** : Un seul mécanisme — chaque démarche déclare la liste des champs dont elle a besoin par registre. Le filtre laisse passer uniquement ces champs, rien de plus. Pas de « mode minimisé » vs « mode complet », juste un filtre plus ou moins large selon la démarche.
+**Minimisation** : un seul mécanisme. Chaque démarche déclare la liste des champs dont elle a besoin par registre. Le filtre laisse passer uniquement ces champs, rien de plus. Pas de « mode minimisé » vs « mode complet », juste un filtre plus ou moins large selon la démarche.
 
 Exemples :
 ```
 Démarche "inscription université"
-  → registre état-civil : [est_majeur, nationalite]        ← 2 champs
+  registre état-civil : [est_majeur, nationalite]           (2 champs)
 
 Démarche "émission passeport"
-  → registre état-civil : [nom, prenom, date_naissance,
-     lieu_naissance, sexe, pere, mere, nationalite]         ← tous les champs
+  registre état-civil : [nom, prenom, date_naissance,
+    lieu_naissance, sexe, pere, mere, nationalite]          (tous les champs)
 ```
 
-**Consentement** — Deux régimes selon le type d'administration :
+**Consentement** : deux régimes selon le type d'administration.
 
 | Type | Accès | Consentement | Justification |
 |------|-------|-------------|---------------|
@@ -100,15 +100,15 @@ Démarche "émission passeport"
 
 **Flux de consentement pour admin privée** :
 1. L'admin privée envoie une requête à la passerelle
-2. La couche consentement détecte admin privée → crée une demande en attente
+2. La couche consentement détecte une admin privée et crée une demande en attente
 3. Notification plateforme + SMS envoyés au citoyen
 4. Le citoyen se connecte à son espace, voit la demande, accepte ou refuse
-5. Si accepté → données transmises + journal enregistré. Si refusé → refus transmis + journal enregistré
+5. Si la demande est acceptée, les données sont transmises et le journal enregistre l'accès. Si elle est refusée, le refus est transmis et le journal l'enregistre aussi
 6. Rappels SMS automatiques à 24h et 72h si pas de réponse
 7. Expiration après 30 jours
 8. Si la demande tarde trop, l'administration peut consulter le **numéro de téléphone** du citoyen via la passerelle et l'appeler directement
 
-### Couche 4 — Journal de traçabilité (port 3006)
+### Couche 4 : journal de traçabilité (port 3006)
 
 Enregistre **chaque accès** aux données d'un citoyen :
 - Qui a accédé (quelle administration)
@@ -120,7 +120,7 @@ Enregistre **chaque accès** aux données d'un citoyen :
 
 Le citoyen peut consulter tout son journal depuis son espace usager.
 
-### Couche 5 — Espace usager (Frontend HTML/CSS/JS + BFF port 3000)
+### Couche 5 : espace usager (frontend HTML/CSS/JS et BFF port 3000)
 
 Portail web du citoyen. Fonctionnalités :
 
@@ -137,16 +137,16 @@ Portail web du citoyen. Fonctionnalités :
 
 Une demande ne conserve que l'arbre des statuts de la cascade : le **contenu** des pièces est lu à la demande par deux routes, décrites en détail dans les contrats `docs/openapi-espace-usager.yaml` et `docs/openapi-passerelle.yaml` (source de vérité).
 
-**BFF — `GET /api/demandes/{id}/contenu`** (JWT citoyen, `Authorization: Bearer`)
+**BFF : `GET /api/demandes/{id}/contenu`** (JWT citoyen, `Authorization: Bearer`)
 
 1. **Contrôle d'accès sur le titulaire de la pièce**, pas sur l'auteur de la demande. L'accès est autorisé seulement si le `titulaire_iue` de la demande est :
    - l'IUE du citoyen connecté ;
    - ou l'IUE d'un enfant dont il est **actuellement** tuteur (tutelle relue en base à chaque appel).
 
-   Sinon → `404 DEMANDE_NON_TROUVEE`, sans révéler que la demande existe. Après un transfert de compte, l'ancien tuteur perd donc l'accès aux pièces de l'enfant, même pour les demandes qu'il a faites lui-même. C'est la même règle que pour les consentements, où le tuteur « perd ce droit dès qu'il a transféré le compte » (`consentements.service.js` du BFF).
-2. Si la demande n'est pas `complete` (quel que soit son statut) → `409 PIECE_INDISPONIBLE`.
+   Sinon, réponse `404 DEMANDE_NON_TROUVEE` sans révéler que la demande existe. Après un transfert de compte, l'ancien tuteur perd donc l'accès aux pièces de l'enfant, même pour les demandes qu'il a faites lui-même. C'est la même règle que pour les consentements, où le tuteur « perd ce droit dès qu'il a transféré le compte » (`consentements.service.js` du BFF).
+2. Si la demande n'est pas `complete`, quel que soit son statut : `409 PIECE_INDISPONIBLE`.
 3. Appelle la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`, où `iue` est le titulaire de la pièce (le citoyen ou l'enfant). La passerelle fournit `type_piece`, `titulaire` et `donnees` : le BFF, qui n'a pas de catalogue local, ne fait qu'**un seul appel**.
-4. Si la passerelle répond `404 PIECE_INDISPONIBLE` alors que la demande est `complete` → `409 PIECE_INDISPONIBLE`. Ce cas arrive notamment au test du jury, quand un registre est remplacé par celui d'une autre équipe et que les anciennes demandes visent des pièces absentes du nouveau registre. La page n'a qu'un seul cas d'indisponibilité à gérer.
+4. Si la passerelle répond `404 PIECE_INDISPONIBLE` alors que la demande est `complete`, le BFF renvoie `409 PIECE_INDISPONIBLE`. Ce cas arrive notamment au test du jury, quand un registre est remplacé par celui d'une autre équipe et que les anciennes demandes visent des pièces absentes du nouveau registre. La page n'a qu'un seul cas d'indisponibilité à gérer.
 
 Réponse `200` :
 ```json
@@ -159,7 +159,7 @@ Réponse `200` :
 }
 ```
 
-**Passerelle — `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`** (en-tête `X-Cle-Service`, réservée au BFF comme les autres routes `/interne`)
+**Passerelle : `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`** (en-tête `X-Cle-Service`, réservée au BFF comme les autres routes `/interne`)
 
 Lit la pièce dans son registre, **uniquement via les routes des contrats des registres** (un registre d'une autre équipe doit fonctionner).
 
@@ -193,7 +193,7 @@ Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répon
 
 ### Interface de test (pour démo et jury)
 
-Interface minimale pour simuler des requêtes comme si elles venaient d'une administration (publique ou privée). Pas une vraie interface agent — chaque ministère/entreprise construit la sienne et se connecte via l'API. Cette interface sert uniquement pour la démo et les tests.
+Interface minimale pour simuler des requêtes comme si elles venaient d'une administration (publique ou privée). Ce n'est pas une vraie interface agent : chaque ministère ou entreprise construit la sienne et se connecte via l'API. Cette interface sert uniquement pour la démo et les tests.
 
 ### Recherche et filtres de l'espace usager
 
@@ -349,7 +349,7 @@ AccesMission {
 
 Quand un citoyen demande une pièce, la passerelle résout automatiquement l'arbre de prérequis.
 
-**Exemple concret — Amadou demande un casier judiciaire** :
+**Exemple : Amadou demande un casier judiciaire.**
 
 ```
 Casier judiciaire (Amadou)
@@ -364,7 +364,7 @@ La passerelle :
 2. Détecte que le certificat nécessite 3 extraits de naissance
 3. Cherche les IUE des parents via les liens de filiation
 4. Interroge le registre état-civil pour chaque personne
-5. Si un parent n'est pas dans le système → statut `fallback_physique` pour ce prérequis
+5. Si un parent n'est pas dans le système, ce prérequis passe au statut `fallback_physique`
 
 ### Fallback physique
 
@@ -398,7 +398,7 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 - **ORM** : Prisma
 - **Authentification** : JWT + bcrypt
 - **Déploiement** : Docker Compose
-- **Documentation API** : OpenAPI 3.0 / Swagger — service `documentation` du docker-compose (image `swaggerapi/swagger-ui:v5.17.14`), http://localhost:3010, qui lit directement `docs/`. Toute description YAML contenant « : » doit être entre guillemets doubles, sinon le contrat devient invalide et Swagger ne l'affiche plus.
+- **Documentation API** : OpenAPI 3.0 et Swagger, via le service `documentation` du docker-compose (image `swaggerapi/swagger-ui:v5.17.14`), http://localhost:3010, qui lit directement `docs/`. Toute description YAML contenant « : » doit être entre guillemets doubles, sinon le contrat devient invalide et Swagger ne l'affiche plus.
 
 ---
 
@@ -406,9 +406,9 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 
 ```
 /
-├── CLAUDE.md                    ← ce fichier
-├── docker-compose.yml           ← PostgreSQL + tous les services, une seule commande
-├── docs/                        ← Spécifications OpenAPI (source de vérité)
+├── CLAUDE.md                    ce fichier
+├── docker-compose.yml           PostgreSQL et tous les services, une seule commande
+├── docs/                        spécifications OpenAPI (source de vérité)
 │   ├── openapi-espace-usager.yaml      (BFF :3000)
 │   ├── openapi-passerelle.yaml         (:3004)
 │   ├── openapi-consentement.yaml       (:3005)
@@ -416,16 +416,16 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 │   ├── openapi-registre-etat-civil.yaml (:3001)
 │   ├── openapi-registre-justice.yaml    (:3002)
 │   └── openapi-registre-fiscal.yaml     (:3003)
-├── backend/                     ← tous les services Node/Express
+├── backend/                     tous les services Node/Express
 │   ├── registres/
-│   │   ├── etat-civil/          ← Service registre état-civil (gabarit de référence)
-│   │   ├── justice/             ← Service registre justice
-│   │   └── fiscal/              ← Service registre fiscal
-│   ├── passerelle/              ← Service passerelle d'échange
-│   ├── consentement/            ← Service consentement & minimisation
-│   ├── journal/                 ← Service journal de traçabilité
-│   └── espace-usager/           ← BFF (Backend for Frontend) :3000
-└── frontend/                    ← Espace usager HTML/CSS/JS + interface de test
+│   │   ├── etat-civil/          registre état-civil (gabarit de référence)
+│   │   ├── justice/             registre justice
+│   │   └── fiscal/              registre fiscal
+│   ├── passerelle/              passerelle d'échange
+│   ├── consentement/            consentement et minimisation
+│   ├── journal/                 journal de traçabilité
+│   └── espace-usager/           BFF (Backend for Frontend) :3000
+└── frontend/                    espace usager HTML/CSS/JS et interface de test
 ```
 
 Séparation des équipes : `frontend/` ne parle qu'au BFF (`http://localhost:3000/api`, contrat `docs/openapi-espace-usager.yaml`) et ne dépend d'aucun fichier de `backend/`. Le backend ne modifie pas `frontend/`.
@@ -440,22 +440,22 @@ Chaque service est une application Express autonome (son propre `package.json`, 
 ├── package.json
 ├── .env.example
 ├── prisma/
-│   ├── schema.prisma            ← uniquement les tables de CE service
-│   └── seed.js                  ← données de démo de CE service (idempotent, upsert)
+│   ├── schema.prisma            uniquement les tables de ce service
+│   └── seed.js                  données de démo de ce service (idempotent, upsert)
 └── src/
-    ├── server.js                ← app.listen
-    ├── app.js                   ← création de l'app Express, montage des routes sous /api, errorHandler
-    ├── config/                  ← lecture des variables d'environnement
-    ├── routes/                  ← URL + verbe → controller (+ middlewares auth/validation)
-    ├── controllers/             ← lit req, appelle un service, choisit le code HTTP, renvoie res. Aucune logique métier.
-    ├── services/                ← logique métier. Ne connaît ni req ni res.
-    ├── models/                  ← accès aux données via Prisma (prisma.js = instance unique). Aucune règle métier.
-    ├── clients/                 ← appels HTTP vers d'autres services (passerelle et BFF uniquement)
-    ├── middlewares/             ← auth JWT, errorHandler, validation
-    └── utils/                   ← AppError, helpers
+    ├── server.js                app.listen
+    ├── app.js                   création de l'app Express, montage des routes sous /api, errorHandler
+    ├── config/                  lecture des variables d'environnement
+    ├── routes/                  associe URL et verbe à un controller (avec middlewares auth et validation)
+    ├── controllers/             lit req, appelle un service, choisit le code HTTP, renvoie res. Aucune logique métier.
+    ├── services/                logique métier. Ne connaît ni req ni res.
+    ├── models/                  accès aux données via Prisma (prisma.js = instance unique). Aucune règle métier.
+    ├── clients/                 appels HTTP vers d'autres services (passerelle et BFF uniquement)
+    ├── middlewares/             auth JWT, errorHandler, validation
+    └── utils/                   AppError, helpers
 ```
 
-Règle : chaque couche n'appelle que la couche immédiatement inférieure (routes → controllers → services → models/clients). Les erreurs métier sont levées avec `AppError(statut, code, message)` et converties en `{ code, message }` par `errorHandler`.
+Règle : chaque couche n'appelle que la couche immédiatement inférieure (routes, puis controllers, puis services, puis models ou clients). Les erreurs métier sont levées avec `AppError(statut, code, message)` et converties en `{ code, message }` par `errorHandler`.
 
 Les petits utilitaires (`AppError`, `errorHandler`) sont dupliqués dans chaque service plutôt que partagés, pour que chaque service se construise seul (contexte Docker indépendant) et qu'un registre reste remplaçable.
 
@@ -469,7 +469,7 @@ Les petits utilitaires (`AppError`, `errorHandler`) sont dupliqués dans chaque 
 **Champs nécessaires** : `est_majeur`, `nationalite` (registre état-civil)
 **Flux** :
 1. L'université fait une requête via la passerelle pour le citoyen X
-2. Passerelle vérifie : admin publique + domaine education → accès direct
+2. La passerelle vérifie : admin publique du domaine education, donc accès direct
 3. Minimisation : seuls `est_majeur` et `nationalite` sont transmis
 4. Journal enregistre l'accès
 5. Notification envoyée au citoyen : "L'Université a consulté vos données pour votre inscription"
@@ -480,10 +480,10 @@ Les petits utilitaires (`AppError`, `errorHandler`) sont dupliqués dans chaque 
 **Administration** : Direction de la police nationale (publique, domaine : securite)
 **Champs nécessaires** : tous les champs état-civil + casier judiciaire + certificat de nationalité
 **Flux** :
-1. Requête pour le citoyen X → démarche "émission passeport"
+1. Requête pour le citoyen X, démarche « émission passeport »
 2. Passerelle détecte les prérequis : casier + nationalité + état civil complet
 3. Cascade : nationalité nécessite extraits de naissance (citoyen + parents)
-4. Résolution via liens de filiation → interrogation registres
+4. Résolution via les liens de filiation, puis interrogation des registres
 5. Minimisation : tous les champs transmis (démarche passeport = accès complet)
 6. Journal enregistre
 7. Résultat retourné avec données complètes de tous les registres
@@ -494,7 +494,7 @@ Les petits utilitaires (`AppError`, `errorHandler`) sont dupliqués dans chaque 
 **Champs nécessaires** : `nom`, `prenom`, `nationalite` (état-civil) + `en_regle` (fiscal)
 **Flux** :
 1. La banque fait une requête via la passerelle
-2. Passerelle détecte : admin privée → consentement requis
+2. La passerelle détecte une admin privée : consentement requis
 3. Demande de consentement créée + notification plateforme + SMS
 4. Statut retourné : `en_attente_consentement`
 5. Le citoyen se connecte, voit la demande : "Banque Atlantique demande nom, prénom, nationalité, situation fiscale pour ouverture de compte"
@@ -509,13 +509,13 @@ Les petits utilitaires (`AppError`, `errorHandler`) sont dupliqués dans chaque 
 Préparer les données suivantes pour le développement et la démo :
 
 ### Citoyens
-- **Amadou OUEDRAOGO** (IUE: 784302956148) — citoyen principal pour la démo, majeur
-- **Ibrahim OUEDRAOGO** (IUE: 291047583620) — père d'Amadou
-- **Fatimata SAWADOGO** (IUE: 638501274093) — mère d'Amadou
-- **Awa OUEDRAOGO** (IUE: 456123789012) — sœur d'Amadou, mineure (12 ans), tuteur = Ibrahim
-- **Moussa OUEDRAOGO** (IUE: 527814903361) — frère d'Amadou, mineur (16 ans), tuteur = Ibrahim → transfert de compte recommandé
-- **Salif OUEDRAOGO** (IUE: 316580942751) — frère aîné d'Amadou, majeur, présent dans les 3 registres mais **volontairement sans compte** : démonstration de l'inscription en direct
-- **Aïcha OUEDRAOGO** (IUE: 873045129604) — fille de Salif (5 ans), sans compte : rattachée automatiquement à Salif quand il s'inscrit. Remise à zéro de la démo : `docker compose exec espace-usager node scripts/reinitialiser-inscription-demo.js`
+- **Amadou OUEDRAOGO** (IUE: 784302956148) : citoyen principal pour la démo, majeur
+- **Ibrahim OUEDRAOGO** (IUE: 291047583620) : père d'Amadou
+- **Fatimata SAWADOGO** (IUE: 638501274093) : mère d'Amadou
+- **Awa OUEDRAOGO** (IUE: 456123789012) : sœur d'Amadou, mineure (12 ans), tuteur = Ibrahim
+- **Moussa OUEDRAOGO** (IUE: 527814903361) : frère d'Amadou, mineur (16 ans), tuteur = Ibrahim, transfert de compte recommandé
+- **Salif OUEDRAOGO** (IUE: 316580942751) : frère aîné d'Amadou, majeur, présent dans les 3 registres mais **volontairement sans compte** : démonstration de l'inscription en direct
+- **Aïcha OUEDRAOGO** (IUE: 873045129604) : fille de Salif (5 ans), sans compte : rattachée automatiquement à Salif quand il s'inscrit. Remise à zéro de la démo : `docker compose exec espace-usager node scripts/reinitialiser-inscription-demo.js`
 
 Comptes de démo de l'espace usager (mots de passe de DÉMONSTRATION uniquement) : Amadou `Amadou2026!`, Ibrahim `Ibrahim2026!`, Fatimata `Fatimata2026!`. Awa et Moussa n'ont pas de mot de passe (comptes gérés par Ibrahim).
 
@@ -532,15 +532,15 @@ UUID fixes de référence : tous les services (passerelle, consentement, journal
 | `00000000-0000-4000-8000-000000000005` | Orange Money Burkina | privee | telecoms |
 
 ### Types de pièces et prérequis
-- Extrait de naissance → aucun prérequis
-- Certificat de nationalité → extrait naissance (citoyen) + extrait naissance (père) + extrait naissance (mère)
-- Casier judiciaire → certificat de nationalité
-- Attestation fiscale → aucun prérequis
+- Extrait de naissance : aucun prérequis
+- Certificat de nationalité : extraits de naissance du citoyen, du père et de la mère
+- Casier judiciaire : certificat de nationalité
+- Attestation fiscale : aucun prérequis
 
 ### Démarches
-- Inscription universitaire (Université) → état-civil: [est_majeur, nationalite]
-- Émission de passeport (Police) → état-civil: [tous], justice: [casier, nationalité]
-- Ouverture de compte bancaire (Banque) → état-civil: [nom, prenom, nationalite], fiscal: [en_regle]
+- Inscription universitaire (Université) : état-civil [est_majeur, nationalite]
+- Émission de passeport (Police) : état-civil [tous], justice: [casier, nationalité]
+- Ouverture de compte bancaire (Banque) : état-civil [nom, prenom, nationalite], fiscal: [en_regle]
 
 ---
 
@@ -548,13 +548,13 @@ UUID fixes de référence : tous les services (passerelle, consentement, journal
 
 - Jamais de commit direct sur `main` : une branche courte par fonctionnalité (`backend/<fonctionnalite>`, `frontend/<fonctionnalite>`), fusionnée via une **Pull Request** GitHub.
 - `main` doit toujours démarrer avec `docker compose up`.
-- Message de commit : `Prénom: description en français` (ex : `Axel: registre état-civil — routes et seed`).
+- Message de commit : `Prénom: description en français` (ex : `Axel: registre état-civil, routes et seed`).
 - Avant de pousser : `git pull --rebase origin main`, vérifier que tout démarre.
 - Les contrats `docs/*.yaml` sont l'interface frontend/backend : prévenir l'autre équipe avant de les modifier.
 
 ## Conventions de code
 
-- **Commentaires obligatoires, en français** — le code doit toujours être bien commenté :
+- **Commentaires obligatoires, en français**. Le code doit toujours être commenté :
   - un en-tête par fichier (rôle du fichier, couche concernée) ;
   - un bloc JSDoc par fonction exportée (ce qu'elle fait, `@param`, `@returns`, erreurs levées) ;
   - un commentaire sur toute logique non évidente (règle métier, écart au contrat, contrainte d'ordre).
@@ -574,5 +574,5 @@ UUID fixes de référence : tous les services (passerelle, consentement, journal
 - **Pagination** : `{ page, limite, total, pages }`
 - **IDs** : UUID v4 pour les IDs internes, 12 chiffres pour les IUE
 - **Dates** : ISO 8601
-- **ORM** : Prisma 6 (version figée `6.19.3`) — **un `schema.prisma` par service**. Tous les services partagent la même instance PostgreSQL mais chacun a son propre schéma PostgreSQL via `DATABASE_URL=...?schema=<service>` (ex : `etat_civil`, `journal`). Aucun service ne lit les tables d'un autre : il passe par son API.
+- **ORM** : Prisma 6 (version figée `6.19.3`), **un `schema.prisma` par service**. Tous les services partagent la même instance PostgreSQL mais chacun a son propre schéma PostgreSQL via `DATABASE_URL=...?schema=<service>` (ex : `etat_civil`, `journal`). Aucun service ne lit les tables d'un autre : il passe par son API.
 - **IUE** : 12 chiffres (`^[0-9]{12}$`). Aucun autre format.

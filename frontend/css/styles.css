@@ -1,8 +1,5 @@
-/* ═══════════════════════════════════════════════════
-   e-FASO — Design System
-   Portail National Citoyen du Burkina Faso
-   Couleurs du drapeau : Vert #009E49, Rouge #EF2B2D, Or #FCD116
-   ═══════════════════════════════════════════════════ */
+/* Styles de l'espace usager e-FASO.
+   Couleurs du drapeau du Burkina Faso : vert #009E49, rouge #EF2B2D, or #FCD116. */
 
 /* --- Reset & Base --- */
 *, *::before, *::after {
@@ -12,7 +9,7 @@
 }
 
 :root {
-  /* Couleurs principales — drapeau du Burkina Faso */
+  /* Couleurs principales (drapeau du Burkina Faso) */
   --vert: #009E49;
   --vert-fonce: #007A38;
   --vert-clair: #E6F5EC;
@@ -378,21 +375,9 @@ input[type="password"]::-ms-clear {
   font-size: var(--font-size-xs);
   color: var(--gris-400);
 }
-.stat-card .stat-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-}
 .stat-card.stat-vert .stat-value { color: var(--vert); }
-.stat-card.stat-vert .stat-icon { background: var(--vert-clair); color: var(--vert); }
 .stat-card.stat-or .stat-value { color: var(--or-fonce); }
-.stat-card.stat-or .stat-icon { background: var(--or-clair); color: var(--or-fonce); }
 .stat-card.stat-rouge .stat-value { color: var(--rouge); }
-.stat-card.stat-rouge .stat-icon { background: var(--rouge-clair); color: var(--rouge); }
 .stat-card.stat-bleu .stat-value { color: var(--statut-en-cours); }
 
 /* --- Badges / Statuts --- */
@@ -422,7 +407,7 @@ input[type="password"]::-ms-clear {
   background: var(--gris-200);
   color: var(--gris-500);
 }
-/* Statuts du contrat (classes générées par statusBadge : « _ » → « - ») */
+/* Statuts du contrat. statusBadge remplace les « _ » par des « - » dans le nom de classe. */
 .badge-resolu, .badge-consentement-accepte {
   background: var(--vert-clair);
   color: var(--vert);
@@ -883,11 +868,6 @@ input[type="password"]::-ms-clear {
   color: var(--blanc);
   font-weight: 600;
 }
-.sidebar-link .link-icon {
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
 .sidebar-link .link-badge {
   margin-left: auto;
   background: var(--or);
@@ -1028,8 +1008,9 @@ input[type="password"]::-ms-clear {
 }
 
 .welcome-banner {
-  background: linear-gradient(135deg, var(--vert-clair), var(--blanc));
-  border: 1px solid #A7DFC0;
+  background: var(--blanc);
+  border: 1px solid var(--gris-200);
+  border-left: 4px solid var(--vert);
   border-radius: var(--radius-lg);
   padding: var(--space-8);
   margin-bottom: var(--space-6);
@@ -1084,18 +1065,6 @@ input[type="password"]::-ms-clear {
   border-color: var(--vert);
   box-shadow: var(--shadow-sm);
   text-decoration: none;
-}
-.quick-access-item .qa-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background: var(--vert-clair);
-  color: var(--vert);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  flex-shrink: 0;
 }
 .quick-access-item .qa-text {
   font-size: var(--font-size-sm);
@@ -1491,7 +1460,6 @@ input[type="password"]::-ms-clear {
   background: var(--blanc);
   border: 1px solid var(--gris-200);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
   padding: var(--space-10) var(--space-8) var(--space-8);
   overflow: hidden;
 }
@@ -1529,7 +1497,6 @@ input[type="password"]::-ms-clear {
   text-transform: uppercase;
   text-align: center;
   letter-spacing: 0.05em;
-  transform: rotate(-4deg);
 }
 .piece-title {
   font-size: var(--font-size-2xl);

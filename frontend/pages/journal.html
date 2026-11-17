@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Journal d'accès — e-FASO</title>
+  <title>Journal d'accès | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -12,32 +12,21 @@
       <h1 class="page-title">Journal d'accès</h1>
       <p class="page-subtitle">Traçabilité complète de tous les accès à vos données personnelles</p>
 
-      <!-- Statistiques -->
       <div class="stat-cards mb-6">
         <div class="stat-card">
-          <div class="stat-icon" style="background:#E8F4FD;color:#1976D2">📊</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-total">—</div>
-            <div class="stat-label">Total des accès</div>
-          </div>
+          <div class="stat-value" id="stat-total">-</div>
+          <div class="stat-label">Total des accès</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--or-clair);color:var(--or-fonce)">📅</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-30j">—</div>
-            <div class="stat-label">30 derniers jours</div>
-          </div>
+          <div class="stat-value" id="stat-30j">-</div>
+          <div class="stat-label">30 derniers jours</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--vert-clair);color:var(--vert-fonce)">🏛</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-admins">—</div>
-            <div class="stat-label">Administrations</div>
-          </div>
+          <div class="stat-value" id="stat-admins">-</div>
+          <div class="stat-label">Administrations</div>
         </div>
       </div>
 
-      <!-- Tableau des accès -->
       <div class="card">
         <div class="list-toolbar">
           <div>
@@ -47,7 +36,7 @@
           <button type="button" class="search-toggle" id="btn-recherche"></button>
         </div>
 
-        <!-- Panneau de recherche (ouvert par la loupe) -->
+        <!-- Ouvert par le bouton loupe -->
         <form class="filter-bar filter-panel hidden" id="filtres" onsubmit="event.preventDefault()">
           <div class="filter-field grow">
             <label for="f-recherche">Rechercher</label>
@@ -90,7 +79,6 @@
             </tbody>
           </table>
         </div>
-        <!-- Pagination -->
         <div class="flex-between" style="padding:var(--space-4);border-top:1px solid var(--gris-200)" id="pagination">
         </div>
       </div>
@@ -101,13 +89,13 @@
   <script src="/js/layout.js"></script>
   <script>
     const PAR_PAGE = 20;
-    // Les dates sont filtrées par le BFF (date_debut / date_fin du contrat) ;
-    // la recherche texte et le type d'accès filtrent les accès chargés (100 au plus).
+    // Le BFF filtre les dates (date_debut, date_fin). La recherche texte et le type d'accès
+    // s'appliquent dans le navigateur aux accès chargés, 100 au plus.
     const LIMITE_CHARGEMENT = 100;
 
-    let entrees = [];        // accès de la période (au plus LIMITE_CHARGEMENT)
-    let totalPeriode = 0;    // nombre réel d'accès sur la période (pagination.total)
-    let resultats = [];      // après recherche texte + type
+    let entrees = [];
+    let totalPeriode = 0; // nombre réel d'accès sur la période, qui peut dépasser LIMITE_CHARGEMENT
+    let resultats = [];
     let page = 1;
 
     const el = id => document.getElementById(id);
@@ -121,22 +109,22 @@
           </td>
           <td>${statusBadge(j.type_acces)}</td>
           <td>
-            ${escapeHtml(j.administration_nom) || '—'}
+            ${escapeHtml(j.administration_nom) || VIDE}
             ${j.administration_type ? `<div style="font-size:var(--font-size-xs);color:var(--gris-400)">${j.administration_type === 'privee' ? 'Privée' : 'Publique'}</div>` : ''}
           </td>
           <td>
-            ${escapeHtml(j.demarche) || '—'}
-            ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">👶 ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
+            ${escapeHtml(j.demarche) || VIDE}
+            ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">Pour ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
           </td>
           <td style="font-size:var(--font-size-xs);color:var(--gris-500);max-width:200px">
-            ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(j.champs_consultes.join(', ')) : '—'}
+            ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(j.champs_consultes.join(', ')) : VIDE}
           </td>
         </tr>`;
     }
 
     const panneau = initPanneauRecherche('btn-recherche', 'filtres');
 
-    /** Nombre de critères renseignés (la plage de dates compte pour un). */
+    /** La plage de dates compte pour un seul filtre. */
     function nbFiltres() {
       return [el('f-recherche').value.trim(), el('f-type').value, el('f-debut').value || el('f-fin').value].filter(Boolean).length;
     }
@@ -145,7 +133,6 @@
       return nbFiltres() > 0;
     }
 
-    /** Applique la recherche texte et le type d'accès aux accès chargés. */
     function appliquerFiltres() {
       const recherche = el('f-recherche').value;
       const type = el('f-type').value;
@@ -161,12 +148,11 @@
       const nbPages = Math.max(1, Math.ceil(resultats.length / PAR_PAGE));
       page = Math.min(page, nbPages);
 
-      // Compteur de résultats
       let compteur = '';
       if (filtresActifs()) {
         compteur = `${resultats.length} résultat${resultats.length > 1 ? 's' : ''}`;
         if (totalPeriode > entrees.length) {
-          compteur += ` — recherche limitée aux ${entrees.length} accès les plus récents de la période sur ${totalPeriode} : précisez les dates pour remonter plus loin`;
+          compteur += `. La recherche porte sur les ${entrees.length} accès les plus récents de la période, sur ${totalPeriode} : précisez les dates pour remonter plus loin.`;
         }
       }
       el('f-count').textContent = compteur;
@@ -179,7 +165,6 @@
                <div class="mt-2"><button class="btn btn-sm btn-outline" onclick="reinitialiser()">Réinitialiser les filtres</button></div>
              </td></tr>`
           : `<tr><td colspan="5" class="text-center" style="padding:var(--space-8);color:var(--gris-400)">
-               <div style="font-size:2rem;margin-bottom:var(--space-2)">📖</div>
                Aucun accès enregistré pour le moment
              </td></tr>`;
         el('pagination').innerHTML = '';
@@ -192,8 +177,8 @@
         el('pagination').innerHTML = `
           <span style="font-size:var(--font-size-sm);color:var(--gris-500)">Page ${page} / ${nbPages}</span>
           <div style="display:flex;gap:var(--space-2)">
-            ${page > 1 ? `<button class="btn btn-sm btn-outline" onclick="allerPage(${page - 1})">← Précédent</button>` : ''}
-            ${page < nbPages ? `<button class="btn btn-sm btn-outline" onclick="allerPage(${page + 1})">Suivant →</button>` : ''}
+            ${page > 1 ? `<button class="btn btn-sm btn-outline" onclick="allerPage(${page - 1})">Précédent</button>` : ''}
+            ${page < nbPages ? `<button class="btn btn-sm btn-outline" onclick="allerPage(${page + 1})">Suivant</button>` : ''}
           </div>`;
       } else {
         el('pagination').innerHTML = '';
@@ -205,7 +190,6 @@
       afficher();
     }
 
-    /** Recharge les accès de la période choisie (filtre de dates côté BFF). */
     async function chargerJournal() {
       const date_debut = el('f-debut').value;
       const date_fin = el('f-fin').value;
@@ -231,14 +215,14 @@
     }
 
     async function loadStats() {
-      // Accès des 30 derniers jours : fourni par le tableau de bord
+      // Le nombre d'accès sur 30 jours vient du tableau de bord.
       try {
         const data = await dashboardApi.get();
         el('stat-30j').textContent = data.acces_recents ?? 0;
       } catch (e) {
         console.error('Stats journal:', e);
       }
-      // Total et administrations distinctes (sur les 100 accès les plus récents), toutes périodes
+      // Administrations distinctes, comptées sur les 100 accès les plus récents.
       try {
         const j = await journalApi.list({ limite: LIMITE_CHARGEMENT });
         el('stat-total').textContent = j.pagination?.total ?? (j.entrees || []).length;

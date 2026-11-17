@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mes demandes — e-FASO</title>
+  <title>Mes demandes | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -17,12 +17,11 @@
         <button class="btn btn-primary" onclick="openNewDemande()">+ Nouvelle demande</button>
       </div>
 
-      <!-- Formulaire nouvelle demande (caché) -->
       <div class="card mb-6 hidden" id="form-demande" style="padding:var(--space-6)">
-        <h3 style="margin-bottom:var(--space-4)">📄 Nouvelle demande de pièce</h3>
+        <h3 style="margin-bottom:var(--space-4)">Nouvelle demande de pièce</h3>
         <div class="form-group">
           <label class="form-label" for="input-piece" id="label-piece">Type de pièce</label>
-          <!-- Liste de choix avec recherche (motif ARIA combobox) -->
+          <!-- Motif ARIA combobox : liste filtrée pendant la saisie -->
           <div class="combobox search-field">
             <input type="text" class="form-input" id="input-piece"
                    role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="liste-pieces"
@@ -34,12 +33,11 @@
         <div class="form-group" id="group-enfant" style="display:none">
           <label class="form-label" for="select-enfant">Pour un enfant à charge (optionnel)</label>
           <select class="form-input" id="select-enfant">
-            <option value="">— Pour moi-même —</option>
+            <option value="">Pour moi-même</option>
           </select>
         </div>
         <div id="prereqs-info" class="hidden" style="margin-bottom:var(--space-4)">
           <div class="alert alert-info">
-            <span class="alert-icon">🔗</span>
             <div>
               <strong>Prérequis résolus automatiquement</strong>
               <div id="prereqs-text" style="margin-top:var(--space-2);font-size:var(--font-size-sm)"></div>
@@ -52,13 +50,12 @@
         </div>
       </div>
 
-      <!-- Filtres de la liste -->
       <div class="card mb-4 hidden" id="bloc-filtres">
         <div class="list-toolbar">
           <div class="filter-count" id="f-count" aria-live="polite"></div>
           <button type="button" class="search-toggle" id="btn-recherche"></button>
         </div>
-        <!-- Panneau de recherche (ouvert par la loupe) -->
+        <!-- Ouvert par le bouton loupe -->
         <form class="filter-bar filter-panel hidden" id="filtres" onsubmit="event.preventDefault()">
           <div class="filter-field grow">
             <label for="f-piece">Type de pièce</label>
@@ -87,7 +84,6 @@
         </form>
       </div>
 
-      <!-- Liste des demandes -->
       <div id="demandes-list">
         <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
       </div>
@@ -99,7 +95,7 @@
   <script>
     let enfants = null;
     let demandes = [];
-    // ?enfant=<iue> (depuis « Mes enfants ») : ouvrir le formulaire pour cet enfant
+    // Lien depuis « Mes enfants » (?enfant=<iue>) : le formulaire s'ouvre pour cet enfant.
     const enfantParam = new URLSearchParams(window.location.search).get('enfant');
     const el = id => document.getElementById(id);
 
@@ -110,13 +106,13 @@
       return `
         <div class="card mb-4" style="padding:var(--space-5)">
           <div class="flex-between mb-2">
-            <strong style="font-size:var(--font-size-base)">${escapeHtml(d.type_piece?.nom || nomPiece(d.type_piece?.id)) || '—'}</strong>
+            <strong style="font-size:var(--font-size-base)">${escapeHtml(d.type_piece?.nom || nomPiece(d.type_piece?.id)) || VIDE}</strong>
             ${statusBadge(d.statut)}
           </div>
-          ${enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">👶 Pour votre enfant : ${enfant}</div>` : ''}
+          ${enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">Pour votre enfant : ${enfant}</div>` : ''}
           <div style="font-size:var(--font-size-sm);color:var(--gris-500);margin-bottom:var(--space-3)">
             Créée le ${formatDate(d.date_creation)}
-            ${d.date_completion ? ` · Complétée le ${formatDate(d.date_completion)}` : ''}
+            ${d.date_completion ? `, complétée le ${formatDate(d.date_completion)}` : ''}
           </div>
           ${Array.isArray(d.cascade) && d.cascade.length ? `
             <div style="font-size:var(--font-size-sm)">
@@ -125,20 +121,17 @@
             </div>` : ''}
           ${d.statut === 'complete' ? `
             <div class="mt-4">
-              <a href="/pages/piece.html?id=${encodeURIComponent(d.id)}" class="btn btn-sm btn-outline">📄 Consulter / télécharger la pièce</a>
+              <a href="/pages/piece.html?id=${encodeURIComponent(d.id)}" class="btn btn-sm btn-outline">Consulter ou télécharger la pièce</a>
             </div>` : ''}
           ${d.statut === 'fallback_physique' ? `
             <div class="alert alert-warning mt-4">
-              <span class="alert-icon">🏛</span>
               <span>Certaines pièces (marquées « Manquant ») ne sont pas disponibles dans le système, par exemple un parent non enregistré.
               Rendez-vous au guichet avec les documents correspondants : l'agent les saisira et la demande reprendra automatiquement.</span>
             </div>` : ''}
         </div>`;
     }
 
-    // ─── Filtres de la liste ───
-
-    /** Options « Type de pièce » : catalogue + types présents dans les demandes (au cas où). */
+    /** Le catalogue, plus les types présents dans les demandes mais absents du catalogue. */
     function remplirFiltrePiece() {
       const select = el('f-piece');
       const courant = select.value;
@@ -150,7 +143,6 @@
       select.value = courant;
     }
 
-    /** Options « Pour » : moi + chaque enfant (seulement pour un tuteur). */
     function remplirFiltrePour() {
       if (!enfants?.length) return;
       el('f-pour-field').style.display = '';
@@ -211,7 +203,6 @@
           el('bloc-filtres').classList.add('hidden');
           container.innerHTML = `
             <div class="card text-center" style="padding:var(--space-8)">
-              <div style="font-size:3rem;margin-bottom:var(--space-4)">📄</div>
               <h3 style="color:var(--gris-600);margin-bottom:var(--space-2)">Aucune demande</h3>
               <p style="color:var(--gris-400);margin-bottom:var(--space-4)">Vous n'avez pas encore fait de demande de pièce administrative.</p>
               <button class="btn btn-primary" onclick="openNewDemande()">+ Faire une demande</button>
@@ -228,12 +219,12 @@
       }
     }
 
-    // ─── Choix de la pièce : liste avec recherche ───
+    // Choix de la pièce
 
     const inputPiece = el('input-piece');
     const listePieces = el('liste-pieces');
-    let options = [];      // pièces affichées dans la liste
-    let actif = -1;        // index de l'option active (clavier)
+    let options = [];
+    let actif = -1; // option active au clavier
 
     function ouvrirListe() {
       listePieces.classList.remove('hidden');
@@ -247,7 +238,7 @@
       actif = -1;
     }
 
-    /** Filtre le catalogue sur le texte saisi (nom, identifiant, registre) et affiche la liste. */
+    /** La recherche porte sur le nom, l'identifiant et le registre de la pièce. */
     function filtrerPieces() {
       const recherche = inputPiece.value;
       options = cataloguePieces.filter(p => correspond(recherche, p.nom, p.id, p.registre_source));
@@ -258,7 +249,7 @@
               <span>${escapeHtml(p.nom)}</span>
               <span class="combobox-meta">
                 <span class="badge badge-info">${escapeHtml(p.registre_source)}</span>
-                ${p.est_evolutive ? '<span title="Pièce évolutive">🔄</span>' : ''}
+                ${p.est_evolutive ? '<span>évolutive</span>' : ''}
               </span>
             </li>`).join('')
         : '<li class="combobox-empty" role="presentation">Aucune pièce ne correspond à votre recherche</li>';
@@ -284,7 +275,7 @@
     }
 
     inputPiece.addEventListener('input', () => {
-      el('select-type-piece').value = ''; // le texte a changé : plus de pièce choisie
+      el('select-type-piece').value = ''; // le texte ne correspond plus à la pièce choisie
       el('prereqs-info').classList.add('hidden');
       filtrerPieces();
     });
@@ -306,7 +297,7 @@
         fermerListe();
       }
     });
-    // mousedown (et non click) : le choix est fait avant que le champ ne perde le focus
+    // mousedown plutôt que click : le choix doit être fait avant que le champ perde le focus.
     listePieces.addEventListener('mousedown', e => {
       const li = e.target.closest('.combobox-option');
       if (!li) return;
@@ -314,7 +305,6 @@
       choisirPiece(options[Number(li.dataset.index)]);
     });
 
-    /** Aperçu de l'arbre de prérequis de la pièce choisie (fourni par le catalogue). */
     function showPrerequis() {
       const id = el('select-type-piece').value;
       const info = el('prereqs-info');
@@ -340,10 +330,8 @@
       }
     }
 
-    // ─── Enfants et formulaire ───
-
     let enfantsPromise = null;
-    /** Charge les enfants une seule fois, même si plusieurs appels arrivent en même temps. */
+    /** Appelée au chargement et à l'ouverture du formulaire : une seule requête pour les deux. */
     function loadEnfants() {
       if (!enfantsPromise) enfantsPromise = chargerEnfants();
       return enfantsPromise;
@@ -359,7 +347,7 @@
       }
       if (enfants.length > 0) {
         el('group-enfant').style.display = 'block';
-        el('select-enfant').innerHTML = '<option value="">— Pour moi-même —</option>' +
+        el('select-enfant').innerHTML = '<option value="">Pour moi-même</option>' +
           enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)} (${escapeHtml(e.iue)})</option>`).join('');
         remplirFiltrePour();
       }
@@ -383,7 +371,7 @@
     }
 
     async function submitDemande() {
-      // Texte saisi exactement égal au nom d'une pièce : on l'accepte sans clic dans la liste
+      // Un nom de pièce tapé en entier est accepté sans passer par la liste.
       if (!el('select-type-piece').value) {
         const exacte = cataloguePieces.find(p => normaliser(p.nom) === normaliser(inputPiece.value));
         if (exacte) el('select-type-piece').value = exacte.id;
@@ -399,7 +387,7 @@
 
       const btn = el('btn-submit');
       btn.disabled = true;
-      btn.textContent = '⏳ Résolution de la cascade…';
+      btn.textContent = 'Résolution de la cascade…';
       try {
         const demande = await demandesApi.create(type_piece_id, pour_enfant_iue);
         if (demande.statut === 'fallback_physique') {
@@ -421,7 +409,7 @@
 
     chargerCatalogue();
     loadDemandes();
-    loadEnfants(); // filtre « Pour » des tuteurs
+    loadEnfants(); // alimente le filtre « Pour » des tuteurs
     if (enfantParam) openNewDemande();
   </script>
 </body>
