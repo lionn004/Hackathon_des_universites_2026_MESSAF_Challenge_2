@@ -131,6 +131,47 @@ Portail web du citoyen. Fonctionnalités :
 - **Journal** : consulter l'historique complet de qui a accédé à ses données
 - **Enfants** : gestion des comptes enfants rattachés (tuteur)
 - **Transfert de compte** : recommandation à 15 ans de transférer le contrôle à l'enfant
+- **Mes pièces** : consulter le contenu de ses propres pièces (et de celles de ses enfants) et les télécharger pour son usage personnel (voir ci-dessous)
+
+### Consultation et téléchargement de ses pièces (route à implémenter)
+
+Aujourd'hui, une demande ne conserve que l'arbre des statuts de la cascade : le citoyen ne peut pas voir le **contenu** de ses pièces. Deux routes sont à ajouter, puis à reporter dans les contrats `docs/openapi-espace-usager.yaml` et `docs/openapi-passerelle.yaml`.
+
+**BFF — `GET /api/demandes/{id}/contenu`** (JWT citoyen, `Authorization: Bearer`)
+
+1. Vérifie que la demande appartient au citoyen connecté, ou à un enfant dont il est tuteur. Sinon → `404 DEMANDE_NON_TROUVEE`, comme `GET /demandes/{id}`.
+2. Si la pièce racine n'est pas résolue (demande en `fallback_physique`) → `409 PIECE_INDISPONIBLE`.
+3. Appelle la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`, où `iue` est le titulaire de la pièce (le citoyen ou l'enfant).
+
+Réponse `200` :
+```json
+{
+  "demande_id": "uuid",
+  "type_piece": { "id": "casier-judiciaire", "nom": "Casier judiciaire", "registre_source": "justice", "est_evolutive": true },
+  "titulaire": { "iue": "784302956148", "nom": "OUEDRAOGO", "prenom": "Amadou" },
+  "donnees": { "casier_vierge": true, "condamnations": [], "date_delivrance": "2026-11-17" },
+  "date_consultation": "2026-11-17T18:00:00Z"
+}
+```
+
+**Passerelle — `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`** (en-tête `X-Cle-Service`, réservée au BFF comme les autres routes `/interne`)
+
+Lit la pièce dans son registre, **uniquement via les routes des contrats des registres** (un registre d'une autre équipe doit fonctionner) :
+
+| Pièce | Route du registre | `donnees` |
+|-------|-------------------|-----------|
+| `extrait-naissance` | état-civil `GET /citoyens/{iue}` | tous les champs `DonneesEtatCivil` + `pere` / `mere` : `{ iue, nom, prenom }` (lus aussi à l'état civil) |
+| `certificat-nationalite` | justice `GET /citoyens/{iue}/nationalite` | tous les champs `CertificatNationalite` |
+| `casier-judiciaire` | justice `GET /citoyens/{iue}/casier` | tous les champs `CasierJudiciaire` |
+| `attestation-fiscale` | fiscal `GET /citoyens/{iue}/fiscal` | tous les champs `SituationFiscale` |
+
+Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répond 404 : pièce absente, fallback physique).
+
+**Règles**
+- Pas de minimisation : le citoyen consulte **ses propres** données, sans intermédiaire.
+- Pas d'entrée au journal : aucune administration n'accède aux données, comme pour `/interne/citoyens/{iue}`.
+- Pas de copie stockée : le registre est relu à chaque consultation, donc une pièce évolutive (casier, fiscal) est toujours à jour.
+- Téléchargement : le frontend affiche une page imprimable (le navigateur l'enregistre en PDF avec Ctrl+P), portant la mention « Document informatif, non officiel ». Les registres ne délivrent jamais de PDF.
 
 ### Interface de test (pour démo et jury)
 
