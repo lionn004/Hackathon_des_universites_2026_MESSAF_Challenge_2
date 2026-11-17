@@ -213,6 +213,8 @@ img { max-width: 100%; }
   transform: translateY(-50%);
   color: var(--gris-400);
   font-size: var(--font-size-lg);
+  z-index: 1; /* au-dessus du champ, même enveloppé dans .password-field */
+  pointer-events: none;
 }
 .form-input-icon .form-input {
   padding-left: 2.5rem;
@@ -240,11 +242,13 @@ img { max-width: 100%; }
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--gris-500);
-  font-size: var(--font-size-base);
   cursor: pointer;
 }
 .password-toggle:hover {
-  background: var(--gris-100);
+  color: var(--gris-700);
+}
+.password-toggle[aria-pressed="true"] {
+  color: var(--vert);
 }
 .password-toggle:focus-visible {
   outline: 2px solid var(--vert);
