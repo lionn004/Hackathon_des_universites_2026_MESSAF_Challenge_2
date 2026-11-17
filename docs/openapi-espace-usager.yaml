@@ -58,6 +58,7 @@ paths:
                   type: string
                   format: password
                   minLength: 8
+                  example: "MonMotDePasse2026"
                 telephone:
                   type: string
                   example: "+22670123456"
@@ -111,6 +112,8 @@ paths:
                 mot_de_passe:
                   type: string
                   format: password
+                  description: L'exemple est le mot de passe du compte de démonstration d'Amadou.
+                  example: "Amadou2026!"
       responses:
         "200":
           description: Connexion réussie
@@ -129,7 +132,11 @@ paths:
     post:
       tags: [Authentification]
       summary: Demander la réinitialisation du mot de passe
-      description: Envoie un code de vérification par SMS au numéro associé.
+      description: |
+        Envoie un code de vérification par SMS au numéro associé.
+        La réponse est toujours la même, que l'IUE ait un compte ou non : elle ne
+        révèle jamais si un compte existe. Le frontend ne doit donc pas afficher
+        « compte introuvable ».
       requestBody:
         required: true
         content:
@@ -140,11 +147,13 @@ paths:
               properties:
                 iue:
                   type: string
+                  example: "784302956148"
                 telephone:
                   type: string
+                  example: "+22670123456"
       responses:
         "200":
-          description: Code envoyé par SMS
+          description: Code envoyé par SMS (si l'IUE et le téléphone correspondent à un compte)
           content:
             application/json:
               schema:
@@ -152,7 +161,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Code de vérification envoyé par SMS"
+                    example: "Si les informations correspondent, un code de vérification a été envoyé par SMS"
                   token_temporaire:
                     type: string
                     description: Token à usage unique pour l'étape suivante
@@ -171,6 +180,7 @@ paths:
               properties:
                 token_temporaire:
                   type: string
+                  description: Valeur renvoyée par POST /auth/mot-de-passe-oublie
                 code_sms:
                   type: string
                   example: "123456"
@@ -178,6 +188,7 @@ paths:
                   type: string
                   format: password
                   minLength: 8
+                  example: "NouveauMotDePasse2026"
       responses:
         "200":
           description: Mot de passe modifié
@@ -298,9 +309,12 @@ paths:
       parameters:
         - name: statut
           in: query
+          description: |
+            Filtrer par statut. `fallback_physique` = une pièce de la cascade manque
+            dans les registres : le citoyen doit la présenter au guichet.
           schema:
             type: string
-            enum: [en_cours, complete, echouee]
+            enum: [en_cours, complete, echouee, fallback_physique]
         - name: page
           in: query
           schema:
