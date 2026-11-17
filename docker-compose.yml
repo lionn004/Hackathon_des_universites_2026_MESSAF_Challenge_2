@@ -56,5 +56,19 @@ services:
       postgres:
         condition: service_healthy
 
+  # Couche 4 — Journal de traçabilité (:3006). Vérifie les jetons des citoyens
+  # avec JWT_SECRET (à définir dans un fichier .env à la racine pour la production).
+  journal:
+    build: ./backend/journal
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=journal
+      JWT_SECRET: ${JWT_SECRET:-dlnuf-dev-secret-a-changer}
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
