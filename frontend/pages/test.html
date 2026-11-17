@@ -119,29 +119,34 @@
       if (opt) select.value = opt.value;
     }
 
-    function renderCatalogue() {
-      document.getElementById('types-pieces-list').innerHTML = `
-        <div class="table-container">
-        <table class="table">
-          <thead>
-            <tr><th>Pièce</th><th>Registre source</th><th>Type</th><th>Prérequis</th></tr>
-          </thead>
-          <tbody>
-            ${CATALOGUE_PIECES.map(t => `
-              <tr>
-                <td><strong>${escapeHtml(t.nom)}</strong></td>
-                <td><span class="badge badge-info">${escapeHtml(t.registre_source)}</span></td>
-                <td style="font-size:var(--font-size-xs);color:var(--gris-500)">${t.est_evolutive ? '🔄 Évolutive' : '📋 Fixe'}</td>
-                <td>${t.prerequis.length
-                  ? t.prerequis.map(p => {
-                      const prop = p.proprietaire !== 'citoyen' ? ` (${PROPRIETAIRES[p.proprietaire]})` : '';
-                      return `<span class="badge badge-warning">${escapeHtml(nomPiece(p.prerequis_id))}${prop}</span>`;
-                    }).join(' ')
-                  : '<span style="color:var(--gris-400)">Aucun</span>'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        </div>`;
+    /** Catalogue des pièces (GET /types-pieces) avec l'arbre complet des prérequis. */
+    async function renderCatalogue() {
+      const container = document.getElementById('types-pieces-list');
+      container.innerHTML = '<div class="text-center" style="color:var(--gris-400)">Chargement…</div>';
+      try {
+        const types = await catalogueApi.list();
+        container.innerHTML = `
+          <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr><th>Pièce</th><th>Registre source</th><th>Type</th><th>Prérequis (cascade)</th></tr>
+            </thead>
+            <tbody>
+              ${types.map(t => `
+                <tr>
+                  <td><strong>${escapeHtml(t.nom)}</strong></td>
+                  <td><span class="badge badge-info">${escapeHtml(t.registre_source)}</span></td>
+                  <td style="font-size:var(--font-size-xs);color:var(--gris-500)">${t.est_evolutive ? '🔄 Évolutive' : '📋 Fixe'}</td>
+                  <td>${t.prerequis?.length
+                    ? renderCascade(t.prerequis)
+                    : '<span style="color:var(--gris-400)">Aucun</span>'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+          </div>`;
+      } catch (e) {
+        container.innerHTML = `<p style="color:var(--rouge)">Erreur de chargement du catalogue : ${escapeHtml(e.message)}</p>`;
+      }
     }
 
     function statCard(s) {

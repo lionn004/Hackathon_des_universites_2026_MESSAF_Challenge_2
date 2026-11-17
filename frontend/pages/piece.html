@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ma pièce — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="main-content">
+    <div class="page-content">
+      <div class="flex-between mb-4 no-print" style="flex-wrap:wrap;gap:var(--space-3)">
+        <a href="/pages/demandes.html" class="btn btn-sm btn-outline">← Mes demandes</a>
+        <button class="btn btn-primary hidden" id="btn-print" onclick="window.print()">🖨 Imprimer / Enregistrer en PDF</button>
+      </div>
+
+      <div id="piece">
+        <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    const demandeId = new URLSearchParams(window.location.search).get('id');
+
+    /** Libellés des champs des registres (contrats docs/openapi-registre-*.yaml). */
+    const LIBELLES = {
+      iue: 'IUE',
+      nom: 'Nom',
+      prenom: 'Prénom(s)',
+      date_naissance: 'Date de naissance',
+      lieu_naissance: 'Lieu de naissance',
+      sexe: 'Sexe',
+      nationalite: 'Nationalité',
+      pere: 'Père',
+      mere: 'Mère',
+      pere_iue: 'IUE du père',
+      mere_iue: 'IUE de la mère',
+      date_deces: 'Date de décès',
+      est_majeur: 'Majeur',
+      casier_vierge: 'Bulletin',
+      condamnations: 'Condamnations',
+      date_delivrance: 'Date de délivrance',
+      est_national: 'Burkinabè',
+      mode_acquisition: 'Mode d\'acquisition',
+      date_acquisition: 'Date d\'acquisition',
+      numero_certificat: 'N° de certificat',
+      ifu: 'IFU',
+      en_regle: 'Situation fiscale',
+      type_contribuable: 'Type de contribuable',
+      regime_fiscal: 'Régime fiscal',
+      derniere_declaration: 'Dernière déclaration',
+      montant_impot_du: 'Montant d\'impôt dû',
+    };
+
+    const REGISTRES = { 'etat-civil': 'Registre de l\'état civil', justice: 'Registre de la justice', fiscal: 'Registre fiscal' };
+
+    /** Libellé d'un champ inconnu : « type_contribuable » → « Type contribuable ». */
+    function libelle(cle) {
+      if (LIBELLES[cle]) return LIBELLES[cle];
+      const s = cle.replace(/_/g, ' ');
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+
+    const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v);
+
+    /** Valeur lisible (déjà échappée) d'un champ. */
+    function valeur(cle, v) {
+      if (cle === 'sexe') return v === 'M' ? 'Masculin' : v === 'F' ? 'Féminin' : escapeHtml(v);
+      if (cle === 'casier_vierge') return v ? 'Néant — casier vierge' : 'Mentions inscrites (voir condamnations)';
+      if (cle === 'en_regle') return v ? '✓ En règle' : '✗ Non en règle';
+      if (cle === 'montant_impot_du' && typeof v === 'number') return `${v.toLocaleString('fr-FR')} FCFA`;
+      if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+      if (isDate(v)) return formatDate(v);
+      if (Array.isArray(v)) {
+        if (v.length === 0) return 'Aucune';
+        return `<ul style="margin:0;padding-left:var(--space-5)">${v.map(item => `<li>${valeur('', item)}</li>`).join('')}</ul>`;
+      }
+      if (v && typeof v === 'object') {
+        // Personne liée (père, mère) : « Prénom NOM (IUE …) »
+        if ('nom' in v || 'prenom' in v) {
+          const nom = [v.prenom, v.nom].filter(Boolean).join(' ') || '—';
+          return `${escapeHtml(nom)}${v.iue ? ` <span style="color:var(--gris-500)">(IUE ${escapeHtml(v.iue)})</span>` : ''}`;
+        }
+        return Object.entries(v).map(([k, x]) => `${escapeHtml(libelle(k))} : ${valeur(k, x)}`).join(' · ');
+      }
+      return escapeHtml(v);
+    }
+
+    function renderPiece(p) {
+      const donnees = { ...(p.donnees || {}) };
+      // Les objets pere / mere remplacent les simples IUE des parents
+      if (donnees.pere) delete donnees.pere_iue;
+      if (donnees.mere) delete donnees.mere_iue;
+      const lignes = Object.entries(donnees)
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+        .map(([k, v]) => `<tr><th>${escapeHtml(libelle(k))}</th><td>${valeur(k, v)}</td></tr>`)
+        .join('');
+      const t = p.titulaire || {};
+      const tp = p.type_piece || {};
+
+      document.title = `${tp.nom || 'Pièce'} — e-FASO`;
+      document.getElementById('piece').innerHTML = `
+        <article class="piece-doc">
+          <div class="piece-flag"></div>
+          <header class="piece-header">
+            <div>
+              <div class="piece-brand">e<span style="color:var(--or)">★</span>FASO</div>
+              <div class="piece-source">${escapeHtml(REGISTRES[tp.registre_source] || tp.registre_source || '')}</div>
+            </div>
+            <div class="piece-stamp">Document informatif<br>non officiel</div>
+          </header>
+
+          <h1 class="piece-title">${escapeHtml(tp.nom || nomPiece(tp.id) || 'Pièce')}</h1>
+          <p class="piece-holder">
+            Titulaire : <strong>${escapeHtml([t.prenom, t.nom].filter(Boolean).join(' ') || '—')}</strong>
+            · IUE <strong>${escapeHtml(t.iue || '—')}</strong>
+          </p>
+
+          <table class="piece-table">
+            <tbody>${lignes || '<tr><td colspan="2">Aucune donnée</td></tr>'}</tbody>
+          </table>
+
+          <footer class="piece-footer">
+            <p>Données lues dans le registre le <strong>${formatDate(p.date_consultation)} à ${formatTime(p.date_consultation)}</strong>.
+            ${tp.est_evolutive ? 'Cette pièce est <strong>évolutive</strong> : elle reflète la situation à cette date.' : ''}</p>
+            <p>Ce document est un relevé informatif destiné à l'usage personnel du titulaire. <strong>Il n'a pas valeur de pièce officielle.</strong>
+            Les administrations obtiennent ces informations directement via la plateforme « Dites-le-nous une fois » : vous n'avez pas à le leur fournir.</p>
+            <p class="piece-ref">Réf. demande : ${escapeHtml(p.demande_id || demandeId)}</p>
+          </footer>
+        </article>`;
+      document.getElementById('btn-print').classList.remove('hidden');
+    }
+
+    function renderErreur(e) {
+      let html;
+      if (e.code === 'ROUTE_NON_TROUVEE') {
+        html = `<div class="alert alert-info"><span class="alert-icon">🚧</span>
+          <span>La consultation du contenu des pièces sera bientôt disponible : le service est en cours de développement.</span></div>`;
+      } else if (e.code === 'PIECE_INDISPONIBLE') {
+        html = `<div class="alert alert-warning"><span class="alert-icon">🏛</span>
+          <span>Cette pièce n'est pas disponible dans les registres. Rendez-vous au guichet avec les documents correspondants.</span></div>`;
+      } else if (e.status === 404) {
+        html = `<div class="alert alert-error"><span class="alert-icon">✗</span><span>Demande introuvable.</span></div>`;
+      } else {
+        html = `<div class="alert alert-error"><span class="alert-icon">✗</span><span>${escapeHtml(e.message || 'Erreur de chargement')}</span></div>`;
+      }
+      document.getElementById('piece').innerHTML = html;
+    }
+
+    async function loadPiece() {
+      if (!demandeId) {
+        renderErreur({ status: 404 });
+        return;
+      }
+      try {
+        await catalogueApi.list().catch(() => {});
+        renderPiece(await demandesApi.contenu(demandeId));
+      } catch (e) {
+        renderErreur(e);
+      }
+    }
+
+    loadPiece();
+  </script>
+</body>
+</html>

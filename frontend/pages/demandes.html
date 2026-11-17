@@ -81,6 +81,10 @@
               <strong>Chaîne de prérequis :</strong>
               ${renderCascade(d.cascade)}
             </div>` : ''}
+          ${d.statut === 'complete' ? `
+            <div class="mt-4">
+              <a href="/pages/piece.html?id=${encodeURIComponent(d.id)}" class="btn btn-sm btn-outline">📄 Consulter / télécharger la pièce</a>
+            </div>` : ''}
           ${d.statut === 'fallback_physique' ? `
             <div class="alert alert-warning mt-4">
               <span class="alert-icon">🏛</span>
@@ -93,6 +97,8 @@
     async function loadDemandes() {
       const container = document.getElementById('demandes-list');
       try {
+        // Le catalogue donne les noms des pièces de la cascade (sans lui, on affiche l'identifiant)
+        await catalogueApi.list().catch(() => {});
         const { demandes = [] } = await demandesApi.list({ limite: 100 });
 
         if (demandes.length === 0) {
@@ -113,31 +119,31 @@
       }
     }
 
-    function fillTypesPieces() {
+    /** Liste des pièces demandables (GET /types-pieces). */
+    async function fillTypesPieces() {
       const select = document.getElementById('select-type-piece');
-      select.innerHTML = '<option value="">— Sélectionner —</option>' +
-        CATALOGUE_PIECES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nom)}</option>`).join('');
+      try {
+        const types = await catalogueApi.list();
+        select.innerHTML = '<option value="">— Sélectionner —</option>' +
+          types.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nom)}</option>`).join('');
+      } catch (e) {
+        select.innerHTML = '<option value="">Catalogue indisponible</option>';
+        showToast(`Impossible de charger les types de pièces : ${e.message}`, 'error');
+      }
     }
 
-    /** Aperçu de l'arbre de prérequis de la pièce choisie (catalogue local). */
+    /** Aperçu de l'arbre de prérequis de la pièce choisie (fourni par le catalogue). */
     function showPrerequis() {
       const id = document.getElementById('select-type-piece').value;
       const info = document.getElementById('prereqs-info');
-      const toNodes = (pieceId, owner) => ({
-        type_piece: pieceId,
-        proprietaire: owner,
-        statut: null,
-        sous_prerequis: (CATALOGUE_PIECES.find(p => p.id === pieceId)?.prerequis || [])
-          .map(p => toNodes(p.prerequis_id, owner === 'citoyen' ? p.proprietaire : owner)),
-      });
-      const root = toNodes(id, 'citoyen');
-      if (!id || root.sous_prerequis.length === 0) {
+      const piece = cataloguePieces.find(p => p.id === id);
+      if (!piece || !piece.prerequis?.length) {
         info.classList.add('hidden');
         return;
       }
       document.getElementById('prereqs-text').innerHTML =
         'La plateforme récupère elle-même ces pièces auprès des registres :' +
-        renderCascade(root.sous_prerequis);
+        renderCascade(piece.prerequis);
       info.classList.remove('hidden');
     }
 

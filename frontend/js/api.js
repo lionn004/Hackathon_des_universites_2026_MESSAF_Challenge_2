@@ -181,6 +181,15 @@ const demandesApi = {
     return apiFetch(`/demandes/${encodeURIComponent(id)}`);
   },
 
+  /**
+   * Contenu de la pièce d'une demande (route spécifiée dans CLAUDE.md,
+   * « Consultation et téléchargement de ses pièces ») :
+   * { demande_id, type_piece, titulaire, donnees, date_consultation }
+   */
+  async contenu(id) {
+    return apiFetch(`/demandes/${encodeURIComponent(id)}/contenu`);
+  },
+
   async create(type_piece_id, pour_enfant_iue = null) {
     const body = { type_piece_id };
     if (pour_enfant_iue) body.pour_enfant_iue = pour_enfant_iue;
@@ -268,31 +277,35 @@ const testApi = {
 // RÉFÉRENTIEL DES PIÈCES
 // ═══════════════════════════════════════
 
-/**
- * Catalogue des types de pièces et de leurs prérequis.
- * Le contrat du BFF n'expose pas de route pour ce catalogue : la liste reprend
- * les données de référence de la plateforme (CLAUDE.md, « Types de pièces et prérequis »).
- */
-const CATALOGUE_PIECES = [
-  { id: 'extrait-naissance', nom: 'Extrait de naissance', registre_source: 'etat-civil', est_evolutive: false, prerequis: [] },
-  {
-    id: 'certificat-nationalite', nom: 'Certificat de nationalité', registre_source: 'justice', est_evolutive: false,
-    prerequis: [
-      { prerequis_id: 'extrait-naissance', proprietaire: 'citoyen' },
-      { prerequis_id: 'extrait-naissance', proprietaire: 'pere' },
-      { prerequis_id: 'extrait-naissance', proprietaire: 'mere' },
-    ],
-  },
-  {
-    id: 'casier-judiciaire', nom: 'Casier judiciaire', registre_source: 'justice', est_evolutive: true,
-    prerequis: [{ prerequis_id: 'certificat-nationalite', proprietaire: 'citoyen' }],
-  },
-  { id: 'attestation-fiscale', nom: 'Attestation de situation fiscale', registre_source: 'fiscal', est_evolutive: true, prerequis: [] },
-];
+/** Catalogue des types de pièces (GET /types-pieces), chargé une fois par page. */
+let cataloguePieces = [];
+let cataloguePromise = null;
 
-/** Nom lisible d'un type de pièce à partir de son identifiant. */
+const catalogueApi = {
+  /**
+   * { types_pieces: [{ id, nom, registre_source, est_evolutive,
+   *                    prerequis: [{ type_piece, nom, proprietaire, prerequis: [...] }] }] }
+   * Route publique : pas de jeton nécessaire.
+   */
+  async list() {
+    if (!cataloguePromise) {
+      cataloguePromise = apiFetch('/types-pieces')
+        .then(data => {
+          cataloguePieces = data.types_pieces || [];
+          return cataloguePieces;
+        })
+        .catch(e => {
+          cataloguePromise = null; // nouvel essai au prochain appel
+          throw e;
+        });
+    }
+    return cataloguePromise;
+  },
+};
+
+/** Nom lisible d'un type de pièce à partir de son identifiant (catalogue chargé). */
 function nomPiece(id) {
-  return CATALOGUE_PIECES.find(p => p.id === id)?.nom || id;
+  return cataloguePieces.find(p => p.id === id)?.nom || id;
 }
 
 const PROPRIETAIRES = { citoyen: 'vous', pere: 'père', mere: 'mère' };
@@ -431,19 +444,21 @@ function statusBadge(statut) {
 }
 
 /**
- * Rendu récursif de l'arbre de cascade (Demande.cascade ou réponse passerelle).
- * Nœud : { type_piece, proprietaire, statut, sous_prerequis }
+ * Rendu récursif d'un arbre de pièces.
+ * Accepte les deux formes du contrat :
+ *  - cascade d'une demande : { type_piece, proprietaire, statut, sous_prerequis }
+ *  - prérequis du catalogue : { type_piece, nom, proprietaire, prerequis }
  */
 function renderCascade(nodes) {
   if (!Array.isArray(nodes) || nodes.length === 0) return '';
   return `<ul class="cascade">${nodes.map(n => `
     <li>
       <span class="cascade-node">
-        <span>${escapeHtml(nomPiece(n.type_piece))}</span>
+        <span>${escapeHtml(n.nom || nomPiece(n.type_piece))}</span>
         <span class="cascade-owner">(${escapeHtml(PROPRIETAIRES[n.proprietaire] || n.proprietaire || '—')})</span>
         ${n.statut ? statusBadge(n.statut) : ''}
       </span>
-      ${renderCascade(n.sous_prerequis)}
+      ${renderCascade(n.sous_prerequis || n.prerequis)}
     </li>`).join('')}</ul>`;
 }
 

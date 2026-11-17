@@ -1326,3 +1326,108 @@ input[type="password"]::-ms-clear {
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 .gap-2 { gap: var(--space-2); }
 .gap-4 { gap: var(--space-4); }
+
+/* --- Pièce du citoyen (pages/piece.html) --- */
+.piece-doc {
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--blanc);
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-10) var(--space-8) var(--space-8);
+  overflow: hidden;
+}
+.piece-flag {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--rouge) 50%, var(--vert) 50%);
+}
+.piece-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--gris-200);
+  margin-bottom: var(--space-6);
+}
+.piece-brand {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  color: var(--vert);
+}
+.piece-source {
+  font-size: var(--font-size-sm);
+  color: var(--gris-500);
+}
+.piece-stamp {
+  border: 2px solid var(--rouge);
+  color: var(--rouge);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.05em;
+  transform: rotate(-4deg);
+}
+.piece-title {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--gris-800);
+  margin-bottom: var(--space-2);
+}
+.piece-holder {
+  color: var(--gris-600);
+  margin-bottom: var(--space-6);
+}
+.piece-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-6);
+}
+.piece-table th,
+.piece-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--gris-200);
+  text-align: left;
+  vertical-align: top;
+  font-size: var(--font-size-sm);
+}
+.piece-table th {
+  width: 38%;
+  color: var(--gris-500);
+  font-weight: 600;
+}
+.piece-footer {
+  font-size: var(--font-size-xs);
+  color: var(--gris-500);
+  border-top: 1px dashed var(--gris-300);
+  padding-top: var(--space-4);
+}
+.piece-footer p + p {
+  margin-top: var(--space-2);
+}
+.piece-ref {
+  font-family: monospace;
+}
+
+@media (max-width: 600px) {
+  .piece-doc { padding: var(--space-8) var(--space-4) var(--space-6); }
+  .piece-header { flex-direction: column; }
+  .piece-table th { width: auto; }
+}
+
+/* --- Impression : seule la pièce est imprimée --- */
+@media print {
+  .sidebar, .topbar, .no-print, .toast-container { display: none !important; }
+  .app-layout, .main-content, .page-content { display: block; margin: 0 !important; padding: 0 !important; }
+  body { background: #fff; }
+  .piece-doc { border: none; box-shadow: none; max-width: none; padding: 0; }
+  .piece-flag { position: static; margin-bottom: var(--space-4); }
+  .piece-flag, .piece-stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
