@@ -30,7 +30,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "IUE-BF-000001"
+            example: "784302956148"
           description: Identifiant Unique Électronique du citoyen
         - name: champs
           in: query
@@ -64,7 +64,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "IUE-BF-000001"
+            example: "784302956148"
       responses:
         "200":
           description: Liens de filiation trouvés
@@ -128,7 +128,7 @@ components:
       properties:
         iue:
           type: string
-          example: "IUE-BF-000001"
+          example: "784302956148"
         nom:
           type: string
           example: "OUEDRAOGO"
@@ -152,11 +152,11 @@ components:
         pere_iue:
           type: string
           nullable: true
-          example: "IUE-BF-000010"
+          example: "291047583620"
         mere_iue:
           type: string
           nullable: true
-          example: "IUE-BF-000011"
+          example: "638501274093"
         date_deces:
           type: string
           format: date

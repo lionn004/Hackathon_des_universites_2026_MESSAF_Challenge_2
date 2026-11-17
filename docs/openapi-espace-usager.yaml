@@ -51,7 +51,7 @@ paths:
               properties:
                 iue:
                   type: string
-                  example: "IUE-BF-000001"
+                  example: "784302956148"
                 mot_de_passe:
                   type: string
                   format: password
@@ -87,7 +87,7 @@ paths:
               properties:
                 iue:
                   type: string
-                  example: "IUE-BF-000001"
+                  example: "784302956148"
                 mot_de_passe:
                   type: string
                   format: password
@@ -610,7 +610,7 @@ paths:
                   format: uuid
                 iue_citoyen:
                   type: string
-                  example: "IUE-BF-000001"
+                  example: "784302956148"
                 demarche_id:
                   type: string
                   example: "inscription-universite"
@@ -683,7 +683,7 @@ components:
       properties:
         iue:
           type: string
-          example: "IUE-BF-000001"
+          example: "784302956148"
         nom:
           type: string
           example: "OUEDRAOGO"

@@ -299,7 +299,7 @@ components:
       properties:
         iue_citoyen:
           type: string
-          example: "IUE-BF-000001"
+          example: "784302956148"
         demarche_id:
           type: string
           example: "inscription-universite"

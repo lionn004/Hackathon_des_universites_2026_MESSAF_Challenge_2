@@ -143,13 +143,13 @@ components:
         titulaire_iue:
           type: string
           description: IUE du propriétaire des données consultées
-          example: "IUE-BF-000001"
+          example: "784302956148"
         decideur_iue:
           type: string
           description: |
             IUE de la personne qui a autorisé l'accès.
             Identique au titulaire sauf pour les mineurs (c'est le tuteur).
-          example: "IUE-BF-000010"
+          example: "291047583620"
         administration:
           type: object
           properties:

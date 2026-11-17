@@ -65,6 +65,6 @@ si le contrat est respecté.
 - **Auth** : JWT Bearer token dans le header `Authorization`
 - **Erreurs** : Format uniforme `{ code: string, message: string }`
 - **Pagination** : `{ page, limite, total, pages }`
-- **IUE** : Format `IUE-BF-XXXXXX`
+- **IUE** : Format `12 chiffres aléatoires (ex: 784302956148)`
 - **Dates** : ISO 8601 (`2026-01-15` ou `2026-01-15T10:30:00Z`)
 - **IDs internes** : UUID v4
