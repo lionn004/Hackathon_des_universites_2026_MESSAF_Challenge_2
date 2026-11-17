@@ -52,6 +52,8 @@ Arrêter : `docker compose down`. Repartir de zéro (efface la base) : `docker c
 | Fatimata SAWADOGO | `638501274093` | `Fatimata2026!` | Mère d'Amadou |
 | Awa OUEDRAOGO | `456123789012` | — | Mineure (12 ans), compte géré par Ibrahim |
 | Moussa OUEDRAOGO | `527814903361` | — | Mineur (16 ans), transfert de compte recommandé |
+| Salif OUEDRAOGO | `316580942751` | *pas de compte* | Majeur, connu de l'état civil mais **pas encore inscrit** : sert à l'inscription en direct |
+| Aïcha OUEDRAOGO | `873045129604` | — | Fille de Salif (5 ans), rattachée automatiquement à son père quand il s'inscrit |
 
 Ces mots de passe sont uniquement des mots de passe de démonstration.
 
@@ -137,6 +139,32 @@ curl "http://localhost:3000/api/test/requetes/<REQUETE_ID>?administration_id=000
 
 ```bash
 curl http://localhost:3000/api/journal -H "Authorization: Bearer $TOKEN"
+```
+
+### Inscription en direct
+
+Salif OUEDRAOGO est connu de l'état civil mais n'a pas encore de compte. Il s'inscrit en ne donnant que son IUE, un mot de passe et son téléphone :
+
+```bash
+curl -X POST http://localhost:3000/api/auth/inscription \
+  -H "Content-Type: application/json" \
+  -d '{"iue":"316580942751","mot_de_passe":"Salif2026!","telephone":"+22670998877"}'
+# → 201 {"token":"...","citoyen":{"iue":"316580942751","nom":"OUEDRAOGO","prenom":"Salif",...}}
+```
+
+Son nom n'a été saisi nulle part : la plateforme l'a lu à l'état civil. Sa fille mineure Aïcha a été **détectée et rattachée automatiquement** à son compte :
+
+```bash
+curl http://localhost:3000/api/enfants -H "Authorization: Bearer <TOKEN_DE_SALIF>"
+# → {"enfants":[{"iue":"873045129604","prenom":"Aïcha","age":5,"transfert_recommande":false,...}]}
+```
+
+La même inscription peut se faire depuis la documentation Swagger (http://localhost:3010, `POST /auth/inscription`, « Try it out ») : l'exemple pré-rempli est celui de Salif.
+
+**Rejouer la démonstration** (supprime uniquement les comptes de Salif et d'Aïcha) :
+
+```bash
+docker compose exec espace-usager node scripts/reinitialiser-inscription-demo.js
 ```
 
 ### Cloisonnement par mission

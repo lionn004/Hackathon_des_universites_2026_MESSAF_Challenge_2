@@ -8,6 +8,10 @@
  * Awa (12 ans) et Moussa (16 ans) n'ont pas de mot de passe : leurs comptes
  * sont gérés par Ibrahim. Pour Moussa, le transfert de compte est recommandé.
  *
+ * Salif (316580942751) et sa fille Aïcha n'ont volontairement PAS de compte :
+ * Salif sert à la démonstration de l'inscription en direct.
+ * Pour rejouer cette démonstration : scripts/reinitialiser-inscription-demo.js
+ *
  * Création seule (upsert avec update vide) : un mot de passe changé pendant la
  * démo n'est pas écrasé au redémarrage du conteneur.
  * Lancement manuel : `npm run db:seed`.
