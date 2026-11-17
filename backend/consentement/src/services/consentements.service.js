@@ -235,6 +235,26 @@ async function answer(id, citizen, body) {
   return toContract(await consentementModel.findById(id));
 }
 
+/**
+ * GET /interne/consentements/{id} — statut d'une demande, pour la passerelle.
+ *
+ * Route interne sans jeton citoyen : la passerelle l'appelle quand une
+ * administration privée consulte sa requête, pour savoir si le citoyen a
+ * accepté, refusé, ou laissé expirer la demande.
+ *
+ * @param {string} id UUID de la demande.
+ * @returns {Promise<object>} Consentement (statut à jour, expiration comprise).
+ * @throws {AppError} 404 CONSENTEMENT_NON_TROUVE
+ */
+async function getInternal(id) {
+  await consentementModel.expireOverdue(new Date());
+  const consent = UUID_REGEX.test(id) ? await consentementModel.findById(id) : null;
+  if (!consent) {
+    throw new AppError(404, 'CONSENTEMENT_NON_TROUVE', 'Aucune demande de consentement trouvée avec cet identifiant');
+  }
+  return toContract(consent);
+}
+
 module.exports = {
-  createRequest, listForCitizen, countPending, getForCitizen, answer,
+  createRequest, listForCitizen, countPending, getForCitizen, answer, getInternal,
 };

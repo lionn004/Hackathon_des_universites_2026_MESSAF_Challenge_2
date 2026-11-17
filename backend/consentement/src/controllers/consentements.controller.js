@@ -34,6 +34,11 @@ async function create(req, res) {
   res.status(201).json(await consentementsService.createRequest(req.body));
 }
 
+/** GET /api/interne/consentements/:id — statut d'une demande, pour la passerelle. */
+async function getInternal(req, res) {
+  res.status(200).json(await consentementsService.getInternal(req.params.id));
+}
+
 module.exports = {
-  list, countPending, getOne, answer, create,
+  list, countPending, getOne, answer, create, getInternal,
 };

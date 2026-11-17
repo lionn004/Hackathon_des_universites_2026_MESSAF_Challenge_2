@@ -60,4 +60,26 @@ async function filter(body) {
   };
 }
 
-module.exports = { filter };
+/**
+ * GET /minimisation/regles/{demarche_id} — règles d'une démarche (interne).
+ *
+ * Utilisé par la passerelle pour savoir quels registres interroger, quels champs
+ * demander au citoyen, et pour afficher champs_requis dans son catalogue.
+ * Ce service reste ainsi l'unique source de vérité des règles de minimisation.
+ *
+ * @param {string} demarcheId
+ * @returns {Promise<{demarche_id: string, champs_requis: Array<{registre: string, champs: string[]}>}>}
+ * @throws {AppError} 404 DEMARCHE_INCONNUE si aucune règle n'existe.
+ */
+async function getRules(demarcheId) {
+  const rules = await champsDemarcheModel.findRulesForDemarche(demarcheId);
+  if (rules.length === 0) {
+    throw new AppError(404, 'DEMARCHE_INCONNUE', `Aucune règle de minimisation pour la démarche « ${demarcheId} »`);
+  }
+  return {
+    demarche_id: demarcheId,
+    champs_requis: rules.map((r) => ({ registre: r.registre, champs: r.champs })),
+  };
+}
+
+module.exports = { filter, getRules };

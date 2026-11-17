@@ -1,0 +1,126 @@
+// Passerelle d'échange — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=passerelle).
+//
+// La passerelle possède le CATALOGUE (administrations, démarches, types de
+// pièces et leurs prérequis, cloisonnement par mission) et l'historique des
+// REQUÊTES des administrations. Les règles de minimisation (champs par démarche)
+// appartiennent au service consentement : la passerelle les lui demande.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TypeAdministration {
+  publique
+  privee
+}
+
+// À qui appartient une pièce prérequise, par rapport au propriétaire de la pièce parente.
+enum Proprietaire {
+  citoyen
+  pere
+  mere
+}
+
+// Cycle de vie d'une requête :
+//  - admin publique : directement « complete » ;
+//  - admin privée : en_attente_consentement → consentement_accepte → complete,
+//    ou → consentement_refuse / expire.
+enum StatutRequete {
+  en_attente_consentement
+  consentement_accepte
+  consentement_refuse
+  expire
+  complete
+}
+
+// Administration (publique ou privée) qui consomme des données via la passerelle.
+// Les UUID sont les identifiants fixes de référence de CLAUDE.md.
+model Administration {
+  id              String             @id @db.Uuid
+  nom             String
+  type            TypeAdministration
+  domaine_mission String
+  demarches       Demarche[]
+}
+
+// Cloisonnement par domaine de mission : pour un domaine et un registre,
+// les seuls champs qu'une administration de ce domaine peut obtenir.
+// Absence de ligne = aucun accès à ce registre.
+model AccesMission {
+  id               String   @id @default(uuid()) @db.Uuid
+  domaine_mission  String
+  registre         String
+  champs_autorises String[]
+
+  @@unique([domaine_mission, registre])
+}
+
+// Type de pièce (ex : casier-judiciaire) et registre qui la détient.
+model TypePiece {
+  id              String           @id
+  nom             String
+  registre_source String
+  // true si la pièce peut changer dans le temps (casier, situation fiscale).
+  est_evolutive   Boolean          @default(false)
+  prerequis       PrerequisPiece[] @relation("piece")
+  requisPar       PrerequisPiece[] @relation("prerequis")
+  demarches       DemarchePiece[]
+}
+
+// Arête de l'arbre de dépendances : type_piece exige prerequis, appartenant à
+// « proprietaire » (le titulaire de la pièce parente, son père ou sa mère).
+model PrerequisPiece {
+  id            String       @id @default(uuid()) @db.Uuid
+  type_piece_id String
+  prerequis_id  String
+  proprietaire  Proprietaire
+  piece         TypePiece    @relation("piece", fields: [type_piece_id], references: [id])
+  prerequis     TypePiece    @relation("prerequis", fields: [prerequis_id], references: [id])
+
+  @@unique([type_piece_id, prerequis_id, proprietaire])
+}
+
+// Démarche administrative (ex : inscription-universite) et administration cible.
+model Demarche {
+  id                String          @id
+  nom               String
+  description       String
+  administration_id String          @db.Uuid
+  administration    Administration  @relation(fields: [administration_id], references: [id])
+  pieces            DemarchePiece[]
+}
+
+// Pièces dont la démarche a besoin (racines de la cascade de résolution).
+model DemarchePiece {
+  demarche_id   String
+  type_piece_id String
+  demarche      Demarche  @relation(fields: [demarche_id], references: [id])
+  type_piece    TypePiece @relation(fields: [type_piece_id], references: [id])
+
+  @@id([demarche_id, type_piece_id])
+}
+
+// Requête d'une administration sur un citoyen, pour une démarche.
+model Requete {
+  id                String        @id @db.Uuid
+  administration_id String        @db.Uuid
+  iue_citoyen       String        @db.VarChar(12)
+  demarche_id       String
+  statut            StatutRequete
+  consentement_id   String?       @db.Uuid
+  // Données filtrées transmises (uniquement quand statut = complete).
+  donnees           Json?
+  // Résultat de la résolution en cascade des prérequis.
+  cascade           Json?
+  date_creation     DateTime      @default(now())
+  date_expiration   DateTime?
+  date_reponse      DateTime?
+
+  @@index([administration_id, date_creation])
+}

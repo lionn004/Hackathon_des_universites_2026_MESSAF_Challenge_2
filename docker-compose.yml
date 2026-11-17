@@ -84,5 +84,35 @@ services:
       postgres:
         condition: service_healthy
 
+  # Couche 2 — Passerelle d'échange (:3004). Les URL des registres sont
+  # configurables : c'est ici que le jury peut brancher le registre d'une autre équipe.
+  passerelle:
+    build: ./backend/passerelle
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=passerelle
+      JWT_SECRET: ${JWT_SECRET:-dlnuf-dev-secret-a-changer}
+      REGISTRE_ETAT_CIVIL_URL: ${REGISTRE_ETAT_CIVIL_URL:-http://registre-etat-civil:3001/api}
+      REGISTRE_JUSTICE_URL: ${REGISTRE_JUSTICE_URL:-http://registre-justice:3002/api}
+      REGISTRE_FISCAL_URL: ${REGISTRE_FISCAL_URL:-http://registre-fiscal:3003/api}
+      CONSENTEMENT_URL: http://consentement:3005/api
+      JOURNAL_URL: http://journal:3006/api
+      BFF_URL: http://espace-usager:3000/api
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      registre-etat-civil:
+        condition: service_started
+      registre-justice:
+        condition: service_started
+      registre-fiscal:
+        condition: service_started
+      consentement:
+        condition: service_started
+      journal:
+        condition: service_started
+
 volumes:
   pgdata:
