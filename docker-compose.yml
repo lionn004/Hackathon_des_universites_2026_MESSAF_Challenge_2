@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dlnuf
+      POSTGRES_PASSWORD: dlnuf
+      POSTGRES_DB: dlnuf
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dlnuf -d dlnuf"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  registre-etat-civil:
+    build: ./backend/registres/etat-civil
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=etat_civil
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

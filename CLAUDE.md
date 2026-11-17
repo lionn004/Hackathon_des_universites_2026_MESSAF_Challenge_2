@@ -329,10 +329,10 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 ## Structure du projet
 
 ```
-dlnuf/
+/
 ├── CLAUDE.md                    ← ce fichier
-├── docker-compose.yml
-├── api-contracts/               ← Spécifications OpenAPI
+├── docker-compose.yml           ← PostgreSQL + tous les services, une seule commande
+├── docs/                        ← Spécifications OpenAPI (source de vérité)
 │   ├── openapi-espace-usager.yaml      (BFF :3000)
 │   ├── openapi-passerelle.yaml         (:3004)
 │   ├── openapi-consentement.yaml       (:3005)
@@ -340,20 +340,48 @@ dlnuf/
 │   ├── openapi-registre-etat-civil.yaml (:3001)
 │   ├── openapi-registre-justice.yaml    (:3002)
 │   └── openapi-registre-fiscal.yaml     (:3003)
-├── registres/
-│   ├── etat-civil/              ← Service registre état-civil
-│   ├── justice/                 ← Service registre justice
-│   └── fiscal/                  ← Service registre fiscal
-├── passerelle/                  ← Service passerelle d'échange
-├── consentement/                ← Service consentement & minimisation
-├── journal/                     ← Service journal de traçabilité
-├── espace-usager/
-│   ├── backend/                 ← BFF (Backend for Frontend)
-│   └── frontend/                ← Pages HTML/CSS/JS
-└── shared/                      ← Code partagé (types, utils, seed)
-    ├── prisma/                  ← Schéma Prisma commun
-    └── seed/                    ← Données de test
+├── backend/                     ← tous les services Node/Express
+│   ├── registres/
+│   │   ├── etat-civil/          ← Service registre état-civil (gabarit de référence)
+│   │   ├── justice/             ← Service registre justice
+│   │   └── fiscal/              ← Service registre fiscal
+│   ├── passerelle/              ← Service passerelle d'échange
+│   ├── consentement/            ← Service consentement & minimisation
+│   ├── journal/                 ← Service journal de traçabilité
+│   └── espace-usager/           ← BFF (Backend for Frontend) :3000
+└── frontend/                    ← Espace usager HTML/CSS/JS + interface de test
 ```
+
+Séparation des équipes : `frontend/` ne parle qu'au BFF (`http://localhost:3000/api`, contrat `docs/openapi-espace-usager.yaml`) et ne dépend d'aucun fichier de `backend/`. Le backend ne modifie pas `frontend/`.
+
+### Structure interne d'un service (architecture en couches)
+
+Chaque service est une application Express autonome (son propre `package.json`, `Dockerfile`, `prisma/schema.prisma`) :
+
+```
+<service>/
+├── Dockerfile
+├── package.json
+├── .env.example
+├── prisma/
+│   ├── schema.prisma            ← uniquement les tables de CE service
+│   └── seed.js                  ← données de démo de CE service (idempotent, upsert)
+└── src/
+    ├── server.js                ← app.listen
+    ├── app.js                   ← création de l'app Express, montage des routes sous /api, errorHandler
+    ├── config/                  ← lecture des variables d'environnement
+    ├── routes/                  ← URL + verbe → controller (+ middlewares auth/validation)
+    ├── controllers/             ← lit req, appelle un service, choisit le code HTTP, renvoie res. Aucune logique métier.
+    ├── services/                ← logique métier. Ne connaît ni req ni res.
+    ├── models/                  ← accès aux données via Prisma (prisma.js = instance unique). Aucune règle métier.
+    ├── clients/                 ← appels HTTP vers d'autres services (passerelle et BFF uniquement)
+    ├── middlewares/             ← auth JWT, errorHandler, validation
+    └── utils/                   ← AppError, helpers
+```
+
+Règle : chaque couche n'appelle que la couche immédiatement inférieure (routes → controllers → services → models/clients). Les erreurs métier sont levées avec `AppError(statut, code, message)` et converties en `{ code, message }` par `errorHandler`.
+
+Les petits utilitaires (`AppError`, `errorHandler`) sont dupliqués dans chaque service plutôt que partagés, pour que chaque service se construise seul (contexte Docker indépendant) et qu'un registre reste remplaçable.
 
 ---
 
@@ -430,9 +458,18 @@ Préparer les données suivantes pour le développement et la démo :
 
 ---
 
+## Workflow Git
+
+- Jamais de commit direct sur `main` : une branche courte par fonctionnalité (`backend/<fonctionnalite>`, `frontend/<fonctionnalite>`), fusionnée via une **Pull Request** GitHub.
+- `main` doit toujours démarrer avec `docker compose up`.
+- Message de commit : `Prénom: description en français` (ex : `Axel: registre état-civil — routes et seed`).
+- Avant de pousser : `git pull --rebase origin main`, vérifier que tout démarre.
+- Les contrats `docs/*.yaml` sont l'interface frontend/backend : prévenir l'autre équipe avant de les modifier.
+
 ## Conventions de code
 
-- **Langue du code** : anglais (noms de variables, fonctions, routes)
+- **Langue du code** : anglais (noms de variables, fonctions)
+- **Routes et champs JSON** : en français, exactement comme dans les contrats `docs/*.yaml` (obligatoire pour l'interopérabilité). Les fichiers sont nommés d'après la ressource du contrat (`citoyens.routes.js`, `requetes.controller.js`).
 - **Langue des données** : français (noms des administrations, messages d'erreur, etc.)
 - **API** : REST, préfixe `/api/`
 - **Auth** : JWT Bearer token dans header `Authorization`
@@ -440,4 +477,5 @@ Préparer les données suivantes pour le développement et la démo :
 - **Pagination** : `{ page, limite, total, pages }`
 - **IDs** : UUID v4 pour les IDs internes, 12 chiffres pour les IUE
 - **Dates** : ISO 8601
-- **ORM** : Prisma — chaque service a son propre client Prisma pointant vers la même base PostgreSQL (ou des bases séparées par service en production)
+- **ORM** : Prisma 6 (version figée `6.19.3`) — **un `schema.prisma` par service**. Tous les services partagent la même instance PostgreSQL mais chacun a son propre schéma PostgreSQL via `DATABASE_URL=...?schema=<service>` (ex : `etat_civil`, `journal`). Aucun service ne lit les tables d'un autre : il passe par son API.
+- **IUE** : 12 chiffres (`^[0-9]{12}$`). Aucun autre format.
