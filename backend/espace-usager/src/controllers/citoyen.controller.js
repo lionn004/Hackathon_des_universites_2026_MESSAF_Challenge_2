@@ -42,6 +42,11 @@ async function getDemande(req, res) {
   res.status(200).json(await demandesService.get(req.citoyen.iue, req.params.id));
 }
 
+/** GET /api/demandes/:id/contenu — contenu de la pièce, lu à l'instant dans son registre. */
+async function getDemandeContent(req, res) {
+  res.status(200).json(await demandesService.getContent(req.citoyen.iue, req.params.id));
+}
+
 /** GET /api/consentements?statut=&page=&limite= */
 async function listConsents(req, res) {
   res.status(200).json(await consentementsService.list(req.citoyen.iue, req.query));
@@ -74,6 +79,7 @@ module.exports = {
   listDemandes,
   createDemande,
   getDemande,
+  getDemandeContent,
   listConsents,
   getConsent,
   answerConsent,

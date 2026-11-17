@@ -17,6 +17,7 @@ router.post('/enfants/:iue/transfert', requireCitizen, asyncHandler(controller.t
 router.get('/demandes', requireCitizen, asyncHandler(controller.listDemandes));
 router.post('/demandes', requireCitizen, asyncHandler(controller.createDemande));
 router.get('/demandes/:id', requireCitizen, asyncHandler(controller.getDemande));
+router.get('/demandes/:id/contenu', requireCitizen, asyncHandler(controller.getDemandeContent));
 
 router.get('/consentements', requireCitizen, asyncHandler(controller.listConsents));
 router.get('/consentements/:id', requireCitizen, asyncHandler(controller.getConsent));
