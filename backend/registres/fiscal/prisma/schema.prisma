@@ -1,0 +1,41 @@
+// Registre fiscal — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=fiscal).
+// Les noms de champs suivent le contrat docs/openapi-registre-fiscal.yaml.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Type de contribuable (enum du contrat SituationFiscale).
+enum TypeContribuable {
+  particulier
+  entreprise_individuelle
+  societe
+}
+
+// Régime d'imposition (enum du contrat SituationFiscale) :
+// rsi = réel simplifié, rni = réel normal, cme = contribution des micro-entreprises.
+enum RegimeFiscal {
+  rsi
+  rni
+  cme
+  non_assujetti
+}
+
+// Contribuable connu de l'administration fiscale.
+// en_regle n'est pas stocké : il est calculé par le service à partir de
+// montant_impot_du (à jour = aucun impôt restant dû).
+model Contribuable {
+  iue                  String           @id @db.VarChar(12)
+  ifu                  String           @unique
+  type_contribuable    TypeContribuable
+  regime_fiscal        RegimeFiscal
+  derniere_declaration DateTime?        @db.Date
+  // Decimal plutôt que Float : un montant d'argent ne doit pas subir d'arrondi binaire.
+  montant_impot_du     Decimal?         @db.Decimal(14, 2)
+}
