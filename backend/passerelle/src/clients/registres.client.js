@@ -11,6 +11,39 @@ const { request, unexpected } = require('./http');
 /** Champs exposés par chaque route du registre justice (schémas du contrat). */
 const JUSTICE_CASIER_FIELDS = ['casier_vierge', 'condamnations', 'date_delivrance'];
 const JUSTICE_NATIONALITE_FIELDS = ['est_national', 'nationalite', 'mode_acquisition', 'date_acquisition', 'numero_certificat'];
+/** Champs du schéma DonneesEtatCivil (contrat état-civil), hors iue. */
+const ETAT_CIVIL_FIELDS = [
+  'nom', 'prenom', 'date_naissance', 'lieu_naissance', 'sexe', 'nationalite',
+  'pere_iue', 'mere_iue', 'date_deces', 'est_majeur',
+];
+/** Champs du schéma SituationFiscale (contrat fiscal), hors iue. */
+const FISCAL_FIELDS = ['ifu', 'en_regle', 'type_contribuable', 'regime_fiscal', 'derniere_declaration', 'montant_impot_du'];
+/** Identité minimale : titulaire d'une pièce, parents sur un extrait de naissance. */
+const MINIMAL_IDENTITY_FIELDS = ['iue', 'nom', 'prenom'];
+
+/**
+ * Vrai si la valeur est un objet JSON (pas null, pas un tableau).
+ * @param {*} value
+ * @returns {boolean}
+ */
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Ne garde que les champs listés (un champ absent de la réponse est ignoré).
+ *
+ * Les contrats des registres rendent ?champs= FACULTATIF : le registre d'une
+ * autre équipe peut l'ignorer et renvoyer toute la fiche. On filtre donc
+ * toujours ici, sans compter sur le registre.
+ *
+ * @param {object} data Réponse du registre.
+ * @param {string[]} fields Champs à garder.
+ * @returns {object}
+ */
+function pick(data, fields) {
+  return Object.fromEntries(fields.filter((f) => Object.hasOwn(data, f)).map((f) => [f, data[f]]));
+}
 
 /**
  * Appelle une route GET d'un registre.
@@ -100,6 +133,46 @@ async function pieceExists(typePieceId, registre, iue) {
   return data !== null;
 }
 
+/**
+ * Pour chaque pièce consultable : la route du contrat du registre qui la
+ * détient, et les champs de contenu de son schéma.
+ */
+const PIECE_SOURCES = {
+  'extrait-naissance': { read: getEtatCivil, fields: ETAT_CIVIL_FIELDS },
+  'certificat-nationalite': { read: getNationalite, fields: JUSTICE_NATIONALITE_FIELDS },
+  'casier-judiciaire': { read: getCasier, fields: JUSTICE_CASIER_FIELDS },
+  'attestation-fiscale': { read: getFiscal, fields: FISCAL_FIELDS },
+};
+
+/**
+ * Lit le contenu complet d'une pièce dans le registre qui la détient.
+ * Le registre est appelé sans ?champs= (tout le schéma est voulu), puis la
+ * réponse est filtrée sur les champs du contrat, sans l'iue (porté par le titulaire).
+ *
+ * @param {string} typePieceId Ex : "casier-judiciaire".
+ * @param {string} iue Titulaire de la pièce (12 chiffres, vérifié par l'appelant).
+ * @returns {Promise<object|null>} Champs de la pièce, ou null si le registre ne l'a pas.
+ * @throws {Error} si aucune route n'est connue pour cette pièce (catalogue et client désaccordés).
+ * @throws {AppError} 502 si le registre est injoignable ou répond une erreur.
+ */
+async function fetchPiece(typePieceId, iue) {
+  const source = PIECE_SOURCES[typePieceId];
+  if (!source) throw new Error(`Aucune route de registre connue pour la pièce « ${typePieceId} »`);
+  const data = await source.read(iue);
+  return isRecord(data) ? pick(data, source.fields) : null;
+}
+
+/**
+ * Lit l'identité minimale d'un citoyen à l'état civil.
+ * @param {string} iue 12 chiffres, vérifié par l'appelant.
+ * @returns {Promise<{iue: string, nom: string, prenom: string}|null>} null si inconnu de l'état civil.
+ * @throws {AppError} 502 si le registre est injoignable ou répond une erreur.
+ */
+async function fetchIdentity(iue) {
+  const data = await getEtatCivil(iue, MINIMAL_IDENTITY_FIELDS);
+  return isRecord(data) ? pick(data, MINIMAL_IDENTITY_FIELDS) : null;
+}
+
 module.exports = {
-  getEtatCivil, getFiliation, fetchFields, pieceExists,
+  getEtatCivil, getFiliation, fetchFields, pieceExists, fetchPiece, fetchIdentity,
 };

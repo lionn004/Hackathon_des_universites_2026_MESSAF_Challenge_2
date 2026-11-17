@@ -12,6 +12,7 @@ const router = Router();
 
 router.use(requireServiceKey);
 router.get('/citoyens/:iue', asyncHandler(controller.identity));
+router.get('/citoyens/:iue/pieces/:type_piece_id', asyncHandler(controller.piece));
 router.post('/cascade', asyncHandler(controller.cascade));
 
 module.exports = router;

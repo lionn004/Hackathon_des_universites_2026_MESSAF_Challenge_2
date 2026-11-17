@@ -347,6 +347,126 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
 
+  /interne/citoyens/{iue}/pieces/{type_piece_id}:
+    get:
+      tags: [Interne]
+      summary: Contenu d'une pièce d'un citoyen (BFF uniquement)
+      description: |
+        Protégé par la clé de service partagée (en-tête X-Cle-Service). Appelé par le BFF
+        pour GET /api/demandes/{id}/contenu, après son contrôle d'accès.
+
+        La pièce est lue dans le registre qui la détient, uniquement par les routes des
+        contrats des registres : le registre d'une autre équipe fonctionne. Le registre est
+        relu à chaque appel, sans copie stockée : une pièce évolutive (casier, situation
+        fiscale) est toujours à jour.
+
+        Ni minimisation ni journal : le citoyen (ou son tuteur) consulte ses propres
+        données, aucune administration n'y accède. La passerelle ne garde que les champs
+        des contrats, même si un registre ignore le paramètre facultatif `champs`.
+
+        | Pièce | Route du registre lue |
+        |-------|-----------------------|
+        | `extrait-naissance` | état-civil `GET /citoyens/{iue}` (+ nom des parents) |
+        | `certificat-nationalite` | justice `GET /citoyens/{iue}/nationalite` |
+        | `casier-judiciaire` | justice `GET /citoyens/{iue}/casier` |
+        | `attestation-fiscale` | fiscal `GET /citoyens/{iue}/fiscal` |
+
+        `titulaire` est toujours lu à l'état civil (`GET /citoyens/{iue}?champs=iue,nom,prenom`).
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          description: Titulaire de la pièce (le citoyen ou son enfant)
+          schema:
+            type: string
+          example: "784302956148"
+        - name: type_piece_id
+          in: path
+          required: true
+          description: "Identifiant du catalogue : extrait-naissance, certificat-nationalite, casier-judiciaire ou attestation-fiscale"
+          schema:
+            type: string
+          example: "casier-judiciaire"
+        - name: X-Cle-Service
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Contenu de la pièce
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContenuPiece"
+              examples:
+                casier-judiciaire:
+                  summary: Casier judiciaire d'Amadou
+                  value:
+                    type_piece:
+                      id: "casier-judiciaire"
+                      nom: "Casier judiciaire"
+                      registre_source: "justice"
+                      est_evolutive: true
+                    titulaire:
+                      iue: "784302956148"
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                    donnees:
+                      casier_vierge: true
+                      condamnations: []
+                      date_delivrance: "2026-11-17"
+                extrait-naissance:
+                  summary: Extrait de naissance d'Amadou (parents identifiés)
+                  value:
+                    type_piece:
+                      id: "extrait-naissance"
+                      nom: "Extrait de naissance"
+                      registre_source: "etat-civil"
+                      est_evolutive: false
+                    titulaire:
+                      iue: "784302956148"
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                    donnees:
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                      date_naissance: "1998-03-15"
+                      lieu_naissance: "Ouagadougou"
+                      sexe: "M"
+                      nationalite: "Burkinabè"
+                      pere:
+                        iue: "291047583620"
+                        nom: "OUEDRAOGO"
+                        prenom: "Ibrahim"
+                      mere:
+                        iue: "638501274093"
+                        nom: "SAWADOGO"
+                        prenom: "Fatimata"
+                      date_deces: null
+                      est_majeur: true
+        "401":
+          description: CLE_SERVICE_INVALIDE — clé de service absente ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: |
+            TYPE_PIECE_INCONNU, ou PIECE_INDISPONIBLE : la pièce ou son titulaire est absent du
+            registre (IUE mal formé compris, comme pour /interne/citoyens/{iue}). Le BFF
+            présente ce cas au citoyen comme une pièce à retirer au guichet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "502":
+          description: SERVICE_INDISPONIBLE ou SERVICE_EN_ERREUR — un registre ne répond pas, ou répond une erreur
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
   /interne/cascade:
     post:
       tags: [Interne]
@@ -482,6 +602,40 @@ components:
           type: boolean
           description: La pièce peut changer dans le temps (casier, situation fiscale)
           example: true
+
+    IdentiteMinimale:
+      type: object
+      description: Identité réduite au strict nécessaire (titulaire d'une pièce, parents d'un extrait de naissance)
+      properties:
+        iue:
+          type: string
+          example: "784302956148"
+        nom:
+          type: string
+          example: "OUEDRAOGO"
+        prenom:
+          type: string
+          example: "Amadou"
+
+    ContenuPiece:
+      type: object
+      description: Contenu d'une pièce, lu dans son registre au moment de l'appel (aucune copie stockée)
+      properties:
+        type_piece:
+          $ref: "#/components/schemas/TypePiece"
+        titulaire:
+          $ref: "#/components/schemas/IdentiteMinimale"
+        donnees:
+          type: object
+          additionalProperties: true
+          description: |
+            Champs du schéma du registre qui détient la pièce, sans `iue` (déjà dans `titulaire`) :
+            - extrait-naissance : DonneesEtatCivil (registre état-civil), où `pere` et `mere`
+              (IdentiteMinimale, ou null si le parent est inconnu de l'état civil) remplacent
+              `pere_iue` et `mere_iue` ;
+            - certificat-nationalite : CertificatNationalite (registre justice) ;
+            - casier-judiciaire : CasierJudiciaire (registre justice) ;
+            - attestation-fiscale : SituationFiscale (registre fiscal).
 
     ArbrePrerequis:
       type: object

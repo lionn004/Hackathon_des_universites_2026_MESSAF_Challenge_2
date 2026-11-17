@@ -14,4 +14,9 @@ async function cascade(req, res) {
   res.status(200).json(await interneService.cascadeForPiece(req.body));
 }
 
-module.exports = { identity, cascade };
+/** GET /api/interne/citoyens/:iue/pieces/:type_piece_id — contenu d'une pièce du citoyen. */
+async function piece(req, res) {
+  res.status(200).json(await interneService.readPiece(req.params.iue, req.params.type_piece_id));
+}
+
+module.exports = { identity, cascade, piece };

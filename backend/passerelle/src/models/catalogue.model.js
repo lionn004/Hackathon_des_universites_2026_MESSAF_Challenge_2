@@ -64,6 +64,15 @@ function findAllTypesPieces() {
 }
 
 /**
+ * Récupère un type de pièce, sans ses prérequis.
+ * @param {string} id Ex : "casier-judiciaire".
+ * @returns {Promise<object|null>}
+ */
+function findTypePiece(id) {
+  return prisma.typePiece.findUnique({ where: { id } });
+}
+
+/**
  * Récupère un type de pièce avec ses prérequis DIRECTS.
  * @param {string} id Ex : "casier-judiciaire".
  * @returns {Promise<object|null>} TypePiece + prerequis[] ({ prerequis_id, proprietaire }).
@@ -82,5 +91,6 @@ module.exports = {
   findDemarche,
   findAllDemarches,
   findAllTypesPieces,
+  findTypePiece,
   findTypePieceWithPrerequis,
 };

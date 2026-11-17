@@ -133,9 +133,9 @@ Portail web du citoyen. Fonctionnalités :
 - **Transfert de compte** : recommandation à 15 ans de transférer le contrôle à l'enfant
 - **Mes pièces** : consulter le contenu de ses propres pièces (et de celles de ses enfants) et les télécharger pour son usage personnel (voir ci-dessous)
 
-### Consultation et téléchargement de ses pièces (route à implémenter)
+### Consultation et téléchargement de ses pièces
 
-Aujourd'hui, une demande ne conserve que l'arbre des statuts de la cascade : le citoyen ne peut pas voir le **contenu** de ses pièces. Deux routes sont à ajouter, puis à reporter dans les contrats `docs/openapi-espace-usager.yaml` et `docs/openapi-passerelle.yaml`.
+Une demande ne conserve que l'arbre des statuts de la cascade : le **contenu** des pièces est lu à la demande par deux routes, décrites en détail dans les contrats `docs/openapi-espace-usager.yaml` et `docs/openapi-passerelle.yaml` (source de vérité).
 
 **BFF — `GET /api/demandes/{id}/contenu`** (JWT citoyen, `Authorization: Bearer`)
 
@@ -145,7 +145,7 @@ Aujourd'hui, une demande ne conserve que l'arbre des statuts de la cascade : le 
 
    Sinon → `404 DEMANDE_NON_TROUVEE`, sans révéler que la demande existe. Après un transfert de compte, l'ancien tuteur perd donc l'accès aux pièces de l'enfant, même pour les demandes qu'il a faites lui-même. C'est la même règle que pour les consentements, où le tuteur « perd ce droit dès qu'il a transféré le compte » (`consentements.service.js` du BFF).
 2. Si la demande n'est pas `complete` (quel que soit son statut) → `409 PIECE_INDISPONIBLE`.
-3. Appelle la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`, où `iue` est le titulaire de la pièce (le citoyen ou l'enfant). La passerelle fournit `titulaire` et `donnees` : le BFF ne fait qu'**un seul appel**.
+3. Appelle la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`, où `iue` est le titulaire de la pièce (le citoyen ou l'enfant). La passerelle fournit `type_piece`, `titulaire` et `donnees` : le BFF, qui n'a pas de catalogue local, ne fait qu'**un seul appel**.
 4. Si la passerelle répond `404 PIECE_INDISPONIBLE` alors que la demande est `complete` → `409 PIECE_INDISPONIBLE`. Ce cas arrive notamment au test du jury, quand un registre est remplacé par celui d'une autre équipe et que les anciennes demandes visent des pièces absentes du nouveau registre. La page n'a qu'un seul cas d'indisponibilité à gérer.
 
 Réponse `200` :
@@ -166,6 +166,7 @@ Lit la pièce dans son registre, **uniquement via les routes des contrats des re
 Réponse `200` :
 ```json
 {
+  "type_piece": { "id": "casier-judiciaire", "nom": "Casier judiciaire", "registre_source": "justice", "est_evolutive": true },
   "titulaire": { "iue": "784302956148", "nom": "OUEDRAOGO", "prenom": "Amadou" },
   "donnees": { "casier_vierge": true, "condamnations": [], "date_delivrance": "2026-11-17" }
 }
@@ -180,7 +181,9 @@ Réponse `200` :
 | `casier-judiciaire` | justice `GET /citoyens/{iue}/casier` | tous les champs `CasierJudiciaire` |
 | `attestation-fiscale` | fiscal `GET /citoyens/{iue}/fiscal` | tous les champs `SituationFiscale` |
 
-Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répond 404 : pièce absente). Le BFF convertit `PIECE_INDISPONIBLE` en `409` (voir l'étape 4 ci-dessus).
+`donnees` ne contient jamais `iue` (déjà dans `titulaire`). La passerelle filtre elle-même les champs (pièce, titulaire, parents) : le paramètre `?champs=` est facultatif dans les contrats des registres, et le registre d'une autre équipe peut l'ignorer et renvoyer toute la fiche.
+
+Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répond 404 : pièce ou titulaire absent, IUE mal formé compris). Le BFF convertit `PIECE_INDISPONIBLE` en `409` (voir l'étape 4 ci-dessus).
 
 **Règles**
 - Pas de minimisation : le citoyen consulte **ses propres** données, sans intermédiaire.

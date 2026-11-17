@@ -8,6 +8,9 @@
  *    présenter le document au guichet.
  * La résolution est immédiate : le statut « en_cours » n'est pas utilisé
  * aujourd'hui, il est prévu pour une résolution asynchrone future.
+ *
+ * Le contenu d'une pièce n'est jamais stocké : la passerelle le relit dans le
+ * registre à chaque consultation (GET /demandes/{id}/contenu).
  */
 const passerelleClient = require('../clients/passerelle.client');
 const identiteService = require('./identite.service');
@@ -144,6 +147,74 @@ async function get(iue, id) {
 }
 
 /**
+ * Le citoyen connecté peut-il lire les pièces de ce titulaire ?
+ * Oui s'il s'agit de lui-même, ou d'un enfant dont il est ACTUELLEMENT le
+ * tuteur (tutelle relue en base à chaque appel).
+ *
+ * @param {object} account Compte du citoyen connecté.
+ * @param {string} holderIue Titulaire de la pièce.
+ * @returns {Promise<boolean>}
+ */
+async function canReadPiecesOf(account, holderIue) {
+  if (holderIue === account.iue) return true;
+  const holder = await citoyenModel.findByIue(holderIue);
+  return holder !== null && holder.tuteur_id === account.id;
+}
+
+/**
+ * Erreur commune : la pièce ne peut pas être consultée en ligne.
+ * @returns {AppError}
+ */
+function pieceUnavailable() {
+  return new AppError(409, 'PIECE_INDISPONIBLE', 'Cette pièce n\'est pas disponible en ligne : elle est à retirer au guichet');
+}
+
+/**
+ * GET /demandes/{id}/contenu — contenu de la pièce d'une demande, lu à
+ * l'instant dans son registre (CLAUDE.md, « Consultation et téléchargement de ses pièces »).
+ *
+ * L'accès dépend du TITULAIRE de la pièce, pas de l'auteur de la demande :
+ * après un transfert de compte, l'ancien tuteur perd l'accès, même aux demandes
+ * qu'il a faites lui-même. Le registre étant relu à chaque fois, il verrait
+ * sinon les pièces ACTUELLES de l'enfant (casier, situation fiscale).
+ *
+ * @param {string} iue IUE du citoyen connecté.
+ * @param {string} id Identifiant de la demande.
+ * @returns {Promise<object>} ContenuPiece du contrat.
+ * @throws {AppError} 404 DEMANDE_NON_TROUVEE (inconnue, ou pièce d'une personne dont il
+ *                    n'est ni le titulaire ni le tuteur actuel : rien ne révèle qu'elle existe) ;
+ *                    409 PIECE_INDISPONIBLE (demande non « complete », ou pièce absente du
+ *                    registre) ; 502 si la passerelle ou un registre ne répond pas.
+ */
+async function getContent(iue, id) {
+  const account = await identiteService.getAccount(iue);
+  const demande = UUID_REGEX.test(id) ? await demandeModel.findById(id) : null;
+  if (!demande || !(await canReadPiecesOf(account, demande.titulaire_iue))) {
+    throw new AppError(404, 'DEMANDE_NON_TROUVEE', 'Aucune demande trouvée avec cet identifiant');
+  }
+  // Une pièce en fallback physique n'a pas été délivrée en ligne.
+  if (demande.statut !== 'complete') throw pieceUnavailable();
+
+  const piece = await passerelleClient.getPiece(demande.titulaire_iue, demande.type_piece_id);
+  // Demande complète mais pièce introuvable aujourd'hui (ex : registre remplacé
+  // par celui d'une autre équipe) : même réponse, un seul cas pour la page.
+  if (!piece) throw pieceUnavailable();
+
+  return {
+    demande_id: demande.id,
+    type_piece: {
+      id: piece.type_piece.id,
+      nom: piece.type_piece.nom,
+      registre_source: piece.type_piece.registre_source,
+      est_evolutive: piece.type_piece.est_evolutive,
+    },
+    titulaire: { iue: piece.titulaire.iue, nom: piece.titulaire.nom, prenom: piece.titulaire.prenom },
+    donnees: piece.donnees,
+    date_consultation: new Date().toISOString(),
+  };
+}
+
+/**
  * Nombre de demandes non finalisées (comptées « en cours » au tableau de bord) :
  * en cours de résolution, ou en attente du passage au guichet.
  * @param {object} account
@@ -154,5 +225,5 @@ function countUnfinished(account) {
 }
 
 module.exports = {
-  create, list, get, countUnfinished,
+  create, list, get, getContent, countUnfinished,
 };

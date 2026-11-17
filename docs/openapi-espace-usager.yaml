@@ -412,6 +412,162 @@ paths:
               schema:
                 $ref: "#/components/schemas/Demande"
 
+  /demandes/{id}/contenu:
+    get:
+      tags: [Demandes]
+      summary: Contenu de la pièce d'une demande (consultation, impression)
+      description: |
+        Renvoie le contenu de la pièce, lu à l'instant dans son registre par la passerelle :
+        aucune copie n'est stockée, une pièce évolutive (casier, situation fiscale) est donc
+        toujours à jour. Le frontend en fait une page imprimable portant la mention
+        « Document informatif, non officiel » ; les registres ne délivrent jamais de PDF.
+
+        Accès : le titulaire de la pièce, ou son tuteur actuel (tutelle relue à chaque
+        appel). Après un transfert de compte, l'ancien tuteur perd l'accès, même pour les
+        demandes qu'il a faites lui-même.
+
+        Ni minimisation ni journal : le citoyen consulte ses propres données, aucune
+        administration n'y accède.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Contenu de la pièce
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContenuPiece"
+              examples:
+                casier-judiciaire:
+                  summary: Casier judiciaire d'Amadou
+                  value:
+                    demande_id: "3f2b8c1e-5d4a-4e9b-9c7d-2a1b0c9d8e7f"
+                    type_piece:
+                      id: "casier-judiciaire"
+                      nom: "Casier judiciaire"
+                      registre_source: "justice"
+                      est_evolutive: true
+                    titulaire:
+                      iue: "784302956148"
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                    donnees:
+                      casier_vierge: true
+                      condamnations: []
+                      date_delivrance: "2026-11-17"
+                    date_consultation: "2026-11-17T18:00:00.000Z"
+                extrait-naissance:
+                  summary: Extrait de naissance d'Amadou (parents identifiés)
+                  value:
+                    demande_id: "8a6d2f40-1c3b-4b7e-a5d9-6e0f1a2b3c4d"
+                    type_piece:
+                      id: "extrait-naissance"
+                      nom: "Extrait de naissance"
+                      registre_source: "etat-civil"
+                      est_evolutive: false
+                    titulaire:
+                      iue: "784302956148"
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                    donnees:
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                      date_naissance: "1998-03-15"
+                      lieu_naissance: "Ouagadougou"
+                      sexe: "M"
+                      nationalite: "Burkinabè"
+                      pere:
+                        iue: "291047583620"
+                        nom: "OUEDRAOGO"
+                        prenom: "Ibrahim"
+                      mere:
+                        iue: "638501274093"
+                        nom: "SAWADOGO"
+                        prenom: "Fatimata"
+                      date_deces: null
+                      est_majeur: true
+                    date_consultation: "2026-11-17T18:00:00.000Z"
+                certificat-nationalite:
+                  summary: Certificat de nationalité d'Amadou
+                  value:
+                    demande_id: "c47e9b12-0a5f-4d3e-8b61-9f2a7c5d0e18"
+                    type_piece:
+                      id: "certificat-nationalite"
+                      nom: "Certificat de nationalité"
+                      registre_source: "justice"
+                      est_evolutive: false
+                    titulaire:
+                      iue: "784302956148"
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                    donnees:
+                      est_national: true
+                      nationalite: "Burkinabè"
+                      mode_acquisition: "naissance"
+                      date_acquisition: "1998-03-15"
+                      numero_certificat: "CN-2020-00456"
+                    date_consultation: "2026-11-17T18:00:00.000Z"
+                attestation-fiscale:
+                  summary: Attestation de situation fiscale d'Amadou
+                  value:
+                    demande_id: "5b1d0e7a-9c2f-4a68-b3e4-0d7f6a1c2b95"
+                    type_piece:
+                      id: "attestation-fiscale"
+                      nom: "Attestation de situation fiscale"
+                      registre_source: "fiscal"
+                      est_evolutive: true
+                    titulaire:
+                      iue: "784302956148"
+                      nom: "OUEDRAOGO"
+                      prenom: "Amadou"
+                    donnees:
+                      ifu: "IFU-00012345"
+                      en_regle: true
+                      type_contribuable: "particulier"
+                      regime_fiscal: "non_assujetti"
+                      derniere_declaration: "2026-03-31"
+                      montant_impot_du: 0
+                    date_consultation: "2026-11-17T18:00:00.000Z"
+        "401":
+          description: AUTH_REQUISE ou TOKEN_INVALIDE — jeton absent, invalide ou expiré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: |
+            DEMANDE_NON_TROUVEE : demande inconnue, ou pièce d'une personne dont le citoyen
+            n'est ni le titulaire ni le tuteur actuel (la réponse ne révèle pas que la demande existe).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "409":
+          description: |
+            PIECE_INDISPONIBLE : la demande n'est pas `complete` (ex : fallback_physique), ou la
+            pièce est absente du registre aujourd'hui (ex : registre remplacé par celui d'une
+            autre équipe). Dans les deux cas, la pièce est à retirer au guichet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+              example:
+                code: "PIECE_INDISPONIBLE"
+                message: "Cette pièce n'est pas disponible en ligne : elle est à retirer au guichet"
+        "502":
+          description: SERVICE_INDISPONIBLE ou SERVICE_EN_ERREUR — la passerelle ou un registre ne répond pas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
   # ═══════════════════════════════════════
   # CONSENTEMENTS (proxy)
   # ═══════════════════════════════════════
@@ -982,6 +1138,172 @@ components:
         date_completion:
           type: string
           format: date-time
+          nullable: true
+
+    PersonneIdentifiee:
+      type: object
+      description: Identité réduite au strict nécessaire (titulaire d'une pièce, parents d'un extrait de naissance)
+      properties:
+        iue:
+          type: string
+          example: "784302956148"
+        nom:
+          type: string
+          example: "OUEDRAOGO"
+        prenom:
+          type: string
+          example: "Amadou"
+
+    ContenuPiece:
+      type: object
+      description: |
+        Contenu d'une pièce, lu dans son registre au moment de la consultation (aucune copie
+        stockée). Destiné à une page imprimable marquée « Document informatif, non officiel ».
+      properties:
+        demande_id:
+          type: string
+          format: uuid
+        type_piece:
+          type: object
+          properties:
+            id:
+              type: string
+              example: "casier-judiciaire"
+            nom:
+              type: string
+              example: "Casier judiciaire"
+            registre_source:
+              type: string
+              enum: [etat-civil, justice, fiscal]
+              example: "justice"
+            est_evolutive:
+              type: boolean
+              description: La pièce peut changer dans le temps (casier, situation fiscale)
+        titulaire:
+          $ref: "#/components/schemas/PersonneIdentifiee"
+        donnees:
+          description: |
+            Champs de la pièce selon `type_piece.id`, sans `iue` (déjà dans `titulaire`) :
+            extrait-naissance → DonneesExtraitNaissance, certificat-nationalite →
+            DonneesCertificatNationalite, casier-judiciaire → DonneesCasierJudiciaire,
+            attestation-fiscale → DonneesSituationFiscale.
+          oneOf:
+            - $ref: "#/components/schemas/DonneesExtraitNaissance"
+            - $ref: "#/components/schemas/DonneesCertificatNationalite"
+            - $ref: "#/components/schemas/DonneesCasierJudiciaire"
+            - $ref: "#/components/schemas/DonneesSituationFiscale"
+        date_consultation:
+          type: string
+          format: date-time
+          description: Moment de la lecture dans le registre
+
+    DonneesExtraitNaissance:
+      type: object
+      description: Pièce extrait-naissance (registre état-civil)
+      properties:
+        nom:
+          type: string
+          example: "OUEDRAOGO"
+        prenom:
+          type: string
+          example: "Amadou"
+        date_naissance:
+          type: string
+          format: date
+          example: "1998-03-15"
+        lieu_naissance:
+          type: string
+          example: "Ouagadougou"
+        sexe:
+          type: string
+          enum: [M, F]
+        nationalite:
+          type: string
+          example: "Burkinabè"
+        pere:
+          description: Remplace pere_iue du registre ; null si le père est inconnu de l'état civil
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PersonneIdentifiee"
+        mere:
+          description: Remplace mere_iue du registre ; null si la mère est inconnue de l'état civil
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PersonneIdentifiee"
+        date_deces:
+          type: string
+          format: date
+          nullable: true
+        est_majeur:
+          type: boolean
+
+    DonneesCertificatNationalite:
+      type: object
+      description: Pièce certificat-nationalite (registre justice)
+      properties:
+        est_national:
+          type: boolean
+        nationalite:
+          type: string
+          example: "Burkinabè"
+        mode_acquisition:
+          type: string
+          enum: [naissance, naturalisation, mariage]
+        date_acquisition:
+          type: string
+          format: date
+        numero_certificat:
+          type: string
+          example: "CN-2020-00456"
+
+    DonneesCasierJudiciaire:
+      type: object
+      description: Pièce casier-judiciaire (registre justice)
+      properties:
+        casier_vierge:
+          type: boolean
+        condamnations:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              nature:
+                type: string
+              tribunal:
+                type: string
+              duree:
+                type: string
+        date_delivrance:
+          type: string
+          format: date
+
+    DonneesSituationFiscale:
+      type: object
+      description: Pièce attestation-fiscale (registre fiscal)
+      properties:
+        ifu:
+          type: string
+          description: Identifiant Fiscal Unique
+          example: "IFU-00012345"
+        en_regle:
+          type: boolean
+          description: Le citoyen est-il à jour de ses obligations fiscales ?
+        type_contribuable:
+          type: string
+          enum: [particulier, entreprise_individuelle, societe]
+        regime_fiscal:
+          type: string
+          enum: [rsi, rni, cme, non_assujetti]
+        derniere_declaration:
+          type: string
+          format: date
+          nullable: true
+        montant_impot_du:
+          type: number
+          format: float
           nullable: true
 
     ConsentementResume:

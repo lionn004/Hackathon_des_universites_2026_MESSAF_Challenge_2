@@ -2,7 +2,7 @@
  * Client de la passerelle d'échange.
  *
  * Deux familles d'appels :
- *  - routes INTERNES (identité, cascade) : protégées par la clé de service ;
+ *  - routes INTERNES (identité, cascade, contenu des pièces) : protégées par la clé de service ;
  *  - routes ADMINISTRATION (catalogue, requêtes) : utilisées par l'interface de
  *    test, avec un jeton d'administration fourni par l'appelant.
  */
@@ -35,6 +35,25 @@ async function resolveCascade(typePieceId, iue) {
   const res = await request(SERVICE, `${base()}/interne/cascade`, {
     method: 'POST', headers: internalHeaders(), body: { type_piece_id: typePieceId, iue },
   });
+  return expectOk(SERVICE, res);
+}
+
+/**
+ * Contenu d'une pièce, lu à l'instant dans son registre par la passerelle.
+ *
+ * Tout 404 de la passerelle rend la pièce non consultable : PIECE_INDISPONIBLE
+ * (pièce absente du registre, par exemple après le remplacement d'un registre
+ * au test du jury) ou TYPE_PIECE_INCONNU (catalogue modifié depuis la demande).
+ *
+ * @param {string} iue Titulaire de la pièce.
+ * @param {string} typePieceId Ex : "casier-judiciaire".
+ * @returns {Promise<{type_piece: object, titulaire: object, donnees: object}|null>} null si 404.
+ * @throws {AppError} 502 si la passerelle est injoignable ou répond une erreur inattendue.
+ */
+async function getPiece(iue, typePieceId) {
+  const url = `${base()}/interne/citoyens/${iue}/pieces/${encodeURIComponent(typePieceId)}`;
+  const res = await request(SERVICE, url, { headers: internalHeaders() });
+  if (res.status === 404) return null;
   return expectOk(SERVICE, res);
 }
 
@@ -86,6 +105,7 @@ async function getRequete(adminToken, id) {
 module.exports = {
   getIdentity,
   resolveCascade,
+  getPiece,
   listTypesPieces,
   getPrerequisTree,
   listAdministrations,
