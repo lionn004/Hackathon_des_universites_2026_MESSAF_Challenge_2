@@ -141,5 +141,15 @@ services:
       journal:
         condition: service_started
 
+  # Frontend — espace usager + interface de test, servi par nginx sur http://localhost:8080.
+  # Le navigateur appelle uniquement le BFF (http://localhost:3000/api).
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      espace-usager:
+        condition: service_started
+
 volumes:
   pgdata:

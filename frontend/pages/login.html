@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--vert-clair) 0%, var(--gris-50) 50%, var(--or-clair) 100%);
+      padding: var(--space-4);
+    }
+    .auth-card {
+      background: var(--blanc);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: var(--space-10);
+      width: 100%;
+      max-width: 440px;
+    }
+    .auth-logo {
+      text-align: center;
+      margin-bottom: var(--space-8);
+    }
+    .auth-logo h1 {
+      font-size: var(--font-size-3xl);
+      color: var(--vert);
+      font-weight: 800;
+    }
+    .auth-logo .star {
+      color: var(--or);
+      font-size: 1.5em;
+    }
+    .auth-logo p {
+      color: var(--gris-500);
+      font-size: var(--font-size-sm);
+      margin-top: var(--space-2);
+    }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin: var(--space-6) 0;
+      color: var(--gris-400);
+      font-size: var(--font-size-sm);
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gris-200);
+    }
+    .alert {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm);
+      margin-bottom: var(--space-4);
+      display: none;
+    }
+    .alert-error {
+      background: var(--rouge-clair);
+      color: var(--rouge);
+      border: 1px solid var(--rouge);
+    }
+    .alert-success {
+      background: var(--vert-clair);
+      color: var(--vert);
+      border: 1px solid var(--vert);
+    }
+    .flag-banner {
+      height: 4px;
+      background: linear-gradient(90deg, var(--vert) 33%, var(--rouge) 33% 66%, var(--or) 66%);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+    .auth-card { position: relative; overflow: hidden; padding-top: calc(var(--space-10) + 4px); }
+  </style>
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="flag-banner"></div>
+      <div class="auth-logo">
+        <h1>e<span class="star">★</span>FASO</h1>
+        <p>Portail National Citoyen — Burkina Faso</p>
+      </div>
+
+      <div id="alert" class="alert"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="iue">Identifiant Unique Électronique (IUE)</label>
+          <div class="form-input-icon">
+            <span class="icon-left">🆔</span>
+            <input type="text" id="iue" class="form-input" placeholder="784302956148" maxlength="12" pattern="\d{12}" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">
+            Mot de passe
+            <a href="/pages/mot-de-passe.html" class="form-hint">Mot de passe oublié ?</a>
+          </label>
+          <div class="form-input-icon">
+            <span class="icon-left">🔒</span>
+            <input type="password" id="password" class="form-input" placeholder="Votre mot de passe" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submitBtn">
+          Se connecter
+        </button>
+      </form>
+
+      <div class="auth-divider">ou</div>
+
+      <a href="/pages/register.html" class="btn btn-outline btn-block">
+        Créer un compte
+      </a>
+
+      <p style="text-align:center; margin-top:var(--space-6); font-size:var(--font-size-xs); color:var(--gris-500);">
+        Compte de test : 784302956148 / Amadou2026!<br>
+        Tuteur (père) : 291047583620 / Ibrahim2026!
+      </p>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    // Rediriger si déjà connecté
+    if (localStorage.getItem('efaso_token')) {
+      window.location.href = '/pages/dashboard.html';
+    }
+
+    const form = document.getElementById('loginForm');
+    const alertEl = document.getElementById('alert');
+    const submitBtn = document.getElementById('submitBtn');
+
+    function showAlert(msg, type) {
+      alertEl.textContent = msg;
+      alertEl.className = `alert alert-${type}`;
+      alertEl.style.display = 'block';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Connexion en cours...';
+      alertEl.style.display = 'none';
+
+      try {
+        await authApi.connexion(
+          document.getElementById('iue').value,
+          document.getElementById('password').value
+        );
+        window.location.href = '/pages/dashboard.html';
+      } catch (err) {
+        showAlert(err.message || 'Erreur de connexion', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Se connecter';
+      }
+    });
+  </script>
+</body>
+</html>

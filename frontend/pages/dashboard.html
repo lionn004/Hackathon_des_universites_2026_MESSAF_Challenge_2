@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau de bord — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <!-- Le layout (sidebar + topbar) est injecté par layout.js -->
+  <!-- Le contenu ci-dessous sera wrappé dans .page-content par layout.js -->
+
+  <div class="main-content">
+    <div class="page-content">
+      <!-- Bannière de bienvenue -->
+      <div class="welcome-banner" id="welcome">
+        <div>
+          <div class="identity-badge">🆔 IUE : <span id="welcome-iue">—</span></div>
+          <h2>Bonjour <span id="welcome-name">—</span></h2>
+          <p>Bienvenue sur votre espace citoyen e-FASO. Gérez vos consentements, suivez vos démarches et consultez votre journal d'accès.</p>
+        </div>
+      </div>
+
+      <!-- Alertes (tableau-de-bord.alertes) -->
+      <div id="alertes" class="mb-4"></div>
+
+      <!-- Statistiques rapides -->
+      <div class="section-header">
+        <h3 class="section-title">Vue d'ensemble</h3>
+      </div>
+      <div class="stat-cards" id="stats">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--or-clair);color:var(--or-fonce)">🔐</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-consentements">—</div>
+            <div class="stat-label">Consentements en attente</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--vert-clair);color:var(--vert-fonce)">📄</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-demandes">—</div>
+            <div class="stat-label">Demandes en cours</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#E8F4FD;color:#1976D2">📖</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-acces">—</div>
+            <div class="stat-label">Accès (30 derniers jours)</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--rouge-clair);color:var(--rouge)">👶</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-enfants">—</div>
+            <div class="stat-label">Enfants à charge</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accès rapides -->
+      <div class="section-header mt-6">
+        <h3 class="section-title">Accès rapides</h3>
+      </div>
+      <div class="quick-access">
+        <a href="/pages/consentements.html" class="quick-access-item">
+          <span class="qa-icon" style="background:var(--or-clair);color:var(--or-fonce)">🔐</span>
+          <div>
+            <div class="qa-title">Consentements</div>
+            <div class="qa-desc">Gérer les autorisations</div>
+          </div>
+        </a>
+        <a href="/pages/demandes.html" class="quick-access-item">
+          <span class="qa-icon" style="background:var(--vert-clair);color:var(--vert-fonce)">📄</span>
+          <div>
+            <div class="qa-title">Mes demandes</div>
+            <div class="qa-desc">Suivre mes pièces</div>
+          </div>
+        </a>
+        <a href="/pages/journal.html" class="quick-access-item">
+          <span class="qa-icon" style="background:#E8F4FD;color:#1976D2">📖</span>
+          <div>
+            <div class="qa-title">Journal d'accès</div>
+            <div class="qa-desc">Traçabilité complète</div>
+          </div>
+        </a>
+        <a href="/pages/test.html" class="quick-access-item">
+          <span class="qa-icon" style="background:var(--rouge-clair);color:var(--rouge)">🧪</span>
+          <div>
+            <div class="qa-title">Interface de test</div>
+            <div class="qa-desc">Simuler une requête</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Derniers consentements -->
+      <div class="section-header mt-6">
+        <h3 class="section-title">Derniers consentements</h3>
+        <a href="/pages/consentements.html" class="btn btn-sm btn-outline">Voir tout →</a>
+      </div>
+      <div class="card">
+        <table class="table" id="table-consentements">
+          <thead>
+            <tr>
+              <th>Administration</th>
+              <th>Démarche</th>
+              <th>Statut</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-consentements">
+            <tr><td colspan="4" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Derniers accès journal -->
+      <div class="section-header mt-6">
+        <h3 class="section-title">Derniers accès à vos données</h3>
+        <a href="/pages/journal.html" class="btn btn-sm btn-outline">Voir tout →</a>
+      </div>
+      <div class="card">
+        <table class="table" id="table-journal">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Administration</th>
+              <th>Démarche</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-journal">
+            <tr><td colspan="4" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    async function loadDashboard() {
+      const c = authApi.getCitoyen();
+      if (c) {
+        document.getElementById('welcome-name').textContent = c.prenom || '';
+        document.getElementById('welcome-iue').textContent = c.iue || '';
+      }
+
+      try {
+        const data = await dashboardApi.get();
+
+        // Nom du citoyen
+        if (data.citoyen?.prenom) {
+          document.getElementById('welcome-name').textContent = data.citoyen.prenom;
+        }
+
+        // Statistiques
+        document.getElementById('stat-consentements').textContent = data.consentements_en_attente ?? 0;
+        document.getElementById('stat-demandes').textContent = data.demandes_en_cours ?? 0;
+        document.getElementById('stat-acces').textContent = data.acces_recents ?? 0;
+        document.getElementById('stat-enfants').textContent = data.enfants ?? 0;
+
+        // Alertes
+        const icones = { consentement: '🔐', transfert_recommande: '👶', acces: '📖' };
+        const styles = { consentement: 'alert-warning', transfert_recommande: 'alert-info', acces: 'alert-info' };
+        document.getElementById('alertes').innerHTML = (data.alertes || []).map(a => `
+          <a href="${frontRoute(a.lien)}" class="alert ${styles[a.type] || 'alert-info'} mb-2" style="text-decoration:none">
+            <span class="alert-icon">${icones[a.type] || 'ℹ'}</span>
+            <span>${escapeHtml(a.message)}</span>
+          </a>`).join('');
+      } catch (e) {
+        console.error('Erreur tableau de bord:', e);
+      }
+
+      // Derniers consentements
+      const tbodyC = document.getElementById('tbody-consentements');
+      try {
+        const { consentements = [] } = await consentsApi.list({ limite: 5 });
+        tbodyC.innerHTML = consentements.length === 0
+          ? emptyRow(4, 'Aucun consentement pour le moment')
+          : consentements.map(c => `
+            <tr>
+              <td>${escapeHtml(c.administration_nom) || '—'}</td>
+              <td>${escapeHtml(c.demarche_nom) || '—'}</td>
+              <td>${statusBadge(c.statut)}</td>
+              <td>${formatRelative(c.date_creation)}</td>
+            </tr>
+          `).join('');
+      } catch (e) {
+        tbodyC.innerHTML = emptyRow(4, 'Erreur de chargement', true);
+      }
+
+      // Derniers accès journal
+      const tbodyJ = document.getElementById('tbody-journal');
+      try {
+        const { entrees = [] } = await journalApi.list({ limite: 5 });
+        tbodyJ.innerHTML = entrees.length === 0
+          ? emptyRow(4, 'Aucun accès enregistré')
+          : entrees.map(j => `
+            <tr>
+              <td>${statusBadge(j.type_acces)}</td>
+              <td>${escapeHtml(j.administration_nom) || '—'}</td>
+              <td>${escapeHtml(j.demarche) || '—'}</td>
+              <td>${formatRelative(j.date_acces)}</td>
+            </tr>
+          `).join('');
+      } catch (e) {
+        tbodyJ.innerHTML = emptyRow(4, 'Erreur de chargement', true);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mes demandes — e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="main-content">
+    <div class="page-content">
+      <div class="flex-between mb-4">
+        <div>
+          <h1 class="page-title">Mes demandes</h1>
+          <p class="page-subtitle">Suivez l'état de vos demandes de pièces administratives</p>
+        </div>
+        <button class="btn btn-primary" onclick="openNewDemande()">+ Nouvelle demande</button>
+      </div>
+
+      <!-- Formulaire nouvelle demande (caché) -->
+      <div class="card mb-6 hidden" id="form-demande" style="padding:var(--space-6)">
+        <h3 style="margin-bottom:var(--space-4)">📄 Nouvelle demande de pièce</h3>
+        <div class="form-group">
+          <label class="form-label" for="select-type-piece">Type de pièce</label>
+          <select class="form-input" id="select-type-piece" onchange="showPrerequis()">
+            <option value="">— Sélectionner —</option>
+          </select>
+        </div>
+        <div class="form-group" id="group-enfant" style="display:none">
+          <label class="form-label" for="select-enfant">Pour un enfant à charge (optionnel)</label>
+          <select class="form-input" id="select-enfant">
+            <option value="">— Pour moi-même —</option>
+          </select>
+        </div>
+        <div id="prereqs-info" class="hidden" style="margin-bottom:var(--space-4)">
+          <div class="alert alert-info">
+            <span class="alert-icon">🔗</span>
+            <div>
+              <strong>Prérequis résolus automatiquement</strong>
+              <div id="prereqs-text" style="margin-top:var(--space-2);font-size:var(--font-size-sm)"></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--space-3)">
+          <button class="btn btn-primary" id="btn-submit" onclick="submitDemande()">Soumettre la demande</button>
+          <button class="btn btn-outline" onclick="closeNewDemande()">Annuler</button>
+        </div>
+      </div>
+
+      <!-- Liste des demandes -->
+      <div id="demandes-list">
+        <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    let enfants = null;
+    // ?enfant=<iue> (depuis « Mes enfants ») : ouvrir le formulaire pour cet enfant
+    const enfantParam = new URLSearchParams(window.location.search).get('enfant');
+
+    function renderDemande(d) {
+      const enfant = d.pour_enfant
+        ? escapeHtml([d.pour_enfant.prenom, d.pour_enfant.nom].filter(Boolean).join(' ') || d.pour_enfant.iue)
+        : '';
+      return `
+        <div class="card mb-4" style="padding:var(--space-5)">
+          <div class="flex-between mb-2">
+            <strong style="font-size:var(--font-size-base)">${escapeHtml(d.type_piece?.nom || nomPiece(d.type_piece?.id)) || '—'}</strong>
+            ${statusBadge(d.statut)}
+          </div>
+          ${enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">👶 Pour votre enfant : ${enfant}</div>` : ''}
+          <div style="font-size:var(--font-size-sm);color:var(--gris-500);margin-bottom:var(--space-3)">
+            Créée le ${formatDate(d.date_creation)}
+            ${d.date_completion ? ` · Complétée le ${formatDate(d.date_completion)}` : ''}
+          </div>
+          ${Array.isArray(d.cascade) && d.cascade.length ? `
+            <div style="font-size:var(--font-size-sm)">
+              <strong>Chaîne de prérequis :</strong>
+              ${renderCascade(d.cascade)}
+            </div>` : ''}
+          ${d.statut === 'fallback_physique' ? `
+            <div class="alert alert-warning mt-4">
+              <span class="alert-icon">🏛</span>
+              <span>Certaines pièces (marquées « Manquant ») ne sont pas disponibles dans le système, par exemple un parent non enregistré.
+              Rendez-vous au guichet avec les documents correspondants : l'agent les saisira et la demande reprendra automatiquement.</span>
+            </div>` : ''}
+        </div>`;
+    }
+
+    async function loadDemandes() {
+      const container = document.getElementById('demandes-list');
+      try {
+        const { demandes = [] } = await demandesApi.list({ limite: 100 });
+
+        if (demandes.length === 0) {
+          container.innerHTML = `
+            <div class="card text-center" style="padding:var(--space-8)">
+              <div style="font-size:3rem;margin-bottom:var(--space-4)">📄</div>
+              <h3 style="color:var(--gris-600);margin-bottom:var(--space-2)">Aucune demande</h3>
+              <p style="color:var(--gris-400);margin-bottom:var(--space-4)">Vous n'avez pas encore fait de demande de pièce administrative.</p>
+              <button class="btn btn-primary" onclick="openNewDemande()">+ Faire une demande</button>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = demandes.map(renderDemande).join('');
+      } catch (e) {
+        container.innerHTML =
+          `<div class="alert alert-error">Erreur lors du chargement des demandes : ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function fillTypesPieces() {
+      const select = document.getElementById('select-type-piece');
+      select.innerHTML = '<option value="">— Sélectionner —</option>' +
+        CATALOGUE_PIECES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nom)}</option>`).join('');
+    }
+
+    /** Aperçu de l'arbre de prérequis de la pièce choisie (catalogue local). */
+    function showPrerequis() {
+      const id = document.getElementById('select-type-piece').value;
+      const info = document.getElementById('prereqs-info');
+      const toNodes = (pieceId, owner) => ({
+        type_piece: pieceId,
+        proprietaire: owner,
+        statut: null,
+        sous_prerequis: (CATALOGUE_PIECES.find(p => p.id === pieceId)?.prerequis || [])
+          .map(p => toNodes(p.prerequis_id, owner === 'citoyen' ? p.proprietaire : owner)),
+      });
+      const root = toNodes(id, 'citoyen');
+      if (!id || root.sous_prerequis.length === 0) {
+        info.classList.add('hidden');
+        return;
+      }
+      document.getElementById('prereqs-text').innerHTML =
+        'La plateforme récupère elle-même ces pièces auprès des registres :' +
+        renderCascade(root.sous_prerequis);
+      info.classList.remove('hidden');
+    }
+
+    async function loadEnfants() {
+      if (enfants !== null) return;
+      try {
+        const data = await enfantsApi.list();
+        enfants = data.enfants || [];
+      } catch (e) {
+        enfants = [];
+        console.error('Erreur enfants:', e);
+      }
+      if (enfants.length > 0) {
+        document.getElementById('group-enfant').style.display = 'block';
+        document.getElementById('select-enfant').innerHTML = '<option value="">— Pour moi-même —</option>' +
+          enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)} (${escapeHtml(e.iue)})</option>`).join('');
+      }
+    }
+
+    async function openNewDemande() {
+      document.getElementById('form-demande').classList.remove('hidden');
+      await loadEnfants();
+      if (enfantParam && enfants.some(e => e.iue === enfantParam)) {
+        document.getElementById('select-enfant').value = enfantParam;
+      }
+    }
+
+    function closeNewDemande() {
+      document.getElementById('form-demande').classList.add('hidden');
+      document.getElementById('prereqs-info').classList.add('hidden');
+      document.getElementById('select-type-piece').value = '';
+    }
+
+    async function submitDemande() {
+      const type_piece_id = document.getElementById('select-type-piece').value;
+      const pour_enfant_iue = document.getElementById('select-enfant').value || null;
+
+      if (!type_piece_id) {
+        showToast('Veuillez sélectionner un type de pièce', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.textContent = '⏳ Résolution de la cascade…';
+      try {
+        const demande = await demandesApi.create(type_piece_id, pour_enfant_iue);
+        if (demande.statut === 'fallback_physique') {
+          showToast('Demande créée : une pièce doit être fournie au guichet', 'warning');
+        } else {
+          showToast('Demande complétée : toutes les pièces ont été récupérées', 'success');
+        }
+        closeNewDemande();
+        loadDemandes();
+      } catch (e) {
+        showToast(e.message || 'Erreur lors de la soumission', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Soumettre la demande';
+      }
+    }
+
+    fillTypesPieces();
+    loadDemandes();
+    if (enfantParam) openNewDemande();
+  </script>
+</body>
+</html>
