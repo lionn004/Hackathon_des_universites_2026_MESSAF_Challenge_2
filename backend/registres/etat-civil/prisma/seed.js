@@ -1,4 +1,15 @@
-// Données de démo du registre état-civil. Idempotent (upsert) : peut être relancé sans risque.
+/**
+ * Données de démo du registre état-civil (famille OUEDRAOGO, voir CLAUDE.md).
+ *
+ * Idempotent : chaque citoyen est inséré ou mis à jour (upsert) selon son IUE,
+ * le script peut donc être relancé à chaque démarrage du conteneur sans doublon.
+ * Lancement manuel : `npm run db:seed`.
+ *
+ * Scénarios couverts :
+ *  - Amadou (majeur) : parents connus → cascade complète possible ;
+ *  - Ibrahim et Fatimata : leurs propres parents ne sont pas enregistrés → fallback physique ;
+ *  - Awa (12 ans) : mineure → est_majeur = false, gérée par un tuteur.
+ */
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -52,8 +63,10 @@ const citizens = [
   },
 ];
 
+/** Insère ou met à jour chaque citoyen de démo. */
 async function main() {
   for (const c of citizens) {
+    // Prisma attend un objet Date pour une colonne DATE, pas une chaîne.
     const data = { ...c, date_naissance: new Date(c.date_naissance) };
     await prisma.citoyen.upsert({ where: { iue: c.iue }, update: data, create: data });
   }

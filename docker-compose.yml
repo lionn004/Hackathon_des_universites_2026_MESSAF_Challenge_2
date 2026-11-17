@@ -1,4 +1,9 @@
+# Déploiement complet DLNUF en une seule commande : docker compose up -d --build
+# Une seule instance PostgreSQL est partagée ; chaque service utilise son
+# propre schéma PostgreSQL (paramètre ?schema= de DATABASE_URL).
+
 services:
+  # Base de données commune. Les données persistent dans le volume pgdata.
   postgres:
     image: postgres:16-alpine
     environment:
@@ -15,6 +20,7 @@ services:
       timeout: 3s
       retries: 20
 
+  # Couche 1 — Registre état-civil (:3001). Démarre seulement quand PostgreSQL est prêt.
   registre-etat-civil:
     build: ./backend/registres/etat-civil
     environment:

@@ -468,6 +468,10 @@ Préparer les données suivantes pour le développement et la démo :
 
 ## Conventions de code
 
+- **Commentaires obligatoires, en français** — le code doit toujours être bien commenté :
+  - un en-tête par fichier (rôle du fichier, couche concernée) ;
+  - un bloc JSDoc par fonction exportée (ce qu'elle fait, `@param`, `@returns`, erreurs levées) ;
+  - un commentaire sur toute logique non évidente (règle métier, écart au contrat, contrainte d'ordre).
 - **Langue du code** : anglais (noms de variables, fonctions)
 - **Routes et champs JSON** : en français, exactement comme dans les contrats `docs/*.yaml` (obligatoire pour l'interopérabilité). Les fichiers sont nommés d'après la ressource du contrat (`citoyens.routes.js`, `requetes.controller.js`).
 - **Langue des données** : français (noms des administrations, messages d'erreur, etc.)
