@@ -1,0 +1,862 @@
+openapi: 3.0.3
+info:
+  title: Espace Usager API (Backend for Frontend)
+  description: |
+    API consommée directement par le frontend React.
+    Regroupe les endpoints d'authentification, le profil citoyen,
+    les demandes de pièces, et les fonctionnalités tuteur/enfant.
+
+    Cette API sert de BFF (Backend for Frontend) : elle orchestre
+    les appels vers la passerelle, le consentement et le journal
+    pour le compte du frontend.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000/api
+    description: BFF espace usager (dev)
+
+tags:
+  - name: Authentification
+    description: Connexion, inscription et récupération de mot de passe
+  - name: Profil
+    description: Profil et informations du citoyen connecté
+  - name: Enfants
+    description: Gestion des comptes enfants (tuteur)
+  - name: Demandes
+    description: Demandes de pièces par le citoyen
+  - name: Consentements
+    description: Gestion des consentements (proxy vers service consentement)
+  - name: Journal
+    description: Journal d'accès (proxy vers service journal)
+  - name: Tableau de bord
+    description: Données agrégées pour le dashboard citoyen
+  - name: Test
+    description: Interface de test pour simuler des requêtes administration
+
+paths:
+  # ═══════════════════════════════════════
+  # AUTHENTIFICATION
+  # ═══════════════════════════════════════
+  /auth/inscription:
+    post:
+      tags: [Authentification]
+      summary: Créer un compte citoyen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iue, mot_de_passe, telephone]
+              properties:
+                iue:
+                  type: string
+                  example: "IUE-BF-000001"
+                mot_de_passe:
+                  type: string
+                  format: password
+                  minLength: 8
+                telephone:
+                  type: string
+                  example: "+22670123456"
+      responses:
+        "201":
+          description: Compte créé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthReponse"
+        "409":
+          description: IUE déjà enregistré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /auth/connexion:
+    post:
+      tags: [Authentification]
+      summary: Se connecter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iue, mot_de_passe]
+              properties:
+                iue:
+                  type: string
+                  example: "IUE-BF-000001"
+                mot_de_passe:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthReponse"
+        "401":
+          description: IUE ou mot de passe incorrect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /auth/mot-de-passe-oublie:
+    post:
+      tags: [Authentification]
+      summary: Demander la réinitialisation du mot de passe
+      description: Envoie un code de vérification par SMS au numéro associé.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iue, telephone]
+              properties:
+                iue:
+                  type: string
+                telephone:
+                  type: string
+      responses:
+        "200":
+          description: Code envoyé par SMS
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Code de vérification envoyé par SMS"
+                  token_temporaire:
+                    type: string
+                    description: Token à usage unique pour l'étape suivante
+
+  /auth/reinitialiser-mot-de-passe:
+    post:
+      tags: [Authentification]
+      summary: Réinitialiser le mot de passe avec le code SMS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token_temporaire, code_sms, nouveau_mot_de_passe]
+              properties:
+                token_temporaire:
+                  type: string
+                code_sms:
+                  type: string
+                  example: "123456"
+                nouveau_mot_de_passe:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        "200":
+          description: Mot de passe modifié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Mot de passe réinitialisé avec succès"
+
+  # ═══════════════════════════════════════
+  # PROFIL
+  # ═══════════════════════════════════════
+  /profil:
+    get:
+      tags: [Profil]
+      summary: Consulter son profil
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profil du citoyen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilCitoyen"
+
+  # ═══════════════════════════════════════
+  # ENFANTS (TUTEUR)
+  # ═══════════════════════════════════════
+  /enfants:
+    get:
+      tags: [Enfants]
+      summary: Lister les enfants rattachés
+      description: Retourne les comptes enfants dont le citoyen est tuteur.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Liste des enfants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enfants:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Enfant"
+
+  /enfants/{iue}/transfert:
+    post:
+      tags: [Enfants]
+      summary: Transférer un compte enfant
+      description: |
+        Le tuteur transfère le contrôle du compte à l'enfant (15+ ans).
+        L'enfant devra créer son propre mot de passe.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transfert initié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Transfert initié. L'enfant recevra un SMS pour créer son mot de passe."
+        "400":
+          description: Enfant trop jeune ou déjà transféré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  # ═══════════════════════════════════════
+  # DEMANDES DE PIÈCES
+  # ═══════════════════════════════════════
+  /demandes:
+    get:
+      tags: [Demandes]
+      summary: Lister ses demandes de pièces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: statut
+          in: query
+          schema:
+            type: string
+            enum: [en_cours, complete, echouee]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Liste des demandes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  demandes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Demande"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+    post:
+      tags: [Demandes]
+      summary: Créer une demande de pièce
+      description: |
+        Le citoyen demande une pièce. La passerelle résout automatiquement
+        la chaîne de dépendances en cascade.
+        Retourne la demande avec l'arbre de résolution.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type_piece_id]
+              properties:
+                type_piece_id:
+                  type: string
+                  example: "casier-judiciaire"
+                pour_enfant_iue:
+                  type: string
+                  nullable: true
+                  description: Si la demande est pour un enfant du tuteur
+      responses:
+        "201":
+          description: Demande créée avec arbre de résolution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demande"
+
+  /demandes/{id}:
+    get:
+      tags: [Demandes]
+      summary: Détail d'une demande
+      description: Inclut l'arbre de résolution cascade et le statut de chaque prérequis.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Détail de la demande
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demande"
+
+  # ═══════════════════════════════════════
+  # CONSENTEMENTS (proxy)
+  # ═══════════════════════════════════════
+  /consentements:
+    get:
+      tags: [Consentements]
+      summary: Lister les demandes de consentement
+      description: Proxy vers le service consentement.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: statut
+          in: query
+          schema:
+            type: string
+            enum: [en_attente, accepte, refuse, expire]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Liste des consentements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  consentements:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConsentementResume"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /consentements/{id}:
+    get:
+      tags: [Consentements]
+      summary: Détail d'un consentement
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Détail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentementResume"
+
+    put:
+      tags: [Consentements]
+      summary: Accepter ou refuser un consentement
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [accepte, refuse]
+      responses:
+        "200":
+          description: Décision enregistrée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentementResume"
+
+  # ═══════════════════════════════════════
+  # JOURNAL (proxy)
+  # ═══════════════════════════════════════
+  /journal:
+    get:
+      tags: [Journal]
+      summary: Consulter son journal d'accès
+      description: Proxy vers le service journal.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date_debut
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_fin
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Entrées du journal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entrees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EntreeJournal"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  # ═══════════════════════════════════════
+  # TABLEAU DE BORD
+  # ═══════════════════════════════════════
+  /tableau-de-bord:
+    get:
+      tags: [Tableau de bord]
+      summary: Données agrégées pour le dashboard
+      description: |
+        Retourne en un seul appel toutes les données nécessaires
+        pour afficher le tableau de bord du citoyen.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Données du tableau de bord
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  citoyen:
+                    type: object
+                    properties:
+                      nom:
+                        type: string
+                      prenom:
+                        type: string
+                  consentements_en_attente:
+                    type: integer
+                    example: 2
+                  demandes_en_cours:
+                    type: integer
+                    example: 1
+                  acces_recents:
+                    type: integer
+                    description: Nombre d'accès dans les 30 derniers jours
+                    example: 5
+                  enfants:
+                    type: integer
+                    description: Nombre d'enfants rattachés
+                    example: 0
+                  alertes:
+                    type: array
+                    description: Notifications importantes
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [consentement, transfert_recommande, acces]
+                        message:
+                          type: string
+                        lien:
+                          type: string
+                          description: Route frontend vers l'élément concerné
+
+  # ═══════════════════════════════════════
+  # INTERFACE DE TEST (admin simulation)
+  # ═══════════════════════════════════════
+  /test/administrations:
+    get:
+      tags: [Test]
+      summary: Lister les administrations simulées
+      responses:
+        "200":
+          description: Liste des administrations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  administrations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        nom:
+                          type: string
+                          example: "Université Joseph KI-ZERBO"
+                        type:
+                          type: string
+                          enum: [publique, privee]
+                        domaine_mission:
+                          type: string
+                          example: "education"
+
+  /test/demarches:
+    get:
+      tags: [Test]
+      summary: Lister les démarches disponibles
+      responses:
+        "200":
+          description: Liste des démarches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  demarches:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        nom:
+                          type: string
+                        administration_cible:
+                          type: string
+
+  /test/requete:
+    post:
+      tags: [Test]
+      summary: Simuler une requête d'administration
+      description: |
+        Simule une requête comme si elle venait d'une administration
+        (publique ou privée). Utile pour tester la chaîne complète :
+        passerelle → minimisation → consentement → journal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [administration_id, iue_citoyen, demarche_id]
+              properties:
+                administration_id:
+                  type: string
+                  format: uuid
+                iue_citoyen:
+                  type: string
+                  example: "IUE-BF-000001"
+                demarche_id:
+                  type: string
+                  example: "inscription-universite"
+      responses:
+        "200":
+          description: Résultat (admin publique — données retournées)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type_admin:
+                    type: string
+                    enum: [publique]
+                  donnees:
+                    type: object
+                  cascade:
+                    type: array
+                    items:
+                      type: object
+                  journal_id:
+                    type: string
+                    format: uuid
+        "202":
+          description: En attente de consentement (admin privée)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type_admin:
+                    type: string
+                    enum: [privee]
+                  consentement_id:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+                    example: "Demande de consentement envoyée au citoyen"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtenu via /auth/connexion
+
+  schemas:
+    AuthReponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token
+        citoyen:
+          type: object
+          properties:
+            iue:
+              type: string
+            nom:
+              type: string
+            prenom:
+              type: string
+            telephone:
+              type: string
+
+    ProfilCitoyen:
+      type: object
+      properties:
+        iue:
+          type: string
+          example: "IUE-BF-000001"
+        nom:
+          type: string
+          example: "OUEDRAOGO"
+        prenom:
+          type: string
+          example: "Amadou"
+        telephone:
+          type: string
+          example: "+22670123456"
+        date_inscription:
+          type: string
+          format: date-time
+        est_tuteur:
+          type: boolean
+        nombre_enfants:
+          type: integer
+
+    Enfant:
+      type: object
+      properties:
+        iue:
+          type: string
+        nom:
+          type: string
+        prenom:
+          type: string
+        date_naissance:
+          type: string
+          format: date
+        age:
+          type: integer
+        transfert_recommande:
+          type: boolean
+          description: True si l'enfant a 15 ans ou plus
+
+    Demande:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type_piece:
+          type: object
+          properties:
+            id:
+              type: string
+            nom:
+              type: string
+              example: "Casier judiciaire"
+        statut:
+          type: string
+          enum: [en_cours, complete, echouee, fallback_physique]
+        pour_enfant:
+          type: object
+          nullable: true
+          properties:
+            iue:
+              type: string
+            nom:
+              type: string
+            prenom:
+              type: string
+        cascade:
+          type: array
+          description: Arbre de résolution des dépendances
+          items:
+            type: object
+            properties:
+              type_piece:
+                type: string
+                example: "certificat-nationalite"
+              proprietaire:
+                type: string
+                enum: [citoyen, pere, mere]
+              statut:
+                type: string
+                enum: [resolu, en_cours, manquant]
+              sous_prerequis:
+                type: array
+                items:
+                  type: object
+        date_creation:
+          type: string
+          format: date-time
+        date_completion:
+          type: string
+          format: date-time
+          nullable: true
+
+    ConsentementResume:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        administration_nom:
+          type: string
+          example: "Banque Atlantique"
+        administration_type:
+          type: string
+          enum: [privee]
+        demarche_nom:
+          type: string
+          example: "Ouverture de compte bancaire"
+        champs_demandes:
+          type: array
+          items:
+            type: string
+          example: ["nom", "prenom", "nationalite"]
+        statut:
+          type: string
+          enum: [en_attente, accepte, refuse, expire]
+        date_creation:
+          type: string
+          format: date-time
+        date_expiration:
+          type: string
+          format: date-time
+
+    EntreeJournal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        administration_nom:
+          type: string
+          example: "Université Joseph KI-ZERBO"
+        administration_type:
+          type: string
+          enum: [publique, privee]
+        demarche:
+          type: string
+          example: "Inscription universitaire"
+        champs_consultes:
+          type: array
+          items:
+            type: string
+          example: ["est_majeur", "nationalite"]
+        type_acces:
+          type: string
+          enum: [direct, consentement]
+        pour_enfant:
+          type: object
+          nullable: true
+          description: Présent si l'accès concernait un enfant
+          properties:
+            iue:
+              type: string
+            nom:
+              type: string
+        date_acces:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limite:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Erreur:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "AUTH_INVALIDE"
+        message:
+          type: string
+          example: "IUE ou mot de passe incorrect"

@@ -1,0 +1,324 @@
+openapi: 3.0.3
+info:
+  title: Consentement & Minimisation API
+  description: |
+    API de gestion du consentement et de la minimisation des données.
+    Gère les demandes de consentement pour les administrations privées,
+    les notifications aux citoyens, et le filtre de champs par démarche.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3005/api
+    description: Service consentement (dev)
+
+tags:
+  - name: Consentements
+    description: Gestion des consentements citoyen
+  - name: Minimisation
+    description: Filtre de champs par démarche
+
+paths:
+  # ─── Consentements (appelé par le frontend citoyen) ───
+  /consentements:
+    get:
+      tags: [Consentements]
+      summary: Lister les demandes de consentement du citoyen connecté
+      description: Retourne toutes les demandes (en attente, acceptées, refusées, expirées).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: statut
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en_attente, accepte, refuse, expire]
+          description: Filtrer par statut
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Liste des consentements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  consentements:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Consentement"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /consentements/en-attente/count:
+    get:
+      tags: [Consentements]
+      summary: Nombre de demandes en attente
+      description: Pour le compteur du tableau de bord citoyen.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Compteur
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 2
+
+  /consentements/{id}:
+    get:
+      tags: [Consentements]
+      summary: Détail d'une demande de consentement
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Détail du consentement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Consentement"
+        "404":
+          description: Consentement non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+    put:
+      tags: [Consentements]
+      summary: Répondre à une demande de consentement
+      description: Le citoyen accepte ou refuse la demande.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [accepte, refuse]
+      responses:
+        "200":
+          description: Décision enregistrée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Consentement"
+        "400":
+          description: Demande déjà traitée ou expirée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  # ─── Consentements (appelé en interne par la passerelle) ───
+  /consentements/creer:
+    post:
+      tags: [Consentements]
+      summary: Créer une demande de consentement (interne)
+      description: |
+        Appelé par la passerelle quand une administration privée fait une requête.
+        Crée la demande + envoie notification au citoyen.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iue_citoyen, administration_id, demarche_id, champs_demandes]
+              properties:
+                iue_citoyen:
+                  type: string
+                administration_id:
+                  type: string
+                  format: uuid
+                demarche_id:
+                  type: string
+                champs_demandes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      registre:
+                        type: string
+                      champs:
+                        type: array
+                        items:
+                          type: string
+                requete_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Demande de consentement créée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Consentement"
+
+  # ─── Minimisation (appelé en interne par la passerelle) ───
+  /minimisation/filtrer:
+    post:
+      tags: [Minimisation]
+      summary: Appliquer le filtre de minimisation (interne)
+      description: |
+        Reçoit les données brutes d'un registre et la démarche,
+        retourne uniquement les champs autorisés pour cette démarche.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [demarche_id, registre, donnees_brutes]
+              properties:
+                demarche_id:
+                  type: string
+                  example: "inscription-universite"
+                registre:
+                  type: string
+                  enum: [etat-civil, justice, fiscal]
+                donnees_brutes:
+                  type: object
+                  description: Données complètes du registre
+      responses:
+        "200":
+          description: Données filtrées
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  donnees_filtrees:
+                    type: object
+                    description: Uniquement les champs autorisés
+                    example:
+                      est_majeur: true
+                      nationalite: "Burkinabè"
+                  champs_filtres:
+                    type: array
+                    description: Liste des champs qui ont été transmis
+                    items:
+                      type: string
+                    example: ["est_majeur", "nationalite"]
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Consentement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        iue_citoyen:
+          type: string
+        administration:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nom:
+              type: string
+              example: "Banque Atlantique"
+            type:
+              type: string
+              enum: [privee]
+        demarche:
+          type: object
+          properties:
+            id:
+              type: string
+            nom:
+              type: string
+              example: "Ouverture de compte bancaire"
+        champs_demandes:
+          type: array
+          description: Ce que l'administration veut consulter
+          items:
+            type: object
+            properties:
+              registre:
+                type: string
+                example: "etat-civil"
+              champs:
+                type: array
+                items:
+                  type: string
+                example: ["nom", "prenom", "nationalite"]
+        statut:
+          type: string
+          enum: [en_attente, accepte, refuse, expire]
+          example: "en_attente"
+        date_creation:
+          type: string
+          format: date-time
+        date_expiration:
+          type: string
+          format: date-time
+        date_reponse:
+          type: string
+          format: date-time
+          nullable: true
+        requete_id:
+          type: string
+          format: uuid
+          description: Référence vers la requête de la passerelle
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limite:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Erreur:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

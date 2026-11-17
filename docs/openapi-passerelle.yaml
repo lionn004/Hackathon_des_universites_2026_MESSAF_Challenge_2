@@ -1,0 +1,387 @@
+openapi: 3.0.3
+info:
+  title: Passerelle d'échange API
+  description: |
+    API centrale de la passerelle d'échange.
+    Route les requêtes entre administrations et registres.
+    Gère la résolution des chaînes de dépendances en cascade.
+    Applique le filtre de minimisation selon la démarche.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3004/api
+    description: Passerelle (dev)
+
+tags:
+  - name: Démarches
+    description: Catalogue des démarches disponibles
+  - name: Requêtes
+    description: Requêtes de données entre administrations
+  - name: Types de pièces
+    description: Catalogue des types de pièces et prérequis
+
+paths:
+  # ─── Catalogue des démarches ───
+  /demarches:
+    get:
+      tags: [Démarches]
+      summary: Lister toutes les démarches disponibles
+      description: Retourne le catalogue des démarches avec leurs prérequis et champs requis par registre.
+      responses:
+        "200":
+          description: Liste des démarches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  demarches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Demarche"
+
+  /demarches/{id}:
+    get:
+      tags: [Démarches]
+      summary: Détail d'une démarche
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "inscription-universite"
+      responses:
+        "200":
+          description: Détail de la démarche
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demarche"
+        "404":
+          description: Démarche non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  # ─── Types de pièces ───
+  /types-pieces:
+    get:
+      tags: [Types de pièces]
+      summary: Lister tous les types de pièces
+      responses:
+        "200":
+          description: Catalogue des types de pièces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  types_pieces:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TypePiece"
+
+  /types-pieces/{id}/prerequis:
+    get:
+      tags: [Types de pièces]
+      summary: Arbre de prérequis d'un type de pièce
+      description: |
+        Retourne l'arbre complet des dépendances pour obtenir cette pièce.
+        Utilisé pour la résolution en cascade.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "casier-judiciaire"
+      responses:
+        "200":
+          description: Arbre de prérequis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArbrePrerequis"
+
+  # ─── Requêtes de données ───
+  /requetes:
+    post:
+      tags: [Requêtes]
+      summary: Soumettre une requête de données
+      description: |
+        Une administration (publique ou privée) demande des données sur un citoyen
+        pour une démarche donnée. La passerelle :
+        1. Vérifie les droits (mission, type d'admin)
+        2. Résout les dépendances en cascade si nécessaire
+        3. Applique le filtre de minimisation
+        4. Crée une demande de consentement si admin privée
+        5. Retourne les données filtrées (ou un statut "en_attente_consentement")
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequeteEntree"
+      responses:
+        "200":
+          description: Données retournées (admin publique, accès direct)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequeteResultat"
+        "202":
+          description: En attente de consentement (admin privée)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequeteEnAttente"
+        "403":
+          description: Accès refusé (hors domaine de mission)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /requetes/{id}:
+    get:
+      tags: [Requêtes]
+      summary: Consulter le statut d'une requête
+      description: Permet à l'administration de vérifier si le consentement a été donné.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Statut de la requête
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequeteStatut"
+
+  /requetes/{id}/telephone:
+    get:
+      tags: [Requêtes]
+      summary: Obtenir le téléphone du citoyen pour relance
+      description: |
+        Retourne le numéro de téléphone du citoyen concerné par la requête.
+        Utilisable par l'administration pour relancer le citoyen si le consentement tarde.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Numéro de téléphone
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  telephone:
+                    type: string
+                    example: "+226 70 12 34 56"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Demarche:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "inscription-universite"
+        nom:
+          type: string
+          example: "Inscription universitaire"
+        description:
+          type: string
+          example: "Inscription dans un établissement d'enseignement supérieur"
+        administration_cible:
+          type: string
+          example: "Université Joseph KI-ZERBO"
+        champs_requis:
+          type: array
+          description: Champs nécessaires par registre pour cette démarche
+          items:
+            type: object
+            properties:
+              registre:
+                type: string
+                enum: [etat-civil, justice, fiscal]
+                example: "etat-civil"
+              champs:
+                type: array
+                items:
+                  type: string
+                example: ["est_majeur", "nationalite"]
+        prerequis_pieces:
+          type: array
+          description: Types de pièces prérequises pour cette démarche
+          items:
+            type: string
+            example: "certificat-nationalite"
+
+    TypePiece:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "casier-judiciaire"
+        nom:
+          type: string
+          example: "Casier judiciaire"
+        registre_source:
+          type: string
+          enum: [etat-civil, justice, fiscal]
+          example: "justice"
+        est_evolutive:
+          type: boolean
+          description: La pièce peut changer dans le temps (casier, situation fiscale)
+          example: true
+
+    ArbrePreRequis:
+      type: object
+      properties:
+        type_piece:
+          type: string
+          example: "casier-judiciaire"
+        prerequis:
+          type: array
+          items:
+            type: object
+            properties:
+              type_piece:
+                type: string
+                example: "certificat-nationalite"
+              proprietaire:
+                type: string
+                enum: [citoyen, pere, mere]
+                example: "citoyen"
+              prerequis:
+                type: array
+                description: Sous-prérequis (récursif)
+                items:
+                  type: object
+                  properties:
+                    type_piece:
+                      type: string
+                      example: "extrait-naissance"
+                    proprietaire:
+                      type: string
+                      example: "pere"
+                    prerequis:
+                      type: array
+                      items: {}
+
+    RequeteEntree:
+      type: object
+      required: [iue_citoyen, demarche_id]
+      properties:
+        iue_citoyen:
+          type: string
+          example: "IUE-BF-000001"
+        demarche_id:
+          type: string
+          example: "inscription-universite"
+
+    RequeteResultat:
+      type: object
+      properties:
+        requete_id:
+          type: string
+          format: uuid
+        statut:
+          type: string
+          enum: [complete]
+        donnees:
+          type: object
+          description: Données filtrées selon la démarche, regroupées par registre
+          example:
+            etat-civil:
+              est_majeur: true
+              nationalite: "Burkinabè"
+            justice:
+              casier_vierge: true
+        cascade:
+          type: array
+          description: Résolutions de dépendances effectuées automatiquement
+          items:
+            type: object
+            properties:
+              type_piece:
+                type: string
+              proprietaire:
+                type: string
+              registre_source:
+                type: string
+              statut:
+                type: string
+                enum: [resolu, manquant_fallback_physique]
+
+    RequeteEnAttente:
+      type: object
+      properties:
+        requete_id:
+          type: string
+          format: uuid
+        statut:
+          type: string
+          enum: [en_attente_consentement]
+        consentement_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          example: "En attente du consentement du citoyen. Notification envoyée."
+
+    RequeteStatut:
+      type: object
+      properties:
+        requete_id:
+          type: string
+          format: uuid
+        statut:
+          type: string
+          enum: [en_attente_consentement, consentement_accepte, consentement_refuse, expire, complete]
+        donnees:
+          type: object
+          nullable: true
+          description: Présent uniquement si statut = complete
+        date_creation:
+          type: string
+          format: date-time
+        date_expiration:
+          type: string
+          format: date-time
+        date_reponse:
+          type: string
+          format: date-time
+          nullable: true
+
+    Erreur:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

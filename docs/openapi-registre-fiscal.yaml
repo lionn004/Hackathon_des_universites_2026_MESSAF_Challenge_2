@@ -1,0 +1,91 @@
+openapi: 3.0.3
+info:
+  title: Registre Fiscal API
+  description: |
+    API du registre simulé de l'administration fiscale.
+    Expose les données fiscales (IFU, situation fiscale) des citoyens.
+    Contrat standardisé — interchangeable avec les registres des autres équipes.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3003/api
+    description: Registre fiscal (dev)
+
+tags:
+  - name: Citoyens
+    description: Consultation des données fiscales
+
+paths:
+  /citoyens/{iue}/fiscal:
+    get:
+      tags: [Citoyens]
+      summary: Consulter la situation fiscale d'un citoyen
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "IUE-BF-000001"
+        - name: champs
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "ifu,en_regle"
+          description: Champs demandés. Si omis, retourne tout.
+      responses:
+        "200":
+          description: Données fiscales trouvées
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SituationFiscale"
+        "404":
+          description: Citoyen non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+components:
+  schemas:
+    SituationFiscale:
+      type: object
+      properties:
+        iue:
+          type: string
+          example: "IUE-BF-000001"
+        ifu:
+          type: string
+          example: "IFU-00012345"
+          description: Identifiant Fiscal Unique
+        en_regle:
+          type: boolean
+          example: true
+          description: Le citoyen est-il à jour de ses obligations fiscales ?
+        type_contribuable:
+          type: string
+          enum: [particulier, entreprise_individuelle, societe]
+          example: "particulier"
+        regime_fiscal:
+          type: string
+          enum: [rsi, rni, cme, non_assujetti]
+          example: "non_assujetti"
+        derniere_declaration:
+          type: string
+          format: date
+          nullable: true
+        montant_impot_du:
+          type: number
+          format: float
+          nullable: true
+          example: 0
+
+    Erreur:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,234 @@
+openapi: 3.0.3
+info:
+  title: Journal de Traçabilité API
+  description: |
+    API du journal de traçabilité.
+    Enregistre et expose tous les accès aux données des citoyens.
+    Double traçabilité : titulaire (propriétaire des données) + décideur (qui a autorisé).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3006/api
+    description: Service journal (dev)
+
+tags:
+  - name: Journal citoyen
+    description: Consultation du journal par le citoyen
+  - name: Journal interne
+    description: Enregistrement des accès (interne)
+
+paths:
+  # ─── Consultation par le citoyen ───
+  /journal:
+    get:
+      tags: [Journal citoyen]
+      summary: Consulter son journal d'accès
+      description: |
+        Le citoyen voit tous les accès à ses données.
+        Inclut les accès aux données de ses enfants (tuteur).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date_debut
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filtrer à partir de cette date
+        - name: date_fin
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filtrer jusqu'à cette date
+        - name: administration
+          in: query
+          schema:
+            type: string
+          description: Filtrer par nom d'administration
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Entrées du journal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entrees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EntreeJournal"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /journal/statistiques:
+    get:
+      tags: [Journal citoyen]
+      summary: Statistiques d'accès
+      description: Résumé des accès aux données du citoyen (pour le tableau de bord).
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Statistiques
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_acces:
+                    type: integer
+                    example: 15
+                  acces_30_derniers_jours:
+                    type: integer
+                    example: 3
+                  par_administration:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        administration:
+                          type: string
+                          example: "Université Joseph KI-ZERBO"
+                        nombre_acces:
+                          type: integer
+                          example: 2
+
+  # ─── Enregistrement interne ───
+  /journal/enregistrer:
+    post:
+      tags: [Journal interne]
+      summary: Enregistrer un accès (interne)
+      description: |
+        Appelé automatiquement par la passerelle à chaque transmission de données.
+        Enregistre : qui a accédé, à quelles données, pour quel citoyen, pourquoi.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NouvelAcces"
+      responses:
+        "201":
+          description: Accès enregistré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntreeJournal"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    EntreeJournal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        titulaire_iue:
+          type: string
+          description: IUE du propriétaire des données consultées
+          example: "IUE-BF-000001"
+        decideur_iue:
+          type: string
+          description: |
+            IUE de la personne qui a autorisé l'accès.
+            Identique au titulaire sauf pour les mineurs (c'est le tuteur).
+          example: "IUE-BF-000010"
+        administration:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            nom:
+              type: string
+              example: "Université Joseph KI-ZERBO"
+            type:
+              type: string
+              enum: [publique, privee]
+        demarche:
+          type: string
+          example: "Inscription universitaire"
+        registres_consultes:
+          type: array
+          items:
+            type: string
+            enum: [etat-civil, justice, fiscal]
+          example: ["etat-civil"]
+        champs_transmis:
+          type: array
+          items:
+            type: string
+          example: ["est_majeur", "nationalite"]
+        type_acces:
+          type: string
+          enum: [direct, consentement]
+          description: |
+            direct = admin publique (accès sans consentement explicite)
+            consentement = admin privée (consentement explicite du citoyen)
+        date_acces:
+          type: string
+          format: date-time
+
+    NouvelAcces:
+      type: object
+      required:
+        - titulaire_iue
+        - decideur_iue
+        - administration_id
+        - demarche_id
+        - registres_consultes
+        - champs_transmis
+        - type_acces
+      properties:
+        titulaire_iue:
+          type: string
+        decideur_iue:
+          type: string
+        administration_id:
+          type: string
+          format: uuid
+        demarche_id:
+          type: string
+        requete_id:
+          type: string
+          format: uuid
+        registres_consultes:
+          type: array
+          items:
+            type: string
+        champs_transmis:
+          type: array
+          items:
+            type: string
+        type_acces:
+          type: string
+          enum: [direct, consentement]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limite:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer

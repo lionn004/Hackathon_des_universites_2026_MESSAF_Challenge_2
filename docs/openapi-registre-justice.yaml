@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: Registre Justice API
+  description: |
+    API du registre simulé de la justice.
+    Expose les données de casier judiciaire et de nationalité.
+    Contrat standardisé — interchangeable avec les registres des autres équipes.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3002/api
+    description: Registre justice (dev)
+
+tags:
+  - name: Citoyens
+    description: Consultation des données judiciaires
+
+paths:
+  /citoyens/{iue}/casier:
+    get:
+      tags: [Citoyens]
+      summary: Consulter le casier judiciaire d'un citoyen
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "IUE-BF-000001"
+        - name: champs
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "casier_vierge"
+          description: Champs demandés. Si omis, retourne tout.
+      responses:
+        "200":
+          description: Données du casier trouvées
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CasierJudiciaire"
+        "404":
+          description: Citoyen non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /citoyens/{iue}/nationalite:
+    get:
+      tags: [Citoyens]
+      summary: Consulter le certificat de nationalité d'un citoyen
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "IUE-BF-000001"
+        - name: champs
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "est_national,date_acquisition"
+      responses:
+        "200":
+          description: Données de nationalité trouvées
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificatNationalite"
+        "404":
+          description: Citoyen non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+components:
+  schemas:
+    CasierJudiciaire:
+      type: object
+      properties:
+        iue:
+          type: string
+          example: "IUE-BF-000001"
+        casier_vierge:
+          type: boolean
+          example: true
+        condamnations:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              nature:
+                type: string
+              tribunal:
+                type: string
+              duree:
+                type: string
+        date_delivrance:
+          type: string
+          format: date
+
+    CertificatNationalite:
+      type: object
+      properties:
+        iue:
+          type: string
+          example: "IUE-BF-000001"
+        est_national:
+          type: boolean
+          example: true
+        nationalite:
+          type: string
+          example: "Burkinabè"
+        mode_acquisition:
+          type: string
+          enum: [naissance, naturalisation, mariage]
+          example: "naissance"
+        date_acquisition:
+          type: string
+          format: date
+        numero_certificat:
+          type: string
+          example: "CN-2020-00456"
+
+    Erreur:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,202 @@
+openapi: 3.0.3
+info:
+  title: Registre État-Civil API
+  description: |
+    API du registre simulé de l'état civil.
+    Expose les données de naissance, filiation et nationalité des citoyens.
+    Contrat standardisé — interchangeable avec les registres des autres équipes.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3001/api
+    description: Registre état-civil (dev)
+
+tags:
+  - name: Citoyens
+    description: Consultation des données d'état civil
+
+paths:
+  /citoyens/{iue}:
+    get:
+      tags: [Citoyens]
+      summary: Consulter les données d'état civil d'un citoyen
+      description: |
+        Retourne les champs demandés du citoyen identifié par son IUE.
+        Si `champs` est omis, retourne tous les champs disponibles.
+        Appelé uniquement par la passerelle, jamais directement par le frontend.
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "IUE-BF-000001"
+          description: Identifiant Unique Électronique du citoyen
+        - name: champs
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "nom,prenom,date_naissance,nationalite"
+          description: Liste des champs demandés, séparés par des virgules. Si omis, tous les champs sont retournés.
+      responses:
+        "200":
+          description: Données trouvées
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonneesEtatCivil"
+        "404":
+          description: Citoyen non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /citoyens/{iue}/filiation:
+    get:
+      tags: [Citoyens]
+      summary: Consulter les liens de filiation d'un citoyen
+      description: Retourne les IUE des parents et enfants liés au citoyen.
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "IUE-BF-000001"
+      responses:
+        "200":
+          description: Liens de filiation trouvés
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Filiation"
+        "404":
+          description: Citoyen non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /citoyens/recherche:
+    get:
+      tags: [Citoyens]
+      summary: Rechercher un citoyen par critères
+      description: Recherche par nom, prénom ou date de naissance (pour le fallback physique).
+      parameters:
+        - name: nom
+          in: query
+          schema:
+            type: string
+        - name: prenom
+          in: query
+          schema:
+            type: string
+        - name: date_naissance
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        iue:
+                          type: string
+                        nom:
+                          type: string
+                        prenom:
+                          type: string
+                        date_naissance:
+                          type: string
+                          format: date
+
+components:
+  schemas:
+    DonneesEtatCivil:
+      type: object
+      properties:
+        iue:
+          type: string
+          example: "IUE-BF-000001"
+        nom:
+          type: string
+          example: "OUEDRAOGO"
+        prenom:
+          type: string
+          example: "Amadou"
+        date_naissance:
+          type: string
+          format: date
+          example: "1998-03-15"
+        lieu_naissance:
+          type: string
+          example: "Ouagadougou"
+        sexe:
+          type: string
+          enum: [M, F]
+          example: "M"
+        nationalite:
+          type: string
+          example: "Burkinabè"
+        pere_iue:
+          type: string
+          nullable: true
+          example: "IUE-BF-000010"
+        mere_iue:
+          type: string
+          nullable: true
+          example: "IUE-BF-000011"
+        date_deces:
+          type: string
+          format: date
+          nullable: true
+        est_majeur:
+          type: boolean
+          example: true
+
+    Filiation:
+      type: object
+      properties:
+        iue:
+          type: string
+        parents:
+          type: array
+          items:
+            type: object
+            properties:
+              iue:
+                type: string
+              lien:
+                type: string
+                enum: [pere, mere]
+        enfants:
+          type: array
+          items:
+            type: object
+            properties:
+              iue:
+                type: string
+              lien:
+                type: string
+                enum: [fils, fille]
+
+    Erreur:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "CITOYEN_NON_TROUVE"
+        message:
+          type: string
+          example: "Aucun citoyen trouvé avec cet IUE"
