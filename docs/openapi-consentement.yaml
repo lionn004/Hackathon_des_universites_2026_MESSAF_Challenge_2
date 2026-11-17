@@ -180,6 +180,18 @@ paths:
                 requete_id:
                   type: string
                   format: uuid
+                administration_nom:
+                  type: string
+                  description: Facultatif. Nom de l'administration au moment de la demande (photo figée).
+                  example: "Banque Atlantique"
+                administration_type:
+                  type: string
+                  enum: [privee]
+                  description: Facultatif. Si fourni, doit valoir "privee" (seules les admins privées passent par le consentement).
+                demarche_nom:
+                  type: string
+                  description: Facultatif. Nom lisible de la démarche. À défaut, demarche_id est affiché.
+                  example: "Ouverture de compte bancaire"
       responses:
         "201":
           description: Demande de consentement créée
@@ -187,6 +199,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Consentement"
+        "400":
+          description: Corps invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ─── Minimisation (appelé en interne par la passerelle) ───
   /minimisation/filtrer:
@@ -233,6 +251,12 @@ paths:
                     items:
                       type: string
                     example: ["est_majeur", "nationalite"]
+        "404":
+          description: Démarche inconnue (aucune règle de minimisation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
 components:
   securitySchemes:
@@ -298,6 +322,13 @@ components:
           type: string
           format: date-time
           nullable: true
+        decideur_iue:
+          type: string
+          nullable: true
+          description: |
+            IUE de la personne qui a répondu : le citoyen, ou son tuteur s'il est mineur.
+            Null tant que la demande est en attente. Repris par la passerelle pour le journal.
+          example: "291047583620"
         requete_id:
           type: string
           format: uuid

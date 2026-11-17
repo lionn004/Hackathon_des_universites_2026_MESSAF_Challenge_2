@@ -1,0 +1,60 @@
+// Consentement & minimisation — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=consentement).
+// Les noms de champs suivent le contrat docs/openapi-consentement.yaml.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Cycle de vie d'une demande : en_attente → accepte | refuse | expire (30 jours sans réponse).
+enum StatutConsentement {
+  en_attente
+  accepte
+  refuse
+  expire
+}
+
+// Une demande de consentement, créée par la passerelle quand une
+// administration PRIVÉE demande des données sur un citoyen.
+model Consentement {
+  id                 String             @id @default(uuid()) @db.Uuid
+  // Citoyen propriétaire des données (peut être un mineur : son tuteur répond pour lui).
+  iue_citoyen        String             @db.VarChar(12)
+  administration_id  String             @db.Uuid
+  // Photo figée des noms au moment de la demande, envoyée par la passerelle (facultatif).
+  administration_nom String?
+  demarche_id        String
+  demarche_nom       String?
+  requete_id         String?            @db.Uuid
+  // Liste [{ registre, champs: [...] }] : ce que l'administration veut consulter.
+  champs_demandes    Json
+  statut             StatutConsentement @default(en_attente)
+  date_creation      DateTime           @default(now())
+  date_expiration    DateTime
+  date_reponse       DateTime?
+  // IUE de la personne qui a répondu : le citoyen lui-même, ou son tuteur s'il est mineur.
+  // Sert de "décideur" pour le journal de traçabilité.
+  decideur_iue       String?            @db.VarChar(12)
+  // Dates d'envoi des rappels SMS (null tant que le rappel n'est pas parti).
+  rappel_24h_le      DateTime?
+  rappel_72h_le      DateTime?
+
+  @@index([iue_citoyen, statut])
+  @@index([statut, date_expiration])
+}
+
+// Règle de minimisation : pour une démarche et un registre, la liste
+// exhaustive des champs autorisés. Tout champ absent de la liste est bloqué.
+model ChampsDemarche {
+  id          String   @id @default(uuid()) @db.Uuid
+  demarche_id String
+  registre    String
+  champs      String[]
+
+  @@unique([demarche_id, registre])
+}
