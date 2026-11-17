@@ -4,6 +4,7 @@
   "description": "Registre simulé de l'état civil (DLNUF) — contrat docs/openapi-registre-etat-civil.yaml",
   "main": "src/server.js",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",

@@ -348,3 +348,11 @@ Consulter les logs d'un service : `docker compose logs -f passerelle`.
 - **Équipe backend** : implémente les services dans `backend/` en respectant les contrats.
 - **Contrats** : ils sont l'interface entre les deux équipes ; prévenir l'autre équipe avant d'en modifier un.
 - **Git** : une branche courte par fonctionnalité (`backend/...`, `frontend/...`), fusionnée dans `main` par Pull Request. Messages de commit : `Prénom: description`.
+
+---
+
+## Licence
+
+Copyright 2026 Équipe MESSAF.
+
+DLNUF est un logiciel libre publié sous la **licence Apache, version 2.0** : chacun peut l'utiliser, le modifier et le redistribuer, y compris à des fins commerciales, à condition de conserver la mention de copyright et le texte de la licence. Voir les fichiers [LICENSE](LICENSE) et [NOTICE](NOTICE).
