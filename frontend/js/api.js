@@ -505,6 +505,41 @@ if (document.readyState === 'loading') {
   initPasswordToggles();
 }
 
+// ═══════════════════════════════════════
+// RECHERCHE ET FILTRES (côté navigateur)
+// ═══════════════════════════════════════
+
+/** Texte comparable : minuscules, sans accents ni espaces superflus (« Étienne » → « etienne »). */
+function normaliser(texte) {
+  return String(texte ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Vrai si chaque mot de la recherche apparaît dans l'une des valeurs.
+ * « banque nom » trouve un consentement de Banque Atlantique qui demande le nom.
+ * @param {string} recherche Texte saisi (vide → tout correspond).
+ * @param {...any} valeurs Chaînes ou tableaux de chaînes dans lesquels chercher.
+ */
+function correspond(recherche, ...valeurs) {
+  const mots = normaliser(recherche).split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return true;
+  const texte = normaliser(valeurs.flat(Infinity).filter(v => v !== null && v !== undefined).join(' '));
+  return mots.every(mot => texte.includes(mot));
+}
+
+/** Retarde l'appel de fn jusqu'à ce que l'utilisateur arrête de taper. */
+function debounce(fn, delai = 250) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delai);
+  };
+}
+
 /** Ligne de tableau « vide » ou « erreur ». */
 function emptyRow(colspan, message, isError = false) {
   const color = isError ? 'var(--rouge)' : 'var(--gris-400)';

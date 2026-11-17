@@ -39,8 +39,8 @@
 
       <!-- Filtres -->
       <div class="card mb-4">
-        <div class="flex-between" style="padding:var(--space-4)">
-          <div class="tabs" id="filter-tabs">
+        <div style="padding:var(--space-4) var(--space-4) 0">
+          <div class="tabs" id="filter-tabs" style="margin-bottom:0;flex-wrap:wrap">
             <button class="tab active" data-filter="tous">Tous</button>
             <button class="tab" data-filter="en_attente">En attente</button>
             <button class="tab" data-filter="accepte">Acceptés</button>
@@ -48,6 +48,15 @@
             <button class="tab" data-filter="expire">Expirés</button>
           </div>
         </div>
+        <div class="filter-bar">
+          <div class="filter-field grow">
+            <label for="f-recherche">Rechercher</label>
+            <div class="search-field">
+              <input type="search" class="form-input" id="f-recherche" placeholder="Administration, démarche, donnée demandée, enfant…" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="filter-count" id="f-count" aria-live="polite"></div>
       </div>
 
       <!-- Liste des consentements -->
@@ -95,12 +104,19 @@
       if (currentFilter !== 'tous') {
         items = items.filter(c => c.statut === currentFilter);
       }
+      const recherche = document.getElementById('f-recherche').value;
+      items = items.filter(c => correspond(recherche,
+        c.administration_nom, c.demarche_nom, c.champs_demandes,
+        c.pour_enfant && [c.pour_enfant.prenom, c.pour_enfant.nom]));
+      document.getElementById('f-count').textContent = recherche.trim()
+        ? `${items.length} résultat${items.length > 1 ? 's' : ''} pour « ${recherche.trim()} »`
+        : '';
 
       if (items.length === 0) {
         container.innerHTML = `
           <div class="card text-center" style="padding:var(--space-8);color:var(--gris-400)">
             <div style="font-size:2rem;margin-bottom:var(--space-2)">🔐</div>
-            <p>Aucun consentement ${currentFilter !== 'tous' ? 'avec ce statut' : 'pour le moment'}</p>
+            <p>Aucun consentement ${recherche.trim() ? 'ne correspond à votre recherche' : currentFilter !== 'tous' ? 'avec ce statut' : 'pour le moment'}</p>
           </div>`;
         return;
       }
@@ -161,6 +177,8 @@
         renderList();
       }
     });
+
+    document.getElementById('f-recherche').addEventListener('input', debounce(renderList));
 
     loadConsentements();
   </script>

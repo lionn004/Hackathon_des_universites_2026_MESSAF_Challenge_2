@@ -195,6 +195,22 @@ Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répon
 
 Interface minimale pour simuler des requêtes comme si elles venaient d'une administration (publique ou privée). Pas une vraie interface agent — chaque ministère/entreprise construit la sienne et se connecte via l'API. Cette interface sert uniquement pour la démo et les tests.
 
+### Recherche et filtres de l'espace usager
+
+Les listes qui grandissent avec le temps ont une recherche ou des filtres. Le catalogue des pièces n'est pas figé : le frontend le lit toujours via `GET /types-pieces` et ne code jamais la liste des pièces en dur.
+
+| Page | Outils | Où se fait le filtrage |
+|------|--------|------------------------|
+| Journal d'accès | recherche texte (administration, démarche, donnée consultée, enfant), type d'accès (direct / consentement), plage de dates | dates : **BFF** (`date_debut`, `date_fin`, bornes incluses) ; texte et type : navigateur |
+| Mes demandes | filtres type de pièce (issus du catalogue), statut, bénéficiaire (moi / chaque enfant, pour un tuteur) | navigateur |
+| Consentements | recherche texte (administration, démarche, donnée demandée, enfant), en plus des onglets de statut | navigateur |
+| Nouvelle demande | choix de la pièce par recherche (motif ARIA combobox : ↑ ↓ Entrée Échap) au lieu d'une liste déroulante | navigateur |
+
+Règles :
+- La recherche ignore les accents et les majuscules (« etat civil » trouve « État civil »), et chaque mot saisi doit apparaître (« banque nom »).
+- Le filtrage côté navigateur porte sur les éléments chargés, au plus **100** (le maximum de `limite` du BFF). Le journal le signale quand la période contient plus d'accès et invite à préciser les dates.
+- Les contrats ne prévoient pas de recherche texte côté serveur. Si les volumes l'exigent, il faudra ajouter un paramètre `q` (recherche texte) à `GET /journal`, `GET /consentements` et `GET /demandes`, puis le reporter dans `docs/openapi-espace-usager.yaml`. Ce n'est **pas** implémenté à ce jour.
+
 ---
 
 ## Modèle de données

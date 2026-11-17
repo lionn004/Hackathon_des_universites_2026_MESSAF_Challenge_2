@@ -21,10 +21,15 @@
       <div class="card mb-6 hidden" id="form-demande" style="padding:var(--space-6)">
         <h3 style="margin-bottom:var(--space-4)">📄 Nouvelle demande de pièce</h3>
         <div class="form-group">
-          <label class="form-label" for="select-type-piece">Type de pièce</label>
-          <select class="form-input" id="select-type-piece" onchange="showPrerequis()">
-            <option value="">— Sélectionner —</option>
-          </select>
+          <label class="form-label" for="input-piece" id="label-piece">Type de pièce</label>
+          <!-- Liste de choix avec recherche (motif ARIA combobox) -->
+          <div class="combobox search-field">
+            <input type="text" class="form-input" id="input-piece"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="liste-pieces"
+                   placeholder="Rechercher une pièce (ex : casier, naissance…)" autocomplete="off">
+            <ul class="combobox-list hidden" id="liste-pieces" role="listbox" aria-labelledby="label-piece"></ul>
+          </div>
+          <input type="hidden" id="select-type-piece">
         </div>
         <div class="form-group" id="group-enfant" style="display:none">
           <label class="form-label" for="select-enfant">Pour un enfant à charge (optionnel)</label>
@@ -47,6 +52,37 @@
         </div>
       </div>
 
+      <!-- Filtres de la liste -->
+      <div class="card mb-4 hidden" id="bloc-filtres">
+        <form class="filter-bar" id="filtres" onsubmit="event.preventDefault()">
+          <div class="filter-field grow">
+            <label for="f-piece">Type de pièce</label>
+            <select class="form-input" id="f-piece">
+              <option value="">Toutes les pièces</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="f-statut">Statut</label>
+            <select class="form-input" id="f-statut">
+              <option value="">Tous les statuts</option>
+              <option value="complete">Complète</option>
+              <option value="fallback_physique">À compléter au guichet</option>
+              <option value="en_cours">En cours</option>
+              <option value="echouee">Échouée</option>
+            </select>
+          </div>
+          <div class="filter-field" id="f-pour-field" style="display:none">
+            <label for="f-pour">Pour</label>
+            <select class="form-input" id="f-pour">
+              <option value="">Tout le monde</option>
+              <option value="moi">Moi</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" onclick="reinitialiserFiltres()">Réinitialiser</button>
+        </form>
+        <div class="filter-count" id="f-count" aria-live="polite"></div>
+      </div>
+
       <!-- Liste des demandes -->
       <div id="demandes-list">
         <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
@@ -58,8 +94,10 @@
   <script src="/js/layout.js"></script>
   <script>
     let enfants = null;
+    let demandes = [];
     // ?enfant=<iue> (depuis « Mes enfants ») : ouvrir le formulaire pour cet enfant
     const enfantParam = new URLSearchParams(window.location.search).get('enfant');
+    const el = id => document.getElementById(id);
 
     function renderDemande(d) {
       const enfant = d.pour_enfant
@@ -94,14 +132,72 @@
         </div>`;
     }
 
+    // ─── Filtres de la liste ───
+
+    /** Options « Type de pièce » : catalogue + types présents dans les demandes (au cas où). */
+    function remplirFiltrePiece() {
+      const select = el('f-piece');
+      const courant = select.value;
+      const types = new Map(cataloguePieces.map(p => [p.id, p.nom]));
+      demandes.forEach(d => { if (d.type_piece?.id && !types.has(d.type_piece.id)) types.set(d.type_piece.id, d.type_piece.nom || d.type_piece.id); });
+      select.innerHTML = '<option value="">Toutes les pièces</option>' +
+        [...types].sort((a, b) => a[1].localeCompare(b[1], 'fr'))
+          .map(([id, nom]) => `<option value="${escapeHtml(id)}">${escapeHtml(nom)}</option>`).join('');
+      select.value = courant;
+    }
+
+    /** Options « Pour » : moi + chaque enfant (seulement pour un tuteur). */
+    function remplirFiltrePour() {
+      if (!enfants?.length) return;
+      el('f-pour-field').style.display = '';
+      el('f-pour').innerHTML = '<option value="">Tout le monde</option><option value="moi">Moi</option>' +
+        enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)}</option>`).join('');
+    }
+
+    function filtresActifs() {
+      return Boolean(el('f-piece').value || el('f-statut').value || el('f-pour').value);
+    }
+
+    function afficherDemandes() {
+      const container = el('demandes-list');
+      const piece = el('f-piece').value;
+      const statut = el('f-statut').value;
+      const pour = el('f-pour').value;
+
+      const liste = demandes.filter(d =>
+        (!piece || d.type_piece?.id === piece) &&
+        (!statut || d.statut === statut) &&
+        (!pour || (pour === 'moi' ? !d.pour_enfant : d.pour_enfant?.iue === pour)));
+
+      el('f-count').textContent = filtresActifs()
+        ? `${liste.length} demande${liste.length > 1 ? 's' : ''} sur ${demandes.length}`
+        : `${demandes.length} demande${demandes.length > 1 ? 's' : ''}`;
+
+      if (liste.length === 0) {
+        container.innerHTML = `
+          <div class="card text-center" style="padding:var(--space-8);color:var(--gris-400)">
+            Aucune demande ne correspond à ces filtres.
+            <div class="mt-2"><button class="btn btn-sm btn-outline" onclick="reinitialiserFiltres()">Réinitialiser les filtres</button></div>
+          </div>`;
+        return;
+      }
+      container.innerHTML = liste.map(renderDemande).join('');
+    }
+
+    function reinitialiserFiltres() {
+      el('filtres').reset();
+      afficherDemandes();
+    }
+
     async function loadDemandes() {
-      const container = document.getElementById('demandes-list');
+      const container = el('demandes-list');
       try {
         // Le catalogue donne les noms des pièces de la cascade (sans lui, on affiche l'identifiant)
         await catalogueApi.list().catch(() => {});
-        const { demandes = [] } = await demandesApi.list({ limite: 100 });
+        ({ demandes = [] } = await demandesApi.list({ limite: 100 }));
 
         if (demandes.length === 0) {
+          el('bloc-filtres').classList.add('hidden');
           container.innerHTML = `
             <div class="card text-center" style="padding:var(--space-8)">
               <div style="font-size:3rem;margin-bottom:var(--space-4)">📄</div>
@@ -112,43 +208,137 @@
           return;
         }
 
-        container.innerHTML = demandes.map(renderDemande).join('');
+        el('bloc-filtres').classList.remove('hidden');
+        remplirFiltrePiece();
+        afficherDemandes();
       } catch (e) {
         container.innerHTML =
           `<div class="alert alert-error">Erreur lors du chargement des demandes : ${escapeHtml(e.message)}</div>`;
       }
     }
 
-    /** Liste des pièces demandables (GET /types-pieces). */
-    async function fillTypesPieces() {
-      const select = document.getElementById('select-type-piece');
-      try {
-        const types = await catalogueApi.list();
-        select.innerHTML = '<option value="">— Sélectionner —</option>' +
-          types.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nom)}</option>`).join('');
-      } catch (e) {
-        select.innerHTML = '<option value="">Catalogue indisponible</option>';
-        showToast(`Impossible de charger les types de pièces : ${e.message}`, 'error');
+    // ─── Choix de la pièce : liste avec recherche ───
+
+    const inputPiece = el('input-piece');
+    const listePieces = el('liste-pieces');
+    let options = [];      // pièces affichées dans la liste
+    let actif = -1;        // index de l'option active (clavier)
+
+    function ouvrirListe() {
+      listePieces.classList.remove('hidden');
+      inputPiece.setAttribute('aria-expanded', 'true');
+    }
+
+    function fermerListe() {
+      listePieces.classList.add('hidden');
+      inputPiece.setAttribute('aria-expanded', 'false');
+      inputPiece.removeAttribute('aria-activedescendant');
+      actif = -1;
+    }
+
+    /** Filtre le catalogue sur le texte saisi (nom, identifiant, registre) et affiche la liste. */
+    function filtrerPieces() {
+      const recherche = inputPiece.value;
+      options = cataloguePieces.filter(p => correspond(recherche, p.nom, p.id, p.registre_source));
+      actif = options.length ? 0 : -1;
+      listePieces.innerHTML = options.length
+        ? options.map((p, i) => `
+            <li class="combobox-option" role="option" id="option-piece-${i}" data-index="${i}" aria-selected="${i === actif}">
+              <span>${escapeHtml(p.nom)}</span>
+              <span class="combobox-meta">
+                <span class="badge badge-info">${escapeHtml(p.registre_source)}</span>
+                ${p.est_evolutive ? '<span title="Pièce évolutive">🔄</span>' : ''}
+              </span>
+            </li>`).join('')
+        : '<li class="combobox-empty" role="presentation">Aucune pièce ne correspond à votre recherche</li>';
+      majOptionActive();
+      ouvrirListe();
+    }
+
+    function majOptionActive() {
+      listePieces.querySelectorAll('.combobox-option').forEach((li, i) => li.setAttribute('aria-selected', String(i === actif)));
+      if (actif >= 0) {
+        inputPiece.setAttribute('aria-activedescendant', `option-piece-${actif}`);
+        el(`option-piece-${actif}`)?.scrollIntoView({ block: 'nearest' });
+      } else {
+        inputPiece.removeAttribute('aria-activedescendant');
       }
     }
 
+    function choisirPiece(piece) {
+      inputPiece.value = piece.nom;
+      el('select-type-piece').value = piece.id;
+      fermerListe();
+      showPrerequis();
+    }
+
+    inputPiece.addEventListener('input', () => {
+      el('select-type-piece').value = ''; // le texte a changé : plus de pièce choisie
+      el('prereqs-info').classList.add('hidden');
+      filtrerPieces();
+    });
+    inputPiece.addEventListener('focus', filtrerPieces);
+    inputPiece.addEventListener('blur', () => setTimeout(fermerListe, 150));
+    inputPiece.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (listePieces.classList.contains('hidden')) { filtrerPieces(); return; }
+        if (!options.length) return;
+        actif = (actif + (e.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+        majOptionActive();
+      } else if (e.key === 'Enter') {
+        if (!listePieces.classList.contains('hidden') && actif >= 0) {
+          e.preventDefault();
+          choisirPiece(options[actif]);
+        }
+      } else if (e.key === 'Escape') {
+        fermerListe();
+      }
+    });
+    // mousedown (et non click) : le choix est fait avant que le champ ne perde le focus
+    listePieces.addEventListener('mousedown', e => {
+      const li = e.target.closest('.combobox-option');
+      if (!li) return;
+      e.preventDefault();
+      choisirPiece(options[Number(li.dataset.index)]);
+    });
+
     /** Aperçu de l'arbre de prérequis de la pièce choisie (fourni par le catalogue). */
     function showPrerequis() {
-      const id = document.getElementById('select-type-piece').value;
-      const info = document.getElementById('prereqs-info');
+      const id = el('select-type-piece').value;
+      const info = el('prereqs-info');
       const piece = cataloguePieces.find(p => p.id === id);
       if (!piece || !piece.prerequis?.length) {
         info.classList.add('hidden');
         return;
       }
-      document.getElementById('prereqs-text').innerHTML =
+      el('prereqs-text').innerHTML =
         'La plateforme récupère elle-même ces pièces auprès des registres :' +
         renderCascade(piece.prerequis);
       info.classList.remove('hidden');
     }
 
-    async function loadEnfants() {
-      if (enfants !== null) return;
+    async function chargerCatalogue() {
+      try {
+        await catalogueApi.list();
+        inputPiece.disabled = false;
+      } catch (e) {
+        inputPiece.disabled = true;
+        inputPiece.placeholder = 'Catalogue indisponible';
+        showToast(`Impossible de charger les types de pièces : ${e.message}`, 'error');
+      }
+    }
+
+    // ─── Enfants et formulaire ───
+
+    let enfantsPromise = null;
+    /** Charge les enfants une seule fois, même si plusieurs appels arrivent en même temps. */
+    function loadEnfants() {
+      if (!enfantsPromise) enfantsPromise = chargerEnfants();
+      return enfantsPromise;
+    }
+
+    async function chargerEnfants() {
       try {
         const data = await enfantsApi.list();
         enfants = data.enfants || [];
@@ -157,36 +347,46 @@
         console.error('Erreur enfants:', e);
       }
       if (enfants.length > 0) {
-        document.getElementById('group-enfant').style.display = 'block';
-        document.getElementById('select-enfant').innerHTML = '<option value="">— Pour moi-même —</option>' +
+        el('group-enfant').style.display = 'block';
+        el('select-enfant').innerHTML = '<option value="">— Pour moi-même —</option>' +
           enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)} (${escapeHtml(e.iue)})</option>`).join('');
+        remplirFiltrePour();
       }
     }
 
     async function openNewDemande() {
-      document.getElementById('form-demande').classList.remove('hidden');
+      el('form-demande').classList.remove('hidden');
       await loadEnfants();
       if (enfantParam && enfants.some(e => e.iue === enfantParam)) {
-        document.getElementById('select-enfant').value = enfantParam;
+        el('select-enfant').value = enfantParam;
       }
+      inputPiece.focus();
     }
 
     function closeNewDemande() {
-      document.getElementById('form-demande').classList.add('hidden');
-      document.getElementById('prereqs-info').classList.add('hidden');
-      document.getElementById('select-type-piece').value = '';
+      el('form-demande').classList.add('hidden');
+      el('prereqs-info').classList.add('hidden');
+      el('select-type-piece').value = '';
+      inputPiece.value = '';
+      fermerListe();
     }
 
     async function submitDemande() {
-      const type_piece_id = document.getElementById('select-type-piece').value;
-      const pour_enfant_iue = document.getElementById('select-enfant').value || null;
+      // Texte saisi exactement égal au nom d'une pièce : on l'accepte sans clic dans la liste
+      if (!el('select-type-piece').value) {
+        const exacte = cataloguePieces.find(p => normaliser(p.nom) === normaliser(inputPiece.value));
+        if (exacte) el('select-type-piece').value = exacte.id;
+      }
+      const type_piece_id = el('select-type-piece').value;
+      const pour_enfant_iue = el('select-enfant').value || null;
 
       if (!type_piece_id) {
-        showToast('Veuillez sélectionner un type de pièce', 'error');
+        showToast('Veuillez choisir un type de pièce dans la liste', 'error');
+        inputPiece.focus();
         return;
       }
 
-      const btn = document.getElementById('btn-submit');
+      const btn = el('btn-submit');
       btn.disabled = true;
       btn.textContent = '⏳ Résolution de la cascade…';
       try {
@@ -206,8 +406,11 @@
       }
     }
 
-    fillTypesPieces();
+    ['f-piece', 'f-statut', 'f-pour'].forEach(id => el(id).addEventListener('change', afficherDemandes));
+
+    chargerCatalogue();
     loadDemandes();
+    loadEnfants(); // filtre « Pour » des tuteurs
     if (enfantParam) openNewDemande();
   </script>
 </body>
