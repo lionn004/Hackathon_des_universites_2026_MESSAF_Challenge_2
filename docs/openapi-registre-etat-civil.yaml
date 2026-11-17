@@ -4,7 +4,7 @@ info:
   description: |
     API du registre simulé de l'état civil.
     Expose les données de naissance, filiation et nationalité des citoyens.
-    Contrat standardisé — interchangeable avec les registres des autres équipes.
+    Contrat standardisé, interchangeable avec les registres des autres équipes.
   version: 1.0.0
 
 servers:

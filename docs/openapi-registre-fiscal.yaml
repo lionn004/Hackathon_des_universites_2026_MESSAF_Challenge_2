@@ -4,7 +4,7 @@ info:
   description: |
     API du registre simulé de l'administration fiscale.
     Expose les données fiscales (IFU, situation fiscale) des citoyens.
-    Contrat standardisé — interchangeable avec les registres des autres équipes.
+    Contrat standardisé, interchangeable avec les registres des autres équipes.
   version: 1.0.0
 
 servers:

@@ -4,7 +4,7 @@ info:
   description: |
     API du registre simulé de la justice.
     Expose les données de casier judiciaire et de nationalité.
-    Contrat standardisé — interchangeable avec les registres des autres équipes.
+    Contrat standardisé, interchangeable avec les registres des autres équipes.
   version: 1.0.0
 
 servers:
