@@ -33,6 +33,7 @@ curl http://localhost:3000/api/sante
 | Passerelle d'échange | http://localhost:3004/api | Point d'entrée des administrations |
 | Consentement & minimisation | http://localhost:3005/api | Demandes de consentement, filtre des champs |
 | Journal de traçabilité | http://localhost:3006/api | Historique de tous les accès |
+| **Documentation des API** | **http://localhost:3010** | Swagger UI : les 7 contrats OpenAPI, consultables dans le navigateur |
 
 Chaque service répond sur `GET /api/sante`.
 
@@ -257,6 +258,8 @@ Le compte d'un mineur est géré par son tuteur, qui voit ses demandes de consen
 
 Les spécifications OpenAPI 3.0 sont dans `docs/` et font foi.
 
+**Documentation interactive** : http://localhost:3010 (Swagger UI, démarré avec le reste de la plateforme). Le menu en haut à droite permet de passer d'un contrat à l'autre. La page lit directement les fichiers de `docs/` : elle est toujours à jour. Le bouton « Try it out » permet d'appeler l'espace usager (:3000) depuis la page ; pour les autres services, utiliser `curl` (voir les exemples ci-dessus).
+
 | Fichier | Port | Consommé par |
 |---------|------|-------------|
 | `openapi-espace-usager.yaml` | :3000 | **Frontend** (seul contrat nécessaire pour le frontend) |
@@ -306,7 +309,7 @@ Node.js 22 + Express, PostgreSQL 16, Prisma 6, JWT + bcrypt, Docker Compose.
 
 ```
 docker-compose.yml        ← toute la plateforme en une commande
-docs/                     ← contrats OpenAPI (source de vérité)
+docs/                     ← contrats OpenAPI (source de vérité), affichés sur http://localhost:3010
 backend/
 ├── registres/
 │   ├── etat-civil/       :3001
