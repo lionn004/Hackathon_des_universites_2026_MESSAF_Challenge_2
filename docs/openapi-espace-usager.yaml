@@ -2,7 +2,9 @@ openapi: 3.0.3
 info:
   title: Espace Usager API (Backend for Frontend)
   description: |
-    API consommée directement par le frontend React.
+    API consommée directement par le frontend web (HTML / CSS / JavaScript),
+    et plus tard par l'application mobile (même contrat, authentification par
+    en-tête Authorization, sans cookies).
     Regroupe les endpoints d'authentification, le profil citoyen,
     les demandes de pièces, et les fonctionnalités tuteur/enfant.
 

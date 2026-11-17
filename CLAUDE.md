@@ -30,7 +30,7 @@ Le jury remplacera un registre d'une équipe par celui d'une autre équipe pour 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND REACT                        │
+│              FRONTEND HTML / CSS / JS                    │
 │                  (Espace Usager)                         │
 └──────────────────────┬──────────────────────────────────┘
                        │  port 3000 (BFF)
@@ -317,7 +317,7 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 ## Stack technique
 
 - **Backend** : Node.js + Express.js
-- **Frontend** : HTML / CSS / JavaScript (vanilla, sans framework)
+- **Frontend** : HTML / CSS / JavaScript (vanilla, sans framework) en priorité. Une application mobile est prévue ensuite si le temps le permet : elle consommera le même contrat BFF (`docs/openapi-espace-usager.yaml`), donc aucune route ne doit dépendre du navigateur (pas de cookies, authentification par en-tête `Authorization`).
 - **Base de données** : PostgreSQL
 - **ORM** : Prisma
 - **Authentification** : JWT + bcrypt

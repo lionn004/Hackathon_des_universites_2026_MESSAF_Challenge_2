@@ -4,6 +4,7 @@
   "description": "Consentement & minimisation des données citoyennes (DLNUF) — contrat docs/openapi-consentement.yaml",
   "main": "src/server.js",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
