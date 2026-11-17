@@ -32,5 +32,29 @@ services:
       postgres:
         condition: service_healthy
 
+  # Couche 1 — Registre justice (:3002) : casier judiciaire et nationalité.
+  registre-justice:
+    build: ./backend/registres/justice
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=justice
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Couche 1 — Registre fiscal (:3003) : IFU et situation fiscale.
+  registre-fiscal:
+    build: ./backend/registres/fiscal
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=fiscal
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

@@ -1,0 +1,45 @@
+// Registre justice — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=justice).
+// Les noms de champs suivent le contrat docs/openapi-registre-justice.yaml.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Mode d'acquisition de la nationalité (enum du contrat CertificatNationalite).
+enum ModeAcquisition {
+  naissance
+  naturalisation
+  mariage
+}
+
+// Personne connue du registre justice, avec ses données de nationalité.
+// casier_vierge et date_delivrance ne sont pas stockés : ils sont calculés
+// par le service (casier vierge = aucune condamnation ; délivrance = jour de la demande).
+model Justiciable {
+  iue               String           @id @db.VarChar(12)
+  est_national      Boolean
+  nationalite       String
+  mode_acquisition  ModeAcquisition?
+  date_acquisition  DateTime?        @db.Date
+  numero_certificat String?          @unique
+  condamnations     Condamnation[]
+}
+
+// Une condamnation inscrite au casier judiciaire d'une personne.
+model Condamnation {
+  id       String      @id @default(uuid()) @db.Uuid
+  iue      String      @db.VarChar(12)
+  date     DateTime    @db.Date
+  nature   String
+  tribunal String
+  duree    String?
+  personne Justiciable @relation(fields: [iue], references: [iue], onDelete: Cascade)
+
+  @@index([iue])
+}
