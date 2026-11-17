@@ -218,6 +218,44 @@ img { max-width: 100%; }
   padding-left: 2.5rem;
 }
 
+/* Champ mot de passe avec bouton afficher / masquer (initPasswordToggles) */
+.password-field {
+  position: relative;
+  display: block;
+}
+.password-field .form-input {
+  padding-right: 2.75rem;
+}
+.password-toggle {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--gris-500);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+.password-toggle:hover {
+  background: var(--gris-100);
+}
+.password-toggle:focus-visible {
+  outline: 2px solid var(--vert);
+  outline-offset: 1px;
+}
+/* Masquer le bouton natif d'Edge, remplacé par .password-toggle */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 .form-error {
   font-size: var(--font-size-xs);
   color: var(--rouge);
