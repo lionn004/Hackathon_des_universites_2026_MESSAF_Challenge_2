@@ -691,7 +691,7 @@ paths:
                     type: string
                     example: "Demande de consentement envoyée au citoyen"
         "403":
-          description: Refus de la passerelle (ex : HORS_MISSION), relayé tel quel
+          description: "Refus de la passerelle (ex : HORS_MISSION), relayé tel quel"
           content:
             application/json:
               schema:

@@ -322,7 +322,7 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 - **ORM** : Prisma
 - **Authentification** : JWT + bcrypt
 - **Déploiement** : Docker Compose
-- **Documentation API** : OpenAPI 3.0 / Swagger
+- **Documentation API** : OpenAPI 3.0 / Swagger — service `documentation` du docker-compose (image `swaggerapi/swagger-ui:v5.17.14`), http://localhost:3010, qui lit directement `docs/`. Toute description YAML contenant « : » doit être entre guillemets doubles, sinon le contrat devient invalide et Swagger ne l'affiche plus.
 
 ---
 
