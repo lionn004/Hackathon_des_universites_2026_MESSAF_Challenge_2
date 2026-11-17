@@ -26,6 +26,7 @@ curl http://localhost:3000/api/sante
 
 | Service | URL | Rôle |
 |---------|-----|------|
+| **Espace usager (site web)** | **http://localhost:3020** | Portail du citoyen ; interface de test des administrations sur `/pages/test.html` |
 | Espace usager (BFF) | http://localhost:3000/api | Seul point d'entrée du frontend citoyen |
 | Registre état-civil | http://localhost:3001/api | Naissance, filiation, nationalité |
 | Registre justice | http://localhost:3002/api | Casier judiciaire, certificat de nationalité |

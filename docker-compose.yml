@@ -141,15 +141,17 @@ services:
       journal:
         condition: service_started
 
-  # Frontend — espace usager + interface de test, servi par nginx sur http://localhost:8080.
+  # Frontend — espace usager + interface de test, servi par nginx sur http://localhost:3020
+  # (port 3020 plutôt que 8080, souvent déjà occupé par Tomcat ou d'autres outils).
   # Le navigateur appelle uniquement le BFF (http://localhost:3000/api).
   frontend:
     build: ./frontend
     ports:
-      - "8080:80"
+      - "3020:80"
     depends_on:
       espace-usager:
         condition: service_started
+
   # Documentation interactive des 7 contrats OpenAPI (Swagger UI) : http://localhost:3010
   # (port 3010 plutôt que 8080, souvent déjà occupé par Tomcat ou d'autres outils).
   # Lit directement les fichiers de docs/ (montés en lecture seule) : toujours à jour.
