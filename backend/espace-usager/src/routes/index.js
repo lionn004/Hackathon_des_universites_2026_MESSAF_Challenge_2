@@ -3,6 +3,7 @@
  */
 const { Router } = require('express');
 const authRoutes = require('./auth.routes');
+const catalogueRoutes = require('./catalogue.routes');
 const citoyenRoutes = require('./citoyen.routes');
 const testRoutes = require('./test.routes');
 const interneRoutes = require('./interne.routes');
@@ -13,6 +14,7 @@ const router = Router();
 router.get('/sante', (req, res) => res.json({ statut: 'ok', service: 'espace-usager' }));
 
 router.use('/auth', authRoutes);
+router.use('/', catalogueRoutes);
 router.use('/test', testRoutes);
 router.use('/interne', interneRoutes);
 router.use('/', citoyenRoutes);

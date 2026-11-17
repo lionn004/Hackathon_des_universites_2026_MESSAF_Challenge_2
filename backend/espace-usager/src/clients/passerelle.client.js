@@ -43,6 +43,20 @@ async function listAdministrations() {
   return expectOk(SERVICE, await request(SERVICE, `${base()}/administrations`));
 }
 
+/** GET /types-pieces — catalogue des types de pièces. */
+async function listTypesPieces() {
+  return expectOk(SERVICE, await request(SERVICE, `${base()}/types-pieces`));
+}
+
+/**
+ * GET /types-pieces/{id}/prerequis — arbre des prérequis d'une pièce.
+ * @param {string} id
+ * @returns {Promise<{type_piece: string, prerequis: object[]}>}
+ */
+async function getPrerequisTree(id) {
+  return expectOk(SERVICE, await request(SERVICE, `${base()}/types-pieces/${encodeURIComponent(id)}/prerequis`));
+}
+
 /** GET /demarches — catalogue des démarches. */
 async function listDemarches() {
   return expectOk(SERVICE, await request(SERVICE, `${base()}/demarches`));
@@ -70,5 +84,12 @@ async function getRequete(adminToken, id) {
 }
 
 module.exports = {
-  getIdentity, resolveCascade, listAdministrations, listDemarches, submitRequete, getRequete,
+  getIdentity,
+  resolveCascade,
+  listTypesPieces,
+  getPrerequisTree,
+  listAdministrations,
+  listDemarches,
+  submitRequete,
+  getRequete,
 };

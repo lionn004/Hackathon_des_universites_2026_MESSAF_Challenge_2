@@ -266,6 +266,29 @@ paths:
   # ═══════════════════════════════════════
   # DEMANDES DE PIÈCES
   # ═══════════════════════════════════════
+  /types-pieces:
+    get:
+      tags: [Demandes]
+      summary: Lister les pièces que le citoyen peut demander
+      description: |
+        Catalogue des types de pièces, pour le formulaire « Demander une pièce »
+        (la valeur `id` est le `type_piece_id` attendu par POST /demandes).
+        Pour chaque pièce, `prerequis` indique les documents que la plateforme
+        ira chercher automatiquement (résolution en cascade). Route publique :
+        elle ne contient aucune donnée personnelle.
+      responses:
+        "200":
+          description: Catalogue des types de pièces
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  types_pieces:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TypePiece"
+
   /demandes:
     get:
       tags: [Demandes]
@@ -846,6 +869,46 @@ components:
         transfert_recommande:
           type: boolean
           description: True si l'enfant a 15 ans ou plus
+
+    TypePiece:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "casier-judiciaire"
+        nom:
+          type: string
+          example: "Casier judiciaire"
+        registre_source:
+          type: string
+          enum: [etat-civil, justice, fiscal]
+          example: "justice"
+        est_evolutive:
+          type: boolean
+          description: La pièce peut changer dans le temps (casier, situation fiscale)
+        prerequis:
+          type: array
+          description: Documents récupérés automatiquement par la plateforme (arbre récursif)
+          items:
+            $ref: "#/components/schemas/PrerequisPiece"
+
+    PrerequisPiece:
+      type: object
+      properties:
+        type_piece:
+          type: string
+          example: "certificat-nationalite"
+        nom:
+          type: string
+          example: "Certificat de nationalité"
+        proprietaire:
+          type: string
+          enum: [citoyen, pere, mere]
+          description: À qui appartient le document (le titulaire de la pièce parente, son père ou sa mère)
+        prerequis:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrerequisPiece"
 
     Demande:
       type: object
