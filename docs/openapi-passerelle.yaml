@@ -139,8 +139,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequeteEnAttente"
+        "400":
+          description: Corps invalide (iue_citoyen ou demarche_id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: Jeton d'administration absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
         "403":
-          description: Accès refusé (hors domaine de mission)
+          description: Accès refusé (HORS_MISSION, ou ADMINISTRATION_INCONNUE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: Démarche inconnue (DEMARCHE_INCONNUE) ou citoyen inconnu (CITOYEN_NON_TROUVE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "502":
+          description: |
+            Un service (registre, consentement, journal) est injoignable. Aucune donnée
+            n'est transmise sans entrée au journal.
           content:
             application/json:
               schema:
@@ -167,6 +193,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequeteStatut"
+        "404":
+          description: Requête inconnue ou appartenant à une autre administration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /requetes/{id}/telephone:
     get:
@@ -195,6 +227,56 @@ paths:
                   telephone:
                     type: string
                     example: "+226 70 12 34 56"
+        "400":
+          description: La requête n'est plus en attente de consentement (RELANCE_IMPOSSIBLE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: Requête inconnue, ou citoyen sans téléphone enregistré
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "503":
+          description: Espace usager (qui détient le téléphone) injoignable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  # ─── Administrations ───
+  /administrations:
+    get:
+      tags: [Démarches]
+      summary: Lister les administrations de la plateforme
+      description: Utilisé par l'interface de test du BFF (choix de l'administration simulée).
+      responses:
+        "200":
+          description: Liste des administrations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  administrations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        nom:
+                          type: string
+                          example: "Université Joseph KI-ZERBO"
+                        type:
+                          type: string
+                          enum: [publique, privee]
+                        domaine_mission:
+                          type: string
+                          example: "education"
 
 components:
   securitySchemes:
@@ -202,6 +284,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: |
+        Jeton d'ADMINISTRATION, signé en HS256 avec le secret partagé JWT_SECRET.
+        Contenu : { "administration_id": "<uuid>" }. Jetons de démo :
+        `docker compose exec passerelle npm run jeton:admin`.
 
   schemas:
     Demarche:
@@ -337,6 +423,10 @@ components:
               statut:
                 type: string
                 enum: [resolu, manquant_fallback_physique]
+        journal_id:
+          type: string
+          format: uuid
+          description: Identifiant de l'entrée créée dans le journal de traçabilité.
 
     RequeteEnAttente:
       type: object

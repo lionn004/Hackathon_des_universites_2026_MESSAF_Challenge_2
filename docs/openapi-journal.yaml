@@ -25,7 +25,8 @@ paths:
       summary: Consulter son journal d'accès
       description: |
         Le citoyen voit tous les accès à ses données.
-        Inclut les accès aux données de ses enfants (tuteur).
+        Inclut les accès aux données de ses enfants (tuteur) : le jeton émis par le
+        BFF contient la liste `enfants` des IUE des mineurs dont il est tuteur.
       security:
         - BearerAuth: []
       parameters:

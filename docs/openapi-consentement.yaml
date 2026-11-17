@@ -258,6 +258,83 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
 
+  /minimisation/regles/{demarche_id}:
+    get:
+      tags: [Minimisation]
+      summary: Règles de minimisation d'une démarche (interne)
+      description: |
+        Appelé par la passerelle pour savoir quels registres interroger et quels
+        champs demander. Ce service est l'unique source de vérité de ces règles.
+      parameters:
+        - name: demarche_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "ouverture-compte-bancaire"
+      responses:
+        "200":
+          description: Champs autorisés par registre
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  demarche_id:
+                    type: string
+                  champs_requis:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        registre:
+                          type: string
+                          enum: [etat-civil, justice, fiscal]
+                        champs:
+                          type: array
+                          items:
+                            type: string
+                    example:
+                      - registre: "etat-civil"
+                        champs: ["nom", "prenom", "nationalite"]
+                      - registre: "fiscal"
+                        champs: ["en_regle"]
+        "404":
+          description: Démarche inconnue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  # ─── Interne (appelé par la passerelle) ───
+  /interne/consentements/{id}:
+    get:
+      tags: [Consentements]
+      summary: Statut d'une demande de consentement (interne)
+      description: |
+        Sans jeton citoyen. Appelé par la passerelle quand une administration privée
+        consulte sa requête, pour savoir si le citoyen a accepté, refusé ou laissé expirer.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Demande (statut à jour)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Consentement"
+        "404":
+          description: Demande inconnue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
 components:
   securitySchemes:
     BearerAuth:

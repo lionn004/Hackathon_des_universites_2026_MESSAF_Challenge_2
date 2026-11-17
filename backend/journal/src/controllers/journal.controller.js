@@ -13,7 +13,7 @@ const journalService = require('../services/journal.service');
  * Journal d'accès du citoyen connecté (req.citoyen fourni par le middleware auth).
  */
 async function list(req, res) {
-  const data = await journalService.listForCitizen(req.citoyen.iue, req.query);
+  const data = await journalService.listForCitizen(req.citoyen, req.query);
   res.status(200).json(data);
 }
 
@@ -22,7 +22,7 @@ async function list(req, res) {
  * Statistiques d'accès du citoyen connecté, pour le tableau de bord.
  */
 async function stats(req, res) {
-  const data = await journalService.statsForCitizen(req.citoyen.iue);
+  const data = await journalService.statsForCitizen(req.citoyen);
   res.status(200).json(data);
 }
 

@@ -28,4 +28,13 @@ async function demarcheExists(demarcheId) {
   return rule !== null;
 }
 
-module.exports = { findRule, demarcheExists };
+/**
+ * Liste toutes les règles d'une démarche, triées par registre.
+ * @param {string} demarcheId
+ * @returns {Promise<object[]>} Liste vide si la démarche est inconnue.
+ */
+function findRulesForDemarche(demarcheId) {
+  return prisma.champsDemarche.findMany({ where: { demarche_id: demarcheId }, orderBy: { registre: 'asc' } });
+}
+
+module.exports = { findRule, demarcheExists, findRulesForDemarche };

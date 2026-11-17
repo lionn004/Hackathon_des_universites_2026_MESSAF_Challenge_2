@@ -111,16 +111,19 @@ function toContract(entry) {
 /**
  * Filtre « entrées visibles par ce citoyen ».
  *
- * Règle : un citoyen voit les accès à SES données (il en est le titulaire)
- * ET les accès qu'il a autorisés en tant que décideur. Comme le décideur
- * d'un mineur est son tuteur, cela couvre les données de ses enfants
- * sans que le journal ait besoin de connaître les liens familiaux.
+ * Règle : un citoyen voit
+ *  - les accès à SES données et à celles de ses enfants mineurs (titulaire
+ *    = lui ou un IUE de la liste `enfants` du jeton, fournie par le BFF) ;
+ *  - les accès qu'il a autorisés en tant que décideur.
+ * La liste `enfants` est nécessaire pour les accès directs des administrations
+ * publiques : personne ne « décide » alors, et la passerelle ne connaît pas
+ * le tuteur, donc le décideur enregistré est l'enfant lui-même.
  *
- * @param {string} iue IUE du citoyen connecté.
+ * @param {{iue: string, enfants: string[]}} citizen Citoyen connecté.
  * @returns {object} Clause where Prisma.
  */
-function visibleTo(iue) {
-  return { OR: [{ titulaire_iue: iue }, { decideur_iue: iue }] };
+function visibleTo(citizen) {
+  return { OR: [{ titulaire_iue: { in: [citizen.iue, ...citizen.enfants] } }, { decideur_iue: citizen.iue }] };
 }
 
 /**
@@ -182,19 +185,19 @@ async function recordAccess(body) {
  * date_fin est inclusive : « jusqu'au 15 » inclut toute la journée du 15,
  * d'où la borne stricte au lendemain minuit.
  *
- * @param {string} iue IUE du citoyen connecté (issu du jeton).
+ * @param {{iue: string, enfants: string[]}} citizen Citoyen connecté (issu du jeton).
  * @param {object} query Paramètres bruts : date_debut, date_fin, administration, page, limite.
  * @returns {Promise<{entrees: object[], pagination: {page: number, limite: number, total: number, pages: number}}>}
  * @throws {AppError} 400 si un paramètre est invalide.
  */
-async function listForCitizen(iue, query) {
+async function listForCitizen(citizen, query) {
   const page = parsePositiveInt(query.page, 1, 'page');
   const limit = Math.min(parsePositiveInt(query.limite, DEFAULT_PAGE_SIZE, 'limite'), MAX_PAGE_SIZE);
   const from = parseDate(query.date_debut, 'date_debut');
   const to = parseDate(query.date_fin, 'date_fin');
   if (from && to && from > to) invalid('date_debut doit être antérieure ou égale à date_fin');
 
-  const where = { AND: [visibleTo(iue)] };
+  const where = { AND: [visibleTo(citizen)] };
   if (from || to) {
     where.AND.push({
       date_acces: {
@@ -221,11 +224,11 @@ async function listForCitizen(iue, query) {
  * Les accès sans nom d'administration (passerelle n'ayant pas envoyé la photo
  * figée) sont regroupés sous « Administration inconnue ».
  *
- * @param {string} iue IUE du citoyen connecté.
+ * @param {{iue: string, enfants: string[]}} citizen Citoyen connecté.
  * @returns {Promise<{total_acces: number, acces_30_derniers_jours: number, par_administration: object[]}>}
  */
-async function statsForCitizen(iue) {
-  const visible = visibleTo(iue);
+async function statsForCitizen(citizen) {
+  const visible = visibleTo(citizen);
   const since = new Date(Date.now() - 30 * ONE_DAY_MS);
 
   const [total, last30Days, groups] = await Promise.all([

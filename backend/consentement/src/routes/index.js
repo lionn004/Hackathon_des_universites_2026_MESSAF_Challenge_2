@@ -5,6 +5,7 @@
 const { Router } = require('express');
 const consentementsRoutes = require('./consentements.routes');
 const minimisationRoutes = require('./minimisation.routes');
+const interneRoutes = require('./interne.routes');
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.get('/sante', (req, res) => res.json({ statut: 'ok', service: 'consenteme
 
 router.use('/consentements', consentementsRoutes);
 router.use('/minimisation', minimisationRoutes);
+router.use('/interne', interneRoutes);
 
 module.exports = router;
