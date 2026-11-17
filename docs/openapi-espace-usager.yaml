@@ -43,6 +43,12 @@ paths:
     post:
       tags: [Authentification]
       summary: Créer un compte citoyen
+      description: |
+        Le citoyen ne fournit que son IUE, un mot de passe et son téléphone : son nom,
+        sa date de naissance et ses enfants sont lus à l'état civil. Ses enfants
+        mineurs sans compte sont rattachés automatiquement à son compte (tuteur).
+        L'exemple est Salif OUEDRAOGO, citoyen de démonstration connu de l'état civil
+        mais sans compte (sa fille Aïcha est rattachée automatiquement).
       requestBody:
         required: true
         content:
@@ -53,15 +59,15 @@ paths:
               properties:
                 iue:
                   type: string
-                  example: "784302956148"
+                  example: "316580942751"
                 mot_de_passe:
                   type: string
                   format: password
                   minLength: 8
-                  example: "MonMotDePasse2026"
+                  example: "Salif2026!"
                 telephone:
                   type: string
-                  example: "+22670123456"
+                  example: "+22670998877"
       responses:
         "201":
           description: Compte créé

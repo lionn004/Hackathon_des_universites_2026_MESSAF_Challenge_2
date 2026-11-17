@@ -9,7 +9,10 @@
  *  - Amadou (majeur) : parents connus → cascade complète possible ;
  *  - Ibrahim et Fatimata : leurs propres parents ne sont pas enregistrés → fallback physique ;
  *  - Awa (12 ans) : mineure → est_majeur = false, gérée par un tuteur ;
- *  - Moussa (16 ans) : mineur de 15 ans ou plus → transfert de compte recommandé.
+ *  - Moussa (16 ans) : mineur de 15 ans ou plus → transfert de compte recommandé ;
+ *  - Salif (30 ans) et sa fille Aïcha (5 ans) : connus de l'état civil mais SANS
+ *    compte sur la plateforme → démonstration de l'inscription en direct, avec
+ *    rattachement automatique d'Aïcha à son père.
  */
 const { PrismaClient } = require('@prisma/client');
 
@@ -73,6 +76,32 @@ const citizens = [
     nationalite: 'Burkinabè',
     pere_iue: '291047583620',
     mere_iue: '638501274093',
+  },
+  {
+    // Frère aîné d'Amadou, pas encore inscrit sur la plateforme (inscription en direct).
+    // Ses parents sont connus : la cascade de son casier judiciaire est entièrement résolue.
+    iue: '316580942751',
+    nom: 'OUEDRAOGO',
+    prenom: 'Salif',
+    date_naissance: '1996-08-23',
+    lieu_naissance: 'Ouagadougou',
+    sexe: 'M',
+    nationalite: 'Burkinabè',
+    pere_iue: '291047583620',
+    mere_iue: '638501274093',
+  },
+  {
+    // Fille de Salif, 5 ans : rattachée automatiquement à son père quand il s'inscrit.
+    // Mère non enregistrée à l'état civil.
+    iue: '873045129604',
+    nom: 'OUEDRAOGO',
+    prenom: 'Aïcha',
+    date_naissance: '2021-01-30',
+    lieu_naissance: 'Bobo-Dioulasso',
+    sexe: 'F',
+    nationalite: 'Burkinabè',
+    pere_iue: '316580942751',
+    mere_iue: null,
   },
 ];
 

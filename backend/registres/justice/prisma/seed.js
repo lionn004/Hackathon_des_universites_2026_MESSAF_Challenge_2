@@ -10,7 +10,8 @@
  *  - Amadou : casier vierge, nationalité par naissance → démarche passeport possible ;
  *  - Ibrahim : une ancienne condamnation → casier_vierge = false ;
  *  - Fatimata : nationalité acquise par mariage ;
- *  - Awa (mineure) : casier vierge, nationalité par naissance.
+ *  - Awa (mineure) : casier vierge, nationalité par naissance ;
+ *  - Salif (inscription en direct) : casier vierge, nationalité par naissance.
  */
 const { PrismaClient } = require('@prisma/client');
 
@@ -58,6 +59,15 @@ const people = [
     mode_acquisition: 'naissance',
     date_acquisition: '2014-05-08',
     numero_certificat: null,
+    condamnations: [],
+  },
+  {
+    iue: '316580942751',
+    est_national: true,
+    nationalite: 'Burkinabè',
+    mode_acquisition: 'naissance',
+    date_acquisition: '1996-08-23',
+    numero_certificat: 'CN-2018-00731',
     condamnations: [],
   },
 ];
