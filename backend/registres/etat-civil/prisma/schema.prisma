@@ -1,0 +1,35 @@
+// Registre état-civil — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=etat_civil).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Sexe {
+  M
+  F
+}
+
+// Les noms de champs suivent le contrat OpenAPI (DonneesEtatCivil).
+// est_majeur n'est pas stocké : il est calculé à partir de date_naissance.
+model Citoyen {
+  iue            String    @id @db.VarChar(12)
+  nom            String
+  prenom         String
+  date_naissance DateTime  @db.Date
+  lieu_naissance String
+  sexe           Sexe
+  nationalite    String
+  pere_iue       String?   @db.VarChar(12)
+  mere_iue       String?   @db.VarChar(12)
+  date_deces     DateTime? @db.Date
+
+  @@index([pere_iue])
+  @@index([mere_iue])
+  @@index([nom, prenom])
+}
