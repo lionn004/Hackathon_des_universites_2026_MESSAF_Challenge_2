@@ -57,8 +57,7 @@ L'ordre recommandé :
 
 ### Test d'interopérabilité
 Les contrats des registres (`openapi-registre-*.yaml`) sont standardisés.
-Le jury pourra remplacer un registre par celui d'une autre équipe
-si le contrat est respecté.
+Utilisation d'un registre conforme au notre par le jury possible.
 
 ## Conventions communes
 
