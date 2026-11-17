@@ -21,7 +21,14 @@ if (!process.env.JWT_SECRET) {
   throw new Error('[passerelle] Variable JWT_SECRET manquante (voir .env.example)');
 }
 
+// Même logique pour la clé qui protège les routes internes (passerelle ↔ BFF).
+if (!process.env.CLE_SERVICE_INTERNE) {
+  throw new Error('[passerelle] Variable CLE_SERVICE_INTERNE manquante (voir .env.example)');
+}
+
 module.exports = {
+  /** Clé partagée exigée sur les routes /interne et envoyée au BFF (en-tête X-Cle-Service). */
+  serviceKey: process.env.CLE_SERVICE_INTERNE,
   /** Port HTTP du service (3004 par défaut, imposé par le contrat). */
   port: Number(process.env.PORT) || 3004,
   /** Secret HS256 partagé, qui signe les jetons des administrations. */

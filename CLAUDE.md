@@ -437,6 +437,9 @@ Préparer les données suivantes pour le développement et la démo :
 - **Ibrahim OUEDRAOGO** (IUE: 291047583620) — père d'Amadou
 - **Fatimata SAWADOGO** (IUE: 638501274093) — mère d'Amadou
 - **Awa OUEDRAOGO** (IUE: 456123789012) — sœur d'Amadou, mineure (12 ans), tuteur = Ibrahim
+- **Moussa OUEDRAOGO** (IUE: 527814903361) — frère d'Amadou, mineur (16 ans), tuteur = Ibrahim → transfert de compte recommandé
+
+Comptes de démo de l'espace usager (mots de passe de DÉMONSTRATION uniquement) : Amadou `Amadou2026!`, Ibrahim `Ibrahim2026!`, Fatimata `Fatimata2026!`. Awa et Moussa n'ont pas de mot de passe (comptes gérés par Ibrahim).
 
 ### Administrations
 
@@ -483,10 +486,11 @@ UUID fixes de référence : tous les services (passerelle, consentement, journal
 - **API** : REST, préfixe `/api/`
 - **Auth** : JWT Bearer token dans header `Authorization`. Jetons citoyens émis par le BFF, signés en **HS256** avec le secret partagé `JWT_SECRET` (même valeur dans tous les services, fournie par docker-compose). Contenu du jeton citoyen : `{ "iue": "<12 chiffres>", "enfants": ["<IUE des mineurs dont il est tuteur>"] }` (`enfants` facultatif, seul le BFF connaît les tutelles ; il permet au tuteur de voir et traiter les consentements de ses enfants). Les routes internes (ex : `POST /journal/enregistrer`, appelée par la passerelle) n'ont pas de JWT, conformément aux contrats.
 - **Jetons d'administration** (passerelle) : `{ "administration_id": "<uuid>" }`, HS256 avec `JWT_SECRET`. Jetons de démo : `docker compose exec passerelle npm run jeton:admin`.
-- **Routes internes** (sans JWT, réseau Docker uniquement, jamais exposées au frontend) : consentement `GET /interne/consentements/{id}` et `GET /minimisation/regles/{demarche_id}` ; BFF `GET /interne/citoyens/{iue}/telephone` (appelée par la passerelle, à implémenter avec le BFF).
+- **Routes internes** (sans JWT, jamais appelées par le frontend) : consentement `GET /interne/consentements/{id}` et `GET /minimisation/regles/{demarche_id}`. La passerelle et le BFF étant exposés (administrations / internet), leurs routes internes exigent en plus la clé partagée `CLE_SERVICE_INTERNE` dans l'en-tête `X-Cle-Service` : passerelle `GET /interne/citoyens/{iue}` et `POST /interne/cascade` (appelées par le BFF), BFF `GET /interne/citoyens/{iue}/telephone` (appelée par la passerelle).
+- **BFF** : ne lit jamais les registres directement (identité et cascade via la passerelle). Les tutelles sont relues en base à chaque requête ; pour appeler consentement et journal, le BFF fabrique un jeton citoyen de 2 minutes avec la liste `enfants` à jour. L'interface de test (`/api/test/*`) fabrique des jetons d'administration : à désactiver en production (`INTERFACE_TEST_ACTIVE=false`).
 - **Interopérabilité** : les URL des registres utilisées par la passerelle sont surchargeables (`REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` dans un `.env` à la racine) pour brancher le registre d'une autre équipe.
 - **Minimisation** : les règles « champs autorisés par démarche et par registre » appartiennent au service consentement (table `ChampsDemarche`, seed dans `backend/consentement/prisma/seed.js`). Identifiants des démarches : `inscription-universite`, `emission-passeport`, `ouverture-compte-bancaire`.
-- **SMS** : simulés, écrits dans les logs du service consentement (`docker compose logs consentement`).
+- **SMS** : simulés, écrits dans les logs (`docker compose logs consentement` pour les demandes de consentement, `docker compose logs espace-usager` pour les codes de mot de passe et les transferts).
 - **Journal** : en ajout seul, aucune entrée n'est modifiée ni supprimée. La passerelle envoie, en plus des identifiants, une photo figée des noms (`administration_nom`, `administration_type`, `demarche_nom`).
 - **Erreurs** : Format uniforme `{ code: "STRING_CONSTANTE", message: "Message lisible" }`
 - **Pagination** : `{ page, limite, total, pages }`

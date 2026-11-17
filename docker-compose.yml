@@ -98,6 +98,7 @@ services:
       CONSENTEMENT_URL: http://consentement:3005/api
       JOURNAL_URL: http://journal:3006/api
       BFF_URL: http://espace-usager:3000/api
+      CLE_SERVICE_INTERNE: ${CLE_SERVICE_INTERNE:-dlnuf-cle-interne-a-changer}
     ports:
       - "3004:3004"
     depends_on:
@@ -108,6 +109,32 @@ services:
       registre-justice:
         condition: service_started
       registre-fiscal:
+        condition: service_started
+      consentement:
+        condition: service_started
+      journal:
+        condition: service_started
+
+  # Couche 5 — BFF espace usager (:3000) : SEUL service appelé par le frontend.
+  espace-usager:
+    build: ./backend/espace-usager
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=espace_usager
+      JWT_SECRET: ${JWT_SECRET:-dlnuf-dev-secret-a-changer}
+      JWT_DUREE: 8h
+      CLE_SERVICE_INTERNE: ${CLE_SERVICE_INTERNE:-dlnuf-cle-interne-a-changer}
+      PASSERELLE_URL: http://passerelle:3004/api
+      CONSENTEMENT_URL: http://consentement:3005/api
+      JOURNAL_URL: http://journal:3006/api
+      CORS_ORIGINES: ${CORS_ORIGINES:-*}
+      INTERFACE_TEST_ACTIVE: ${INTERFACE_TEST_ACTIVE:-true}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      passerelle:
         condition: service_started
       consentement:
         condition: service_started

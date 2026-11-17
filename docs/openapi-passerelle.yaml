@@ -278,6 +278,144 @@ paths:
                           type: string
                           example: "education"
 
+  # ─── Interne (réservé au BFF espace usager) ───
+  /interne/citoyens/{iue}:
+    get:
+      tags: [Interne]
+      summary: Identité d'un citoyen et de ses enfants (BFF uniquement)
+      description: |
+        Protégé par la clé de service partagée (en-tête X-Cle-Service). Le BFF n'interroge
+        jamais les registres directement ; il lit ici nom, prénom, date de naissance et
+        enfants pour l'espace personnel du citoyen. Non inscrit au journal : aucune
+        administration n'accède aux données.
+      parameters:
+        - name: iue
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Cle-Service
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Identité
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  iue:
+                    type: string
+                  nom:
+                    type: string
+                  prenom:
+                    type: string
+                  date_naissance:
+                    type: string
+                    format: date
+                  est_majeur:
+                    type: boolean
+                  enfants:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        iue:
+                          type: string
+                        nom:
+                          type: string
+                        prenom:
+                          type: string
+                        date_naissance:
+                          type: string
+                          format: date
+                        est_majeur:
+                          type: boolean
+        "401":
+          description: Clé de service absente ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: CITOYEN_NON_TROUVE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
+  /interne/cascade:
+    post:
+      tags: [Interne]
+      summary: Résoudre la cascade d'une pièce demandée par un citoyen (BFF uniquement)
+      description: Protégé par la clé de service partagée (en-tête X-Cle-Service).
+      parameters:
+        - name: X-Cle-Service
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type_piece_id, iue]
+              properties:
+                type_piece_id:
+                  type: string
+                  example: "casier-judiciaire"
+                iue:
+                  type: string
+                  description: Titulaire de la pièce (le citoyen ou son enfant)
+      responses:
+        "200":
+          description: Arbre de résolution
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type_piece:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      nom:
+                        type: string
+                  statut:
+                    type: string
+                    enum: [complete, fallback_physique]
+                  cascade:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type_piece:
+                          type: string
+                        proprietaire:
+                          type: string
+                          enum: [citoyen, pere, mere]
+                        registre_source:
+                          type: string
+                        statut:
+                          type: string
+                          enum: [resolu, manquant_fallback_physique]
+                        sous_prerequis:
+                          type: array
+                          items:
+                            type: object
+        "404":
+          description: TYPE_PIECE_INCONNU ou CITOYEN_NON_TROUVE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
 components:
   securitySchemes:
     BearerAuth:

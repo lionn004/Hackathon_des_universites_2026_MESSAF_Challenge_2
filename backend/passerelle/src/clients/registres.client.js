@@ -100,4 +100,6 @@ async function pieceExists(typePieceId, registre, iue) {
   return data !== null;
 }
 
-module.exports = { getFiliation, fetchFields, pieceExists };
+module.exports = {
+  getEtatCivil, getFiliation, fetchFields, pieceExists,
+};

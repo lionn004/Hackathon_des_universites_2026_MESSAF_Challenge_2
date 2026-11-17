@@ -18,7 +18,10 @@ const { request, unexpected } = require('./http');
 async function getPhone(iue) {
   let res;
   try {
-    res = await request('espace usager (BFF)', `${config.urls.bff}/interne/citoyens/${iue}/telephone`);
+    // La route est protégée côté BFF par la clé de service partagée.
+    res = await request('espace usager (BFF)', `${config.urls.bff}/interne/citoyens/${iue}/telephone`, {
+      headers: { 'X-Cle-Service': config.serviceKey },
+    });
   } catch {
     throw new AppError(503, 'SERVICE_INDISPONIBLE', 'Le numéro de téléphone est momentanément indisponible (espace usager injoignable)');
   }

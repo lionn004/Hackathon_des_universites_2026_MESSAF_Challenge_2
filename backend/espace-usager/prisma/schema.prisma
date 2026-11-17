@@ -1,0 +1,80 @@
+// BFF espace usager — tables propres à ce service uniquement.
+// Schéma PostgreSQL choisi via DATABASE_URL (?schema=espace_usager).
+//
+// Le BFF ne stocke que les données de COMPTE (mot de passe, téléphone, tutelle)
+// et les demandes de pièces. Les données administratives (nom, date de
+// naissance…) restent dans les registres : le BFF les lit via la passerelle.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Compte d'un citoyen sur la plateforme.
+model Citoyen {
+  id               String    @id @default(uuid()) @db.Uuid
+  iue              String    @unique @db.VarChar(12)
+  // Hash bcrypt. Null = le citoyen ne peut pas se connecter lui-même :
+  // compte d'un mineur géré par son tuteur, ou transfert en attente d'activation.
+  mot_de_passe     String?
+  telephone        String
+  // Tuteur qui administre ce compte (null pour un adulte autonome).
+  tuteur_id        String?   @db.Uuid
+  tuteur           Citoyen?  @relation("tutelle", fields: [tuteur_id], references: [id])
+  enfants          Citoyen[] @relation("tutelle")
+  date_inscription DateTime  @default(now())
+
+  demandes         Demande[]
+  reinitialisations ReinitialisationMotDePasse[]
+
+  @@index([tuteur_id])
+}
+
+// Demande de réinitialisation du mot de passe par SMS (et activation après transfert).
+// Ni le jeton temporaire ni le code ne sont stockés en clair : seulement leur empreinte.
+model ReinitialisationMotDePasse {
+  id          String    @id @default(uuid()) @db.Uuid
+  citoyen_id  String    @db.Uuid
+  citoyen     Citoyen   @relation(fields: [citoyen_id], references: [id], onDelete: Cascade)
+  // SHA-256 du token_temporaire remis au client.
+  token_hash  String    @unique
+  // Hash bcrypt du code à 6 chiffres envoyé par SMS.
+  code_hash   String
+  expire_le   DateTime
+  // Nombre de codes faux déjà essayés (au-delà de la limite, la demande est grillée).
+  tentatives  Int       @default(0)
+  utilise_le  DateTime?
+  date_creation DateTime @default(now())
+
+  @@index([citoyen_id])
+}
+
+enum StatutDemande {
+  en_cours
+  complete
+  echouee
+  fallback_physique
+}
+
+// Demande de pièce par un citoyen (pour lui-même ou pour un enfant dont il est tuteur).
+// L'arbre de résolution en cascade calculé par la passerelle est conservé tel quel.
+model Demande {
+  id              String        @id @default(uuid()) @db.Uuid
+  // Compte qui a fait la demande (le tuteur, si c'est pour un enfant).
+  citoyen_id      String        @db.Uuid
+  citoyen         Citoyen       @relation(fields: [citoyen_id], references: [id], onDelete: Cascade)
+  // Titulaire de la pièce : le demandeur lui-même, ou l'enfant.
+  titulaire_iue   String        @db.VarChar(12)
+  type_piece_id   String
+  type_piece_nom  String
+  statut          StatutDemande
+  cascade         Json
+  date_creation   DateTime      @default(now())
+  date_completion DateTime?
+
+  @@index([citoyen_id, date_creation])
+}
