@@ -280,6 +280,24 @@ Le contrôle d'accès porte sur le **titulaire** des données : un citoyen voit 
 - **Données** : aucune copie des données transmises ; un champ hors dictionnaire n'entre jamais dans la plateforme ; un citoyen ne peut lire que ses données et celles de ses enfants sous tutelle.
 - **Intégrité du journal** : chaîne des empreintes (§ 8), vérifiable par le citoyen ; une altération directe de la base est détectée, même après un redémarrage (les données de démonstration ne réécrivent jamais une entrée existante).
 
+**Chiffrement : d'abord ne pas stocker.** La meilleure protection d'une donnée est de ne pas la garder. La plateforme ne conserve aucune copie des données transmises (remise unique, § 6). Les requêtes, demandes et consentements ne contiennent que des statuts et des **noms** de données, jamais leurs valeurs. Le journal enregistre qu'« est_majeur, nationalite » ont été transmis, pas ce qu'ils valaient. Les données d'état civil, de casier et fiscales restent dans les registres. Ce que la plateforme stocke de personnel se limite au compte (IUE, téléphone, mot de passe haché) et aux traces d'accès (IUE du titulaire et du décideur, administration, démarche, noms des données).
+
+| Protection | Aujourd'hui |
+|------------|-------------|
+| Mots de passe, codes SMS | Hachés avec bcrypt : irréversibles, même pour qui lit la base |
+| Jetons | Signés (HS256) : infalsifiables sans le secret, mais lisibles ; le jeton citoyen ne contient donc que l'IUE et la liste des enfants, celui d'une administration que son identifiant |
+| Journal | Chaîné par empreintes SHA-256 : intégrité prouvable (pas de confidentialité) |
+| Échanges | **Non chiffrés** dans la démonstration (HTTP, sur le poste ou le réseau interne Docker) |
+| Base de données | **Non chiffrée** sur le disque ; le téléphone y est en clair |
+| Table de correspondance | Fichier de configuration, non chiffré |
+
+**Plan de production, avec des outils libres et éprouvés** (aucune cryptographie écrite par nous) :
+
+- **En transit** : HTTPS (TLS 1.3) sur les deux seules portes publiques, la passerelle et le BFF, par un frontal libre (Caddy ou nginx, certificats Let's Encrypt renouvelés automatiquement) ; TLS mutuel entre les services, avec une autorité de certification interne libre (par exemple step-ca), pour qu'un service ne parle qu'aux services qu'il connaît.
+- **Au repos** : chiffrement du disque de la base (LUKS) et des sauvegardes ; chiffrement par colonne des données personnelles stockées (le téléphone) en AES-256-GCM, par le module `crypto` de Node, qui s'appuie sur OpenSSL. GCM chiffre et détecte toute altération.
+- **Clés et secrets** : dans un coffre libre (OpenBao, licence MPL 2.0) au lieu des variables du `docker-compose.yml`, avec rotation des clés ; jetons signés par clés asymétriques (EdDSA), pour qu'aucun service autre que le BFF ne puisse fabriquer un jeton citoyen.
+- **Table de correspondance** : chez l'autorité de l'IUE, consultée par API en TLS mutuel (§ 17), et non plus dans un fichier.
+
 ## 13. Les trois procédures de bout en bout
 
 **1. Inscription universitaire (administration publique, accès direct).** L'université demande `inscription-universite` pour Amadou. Elle reçoit uniquement `{"etat-civil": {"est_majeur": true, "nationalite": "Burkinabè"}}`. L'accès apparaît dans le journal d'Amadou.
@@ -349,7 +367,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Table de correspondance alimentée par l'enrôlement** : le mode `correspondance` est fait, avec une table en fichier. En production, le lien entre l'IUE et les autres identifiants (numéro d'acte, NIP, IFU) naît à l'enrôlement et appartient à l'autorité de l'IUE. La passerelle le consulterait donc par API auprès de cette autorité, au lieu d'un fichier, avec les mêmes règles qu'aujourd'hui. Les ajouts seraient pris en compte sans redémarrage, chaque modification serait tracée, et les rapprochements douteux seraient validés par un agent, avec une voie de contestation pour le citoyen. La table est elle-même une donnée personnelle, à accès restreint. À terme, les registres adoptent l'IUE (mode `iue`) : la correspondance, comme la recherche, est un mécanisme de transition.
 - **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.
 - **Statistiques de numérisation plus fines** : les statistiques par type de pièce et par registre sont faites (§ 10). Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen) ; un registre qui le fournirait (lieu de l'acte) le permettrait.
-- **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, publication régulière de la dernière empreinte du journal auprès d'un tiers (ancre), bases séparées par service, vrai fournisseur de SMS.
+- **Production** : chiffrement en transit et au repos selon le plan du § 12, limitation du nombre de tentatives de connexion, publication régulière de la dernière empreinte du journal auprès d'un tiers (ancre), bases séparées par service, vrai fournisseur de SMS.
 - **Espace usager** : documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
 
 ## Annexe A : comptes de démonstration
