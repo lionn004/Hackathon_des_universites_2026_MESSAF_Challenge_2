@@ -5,13 +5,13 @@
  * dépendances en cascade ») ; le BFF enregistre le résultat :
  *  - toutes les pièces trouvées → « complete » ;
  *  - au moins une pièce manquante → « fallback_physique » : le citoyen doit
- *    présenter le document au guichet ;
+ *    attendre que la pièce soit numérisée dans son registre (donnée numérique manquante) ;
  *  - un registre nécessaire est hors service → « en_cours » : la demande attend
  *    son retour (docs/conception-interoperabilite.md, § 10).
  *
  * Reprise automatique (§ 9 et § 10) : une tâche relance régulièrement les demandes
- * « en_cours » et « fallback_physique ». Quand le registre revient, ou quand l'agent du
- * guichet a numérisé la pièce manquante dans son registre, la demande se complète seule
+ * « en_cours » et « fallback_physique ». Quand le registre revient, ou quand l'administration
+ * qui détient la pièce manquante l'a numérisée dans son registre, la demande se complète seule
  * et le citoyen est notifié (SMS simulé).
  *
  * Le contenu d'une pièce n'est jamais stocké : la passerelle le relit dans le
@@ -185,7 +185,7 @@ async function canReadPiecesOf(account, holderIue) {
  * @returns {AppError}
  */
 function pieceUnavailable() {
-  return new AppError(409, 'PIECE_INDISPONIBLE', 'Cette pièce n\'est pas disponible en ligne : elle est à retirer au guichet');
+  return new AppError(409, 'PIECE_INDISPONIBLE', 'Cette pièce n\'est pas encore disponible : sa demande n\'est pas terminée, ou elle n\'est pas encore numérisée dans son registre');
 }
 
 /**
@@ -235,7 +235,7 @@ async function getContent(iue, id) {
 
 /**
  * Nombre de demandes non finalisées (comptées « en cours » au tableau de bord) :
- * en cours de résolution, ou en attente du passage au guichet.
+ * en cours de résolution, ou en attente de la numérisation d'une pièce manquante.
  * @param {object} account
  * @returns {Promise<number>}
  */
@@ -248,7 +248,7 @@ const REPRISE_PAR_PASSAGE = 50;
 
 /**
  * Reprise automatique : relance la cascade des demandes en attente d'un registre
- * (« en_cours ») ou bloquées au guichet (« fallback_physique »).
+ * (« en_cours ») ou en attente d'une donnée à numériser (« fallback_physique »).
  * Une demande qui change est mise à jour ; si elle devient complète, le demandeur est
  * notifié par SMS (simulé). Un registre encore hors service laisse la demande en l'état.
  *

@@ -124,7 +124,7 @@
     /** Catalogue des pièces (GET /types-pieces) avec l'arbre complet des prérequis. */
     async function renderCatalogue() {
       const container = document.getElementById('types-pieces-list');
-      container.innerHTML = '<div class="text-center" style="color:var(--gris-400)">Chargement…</div>';
+      container.innerHTML = SR_CHARGEMENT + ['85%', '60%', '70%'].map(w => `<span class="skeleton skeleton-text" aria-hidden="true" style="width:${w}"></span>`).join('');
       try {
         const types = await catalogueApi.list();
         container.innerHTML = `

@@ -54,7 +54,7 @@ async function identity(iue) {
  *  - « en_attente_registre » si un registre nécessaire est hors service : la demande n'est
  *    pas perdue, le BFF la relance (reprise automatique) jusqu'à son retour ;
  *  - sinon « complete » si toutes les pièces de l'arbre sont trouvées ;
- *  - sinon « fallback_physique » : au moins une manque (le citoyen doit passer au guichet).
+ *  - sinon « fallback_physique » : au moins une manque (donnée numérique manquante : la pièce doit être numérisée dans son registre).
  *
  * @param {object} body { type_piece_id, iue }.
  * @returns {Promise<{type_piece: {id: string, nom: string}, statut: string, cascade: object[],
@@ -105,7 +105,7 @@ async function cascadeForPiece(body) {
  * @returns {AppError}
  */
 function pieceUnavailable() {
-  return new AppError(404, 'PIECE_INDISPONIBLE', 'Pièce absente du registre : elle doit être retirée au guichet');
+  return new AppError(404, 'PIECE_INDISPONIBLE', 'Pièce absente du registre : elle n\'y est pas encore numérisée');
 }
 
 /**

@@ -36,7 +36,7 @@ function count(where) {
 
 /**
  * Demandes à relancer par la reprise automatique : en attente d'un registre (« en_cours »)
- * ou bloquées au guichet (« fallback_physique »), les plus anciennes d'abord.
+ * ou en attente d'une donnée à numériser (« fallback_physique »), les plus anciennes d'abord.
  * @param {number} take Nombre maximal par passage.
  * @returns {Promise<object[]>}
  */

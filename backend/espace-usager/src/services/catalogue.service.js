@@ -41,6 +41,8 @@ async function listTypesPieces() {
       nom: p.nom,
       registre_source: p.registre_source,
       est_evolutive: p.est_evolutive,
+      // Démarche affichée au citoyen quand cette pièce manque dans son registre numérique.
+      demarche_si_absente: p.demarche_si_absente ?? null,
       prerequis: withNames(trees[i].prerequis, names),
     })),
   };
