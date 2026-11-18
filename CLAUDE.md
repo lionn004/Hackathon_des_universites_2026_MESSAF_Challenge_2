@@ -73,7 +73,7 @@ Point central qui route les requêtes entre administrations et registres. Respon
 - Appeler le service de minimisation pour filtrer les champs
 - Déclencher une demande de consentement si administration privée
 - Appeler le journal pour tracer l'accès
-- Retourner les données filtrées
+- Retourner les données filtrées, **une seule fois et sans en garder de copie** (remise unique) : réponse 200 du `POST /requetes` pour une administration publique, première consultation de `GET /requetes/{id}` après l'acceptation pour une privée. Ensuite `donnees` vaut `null` et seule la trace reste au journal.
 
 ### Couche 3 — Consentement & Minimisation (port 3005)
 

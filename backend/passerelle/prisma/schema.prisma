@@ -114,7 +114,10 @@ model Requete {
   demarche_id       String
   statut            StatutRequete
   consentement_id   String?       @db.Uuid
-  // Données filtrées transmises (uniquement quand statut = complete).
+  // Toujours vide : la passerelle ne garde aucune copie des données transmises
+  // (remise unique, voir requetes.service.js). La colonne reste pour les bases
+  // existantes, car `prisma db push` refuserait de la supprimer sans
+  // --accept-data-loss ; le démarrage efface les anciennes valeurs.
   donnees           Json?
   // Résultat de la résolution en cascade des prérequis.
   cascade           Json?

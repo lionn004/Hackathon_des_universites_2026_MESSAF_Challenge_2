@@ -200,7 +200,7 @@ curl -X POST http://localhost:3004/api/requetes \
 | Route | Rôle |
 |-------|------|
 | `POST /api/requetes` | Demander des données (200 si publique, 202 si consentement requis) |
-| `GET /api/requetes/{id}` | Suivre une requête ; les données arrivent après l'acceptation du citoyen |
+| `GET /api/requetes/{id}` | Suivre une requête ; les données arrivent après l'acceptation du citoyen, remises une seule fois (la passerelle n'en garde pas de copie) |
 | `GET /api/requetes/{id}/telephone` | Obtenir le téléphone du citoyen pour le relancer (requête en attente uniquement) |
 | `GET /api/demarches`, `GET /api/types-pieces`, `GET /api/types-pieces/{id}/prerequis` | Catalogue public |
 
