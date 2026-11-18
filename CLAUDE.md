@@ -10,6 +10,8 @@ Projet développé dans le cadre du **Hackathon des Universités 2026**, organis
 
 Le citoyen fournit ses informations **une seule fois**. Les administrations s'échangent les données nécessaires via la plateforme, avec gestion du consentement, minimisation des données et traçabilité complète.
 
+**Noms** : **DLNUF** est le socle d'interopérabilité, c'est-à-dire l'API centrale que les administrations appellent (passerelle, consentement, journal, branchement des registres) ; on parle de « l'API DLNUF » ou de « la passerelle DLNUF ». **e-FASO** est le portail du citoyen (le frontend), une application construite sur DLNUF. Pas d'autre nom.
+
 ### Livrables attendus
 
 - Code source open-source, licence libre

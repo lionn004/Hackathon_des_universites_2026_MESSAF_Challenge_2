@@ -1,8 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Passerelle d'échange API
+  title: Passerelle DLNUF
   description: |
-    API centrale de la passerelle d'échange.
+    API centrale de DLNUF, le socle d'interopérabilité : la passerelle d'échange
+    que les administrations appellent.
     Route les requêtes entre administrations et registres.
     Gère la résolution des chaînes de dépendances en cascade.
     Applique le filtre de minimisation selon la démarche.

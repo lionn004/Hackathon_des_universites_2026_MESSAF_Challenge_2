@@ -2,6 +2,8 @@
 
 Plateforme d'interopérabilité qui permet aux administrations du Burkina Faso d'échanger les données des citoyens entre elles, au lieu de demander aux citoyens de transporter des documents d'un guichet à l'autre. Le citoyen fournit ses informations une seule fois. Chaque échange ne laisse passer que les champs utiles à la démarche, exige le consentement explicite du citoyen quand le demandeur est une entité privée, et reste visible du citoyen, qui sait qui a consulté quoi et pourquoi.
 
+**DLNUF** est le socle d'interopérabilité : l'API centrale que les administrations appellent (passerelle d'échange, consentement, journal, branchement des registres). **e-FASO** est le portail du citoyen, une application construite sur ce socle.
+
 Projet réalisé pour le Hackathon des Universités 2026 (MTDPCE, Semaine du Numérique), challenge 02 « Dites-le-nous une fois ».
 
 ---
@@ -39,12 +41,12 @@ curl http://localhost:3000/api/sante
 
 | Service | URL | Rôle |
 |---------|-----|------|
-| **Espace usager (site web)** | **http://localhost:3020** | Portail du citoyen ; interface de test des administrations sur `/pages/test.html` |
+| **Espace usager (site web)** | **http://localhost:3020** | e-FASO, le portail du citoyen ; interface de test des administrations sur `/pages/test.html` |
 | Espace usager (BFF) | http://localhost:3000/api | Seul point d'entrée du frontend citoyen |
 | Registre état-civil | http://localhost:3001/api | Naissance, filiation, nationalité |
 | Registre justice | http://localhost:3002/api | Casier judiciaire, certificat de nationalité |
 | Registre fiscal | http://localhost:3003/api | IFU, situation fiscale |
-| Passerelle d'échange | http://localhost:3004/api | Point d'entrée des administrations |
+| Passerelle DLNUF | http://localhost:3004/api | API centrale, point d'entrée des administrations |
 | Consentement & minimisation | http://localhost:3005/api | Demandes de consentement, filtre des champs |
 | Journal de traçabilité | http://localhost:3006/api | Historique de tous les accès |
 | **Documentation des API** | **http://localhost:3010** | Swagger UI : les 7 contrats OpenAPI, consultables dans le navigateur |
