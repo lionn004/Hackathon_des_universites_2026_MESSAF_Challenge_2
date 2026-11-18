@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Journal d'accès — e-FASO</title>
+  <title>Journal d'accès | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -12,51 +12,73 @@
       <h1 class="page-title">Journal d'accès</h1>
       <p class="page-subtitle">Traçabilité complète de tous les accès à vos données personnelles</p>
 
-      <!-- Statistiques -->
       <div class="stat-cards mb-6">
         <div class="stat-card">
-          <div class="stat-icon" style="background:#E8F4FD;color:#1976D2">📊</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-total">—</div>
-            <div class="stat-label">Total des accès</div>
-          </div>
+          <div class="stat-value" id="stat-total">-</div>
+          <div class="stat-label">Total des accès</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--or-clair);color:var(--or-fonce)">📅</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-30j">—</div>
-            <div class="stat-label">30 derniers jours</div>
-          </div>
+          <div class="stat-value" id="stat-30j">-</div>
+          <div class="stat-label">30 derniers jours</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:var(--vert-clair);color:var(--vert-fonce)">🏛</div>
-          <div class="stat-info">
-            <div class="stat-value" id="stat-admins">—</div>
-            <div class="stat-label">Administrations</div>
-          </div>
+          <div class="stat-value" id="stat-admins">-</div>
+          <div class="stat-label">Administrations</div>
         </div>
       </div>
 
-      <!-- Tableau des accès -->
       <div class="card">
-        <div style="padding:var(--space-4);border-bottom:1px solid var(--gris-200)">
-          <strong>Historique des accès</strong>
+        <div class="list-toolbar">
+          <div>
+            <strong>Historique des accès</strong>
+            <div class="filter-count" id="f-count" aria-live="polite"></div>
+          </div>
+          <button type="button" class="search-toggle" id="btn-recherche"></button>
         </div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Administration</th>
-              <th>Démarche</th>
-              <th>Champs consultés</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-journal">
-            <tr><td colspan="5" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
-          </tbody>
-        </table>
-        <!-- Pagination -->
+
+        <!-- Ouvert par le bouton loupe -->
+        <form class="filter-bar filter-panel hidden" id="filtres" onsubmit="event.preventDefault()">
+          <div class="filter-field grow">
+            <label for="f-recherche">Rechercher</label>
+            <div class="search-field">
+              <input type="search" class="form-input" id="f-recherche" placeholder="Administration, démarche, donnée consultée…" autocomplete="off">
+            </div>
+          </div>
+          <div class="filter-field">
+            <label for="f-type">Type d'accès</label>
+            <select class="form-input" id="f-type">
+              <option value="">Tous</option>
+              <option value="direct">Direct (administration publique)</option>
+              <option value="consentement">Avec consentement (privée)</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="f-debut">Du</label>
+            <input type="date" class="form-input" id="f-debut">
+          </div>
+          <div class="filter-field">
+            <label for="f-fin">Au</label>
+            <input type="date" class="form-input" id="f-fin">
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" id="f-reset" onclick="reinitialiser()">Réinitialiser</button>
+        </form>
+
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Administration</th>
+                <th>Démarche</th>
+                <th>Champs consultés</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-journal">
+              <tr><td colspan="5" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
         <div class="flex-between" style="padding:var(--space-4);border-top:1px solid var(--gris-200)" id="pagination">
         </div>
       </div>
@@ -66,82 +88,154 @@
   <script src="/js/api.js"></script>
   <script src="/js/layout.js"></script>
   <script>
-    let currentPage = 1;
-    const perPage = 20;
+    const PAR_PAGE = 20;
+    // Le BFF filtre les dates (date_debut, date_fin). La recherche texte et le type d'accès
+    // s'appliquent dans le navigateur aux accès chargés, 100 au plus.
+    const LIMITE_CHARGEMENT = 100;
 
-    async function loadJournal(page = 1) {
-      currentPage = page;
-      try {
-        const data = await journalApi.list({ page, limite: perPage });
-        const entries = data.entrees || [];
-        const total = data.pagination?.total ?? entries.length;
-        const totalPages = data.pagination?.pages ?? Math.ceil(total / perPage);
-        const tbody = document.getElementById('tbody-journal');
-        document.getElementById('stat-total').textContent = total;
+    let entrees = [];
+    let totalPeriode = 0; // nombre réel d'accès sur la période, qui peut dépasser LIMITE_CHARGEMENT
+    let resultats = [];
+    let page = 1;
 
-        if (entries.length === 0) {
-          tbody.innerHTML = `
-            <tr><td colspan="5" class="text-center" style="padding:var(--space-8);color:var(--gris-400)">
-              <div style="font-size:2rem;margin-bottom:var(--space-2)">📖</div>
-              Aucun accès enregistré pour le moment
-            </td></tr>`;
-          document.getElementById('pagination').innerHTML = '';
-          return;
+    const el = id => document.getElementById(id);
+
+    function renderLigne(j) {
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:500">${formatDate(j.date_acces)}</div>
+            <div style="font-size:var(--font-size-xs);color:var(--gris-400)">${formatTime(j.date_acces)}</div>
+          </td>
+          <td>${statusBadge(j.type_acces)}</td>
+          <td>
+            ${escapeHtml(j.administration_nom) || VIDE}
+            ${j.administration_type ? `<div style="font-size:var(--font-size-xs);color:var(--gris-400)">${j.administration_type === 'privee' ? 'Privée' : 'Publique'}</div>` : ''}
+          </td>
+          <td>
+            ${escapeHtml(j.demarche) || VIDE}
+            ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">Pour ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
+          </td>
+          <td style="font-size:var(--font-size-xs);color:var(--gris-500);max-width:200px">
+            ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(j.champs_consultes.join(', ')) : VIDE}
+          </td>
+        </tr>`;
+    }
+
+    const panneau = initPanneauRecherche('btn-recherche', 'filtres');
+
+    /** La plage de dates compte pour un seul filtre. */
+    function nbFiltres() {
+      return [el('f-recherche').value.trim(), el('f-type').value, el('f-debut').value || el('f-fin').value].filter(Boolean).length;
+    }
+
+    function filtresActifs() {
+      return nbFiltres() > 0;
+    }
+
+    function appliquerFiltres() {
+      const recherche = el('f-recherche').value;
+      const type = el('f-type').value;
+      resultats = entrees.filter(j =>
+        (!type || j.type_acces === type) &&
+        correspond(recherche, j.administration_nom, j.demarche, j.champs_consultes, j.pour_enfant?.nom));
+      page = 1;
+      afficher();
+    }
+
+    function afficher() {
+      const tbody = el('tbody-journal');
+      const nbPages = Math.max(1, Math.ceil(resultats.length / PAR_PAGE));
+      page = Math.min(page, nbPages);
+
+      let compteur = '';
+      if (filtresActifs()) {
+        compteur = `${resultats.length} résultat${resultats.length > 1 ? 's' : ''}`;
+        if (totalPeriode > entrees.length) {
+          compteur += `. La recherche porte sur les ${entrees.length} accès les plus récents de la période, sur ${totalPeriode} : précisez les dates pour remonter plus loin.`;
         }
-
-        tbody.innerHTML = entries.map(j => `
-          <tr>
-            <td>
-              <div style="font-weight:500">${formatDate(j.date_acces)}</div>
-              <div style="font-size:var(--font-size-xs);color:var(--gris-400)">${formatTime(j.date_acces)}</div>
-            </td>
-            <td>${statusBadge(j.type_acces)}</td>
-            <td>
-              ${escapeHtml(j.administration_nom) || '—'}
-              ${j.administration_type ? `<div style="font-size:var(--font-size-xs);color:var(--gris-400)">${j.administration_type === 'privee' ? 'Privée' : 'Publique'}</div>` : ''}
-            </td>
-            <td>
-              ${escapeHtml(j.demarche) || '—'}
-              ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">👶 ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
-            </td>
-            <td style="font-size:var(--font-size-xs);color:var(--gris-500);max-width:200px">
-              ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(j.champs_consultes.join(', ')) : '—'}
-            </td>
-          </tr>
-        `).join('');
-
-        // Pagination
-        if (totalPages > 1) {
-          let paginationHtml = `<span style="font-size:var(--font-size-sm);color:var(--gris-500)">Page ${page} / ${totalPages}</span><div style="display:flex;gap:var(--space-2)">`;
-          if (page > 1) paginationHtml += `<button class="btn btn-sm btn-outline" onclick="loadJournal(${page - 1})">← Précédent</button>`;
-          if (page < totalPages) paginationHtml += `<button class="btn btn-sm btn-outline" onclick="loadJournal(${page + 1})">Suivant →</button>`;
-          paginationHtml += '</div>';
-          document.getElementById('pagination').innerHTML = paginationHtml;
-        } else {
-          document.getElementById('pagination').innerHTML = '';
-        }
-      } catch (e) {
-        document.getElementById('tbody-journal').innerHTML = emptyRow(5, 'Erreur de chargement', true);
       }
+      el('f-count').textContent = compteur;
+      panneau.majBadge(nbFiltres());
+
+      if (resultats.length === 0) {
+        tbody.innerHTML = filtresActifs()
+          ? `<tr><td colspan="5" class="text-center" style="padding:var(--space-8);color:var(--gris-400)">
+               Aucun accès ne correspond à ces critères.
+               <div class="mt-2"><button class="btn btn-sm btn-outline" onclick="reinitialiser()">Réinitialiser les filtres</button></div>
+             </td></tr>`
+          : `<tr><td colspan="5" class="text-center" style="padding:var(--space-8);color:var(--gris-400)">
+               Aucun accès enregistré pour le moment
+             </td></tr>`;
+        el('pagination').innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = resultats.slice((page - 1) * PAR_PAGE, page * PAR_PAGE).map(renderLigne).join('');
+
+      if (nbPages > 1) {
+        el('pagination').innerHTML = `
+          <span style="font-size:var(--font-size-sm);color:var(--gris-500)">Page ${page} / ${nbPages}</span>
+          <div style="display:flex;gap:var(--space-2)">
+            ${page > 1 ? `<button class="btn btn-sm btn-outline" onclick="allerPage(${page - 1})">Précédent</button>` : ''}
+            ${page < nbPages ? `<button class="btn btn-sm btn-outline" onclick="allerPage(${page + 1})">Suivant</button>` : ''}
+          </div>`;
+      } else {
+        el('pagination').innerHTML = '';
+      }
+    }
+
+    function allerPage(p) {
+      page = p;
+      afficher();
+    }
+
+    async function chargerJournal() {
+      const date_debut = el('f-debut').value;
+      const date_fin = el('f-fin').value;
+      if (date_debut && date_fin && date_debut > date_fin) {
+        el('f-count').textContent = 'La date de début doit précéder la date de fin.';
+        return;
+      }
+      el('tbody-journal').innerHTML = emptyRow(5, 'Chargement…');
+      try {
+        const data = await journalApi.list({ date_debut, date_fin, limite: LIMITE_CHARGEMENT });
+        entrees = data.entrees || [];
+        totalPeriode = data.pagination?.total ?? entrees.length;
+        appliquerFiltres();
+      } catch (e) {
+        el('tbody-journal').innerHTML = emptyRow(5, `Erreur de chargement : ${e.message}`, true);
+        el('pagination').innerHTML = '';
+      }
+    }
+
+    function reinitialiser() {
+      el('filtres').reset();
+      chargerJournal();
     }
 
     async function loadStats() {
-      // Accès des 30 derniers jours : fourni par le tableau de bord
+      // Le nombre d'accès sur 30 jours vient du tableau de bord.
       try {
         const data = await dashboardApi.get();
-        document.getElementById('stat-30j').textContent = data.acces_recents ?? 0;
+        el('stat-30j').textContent = data.acces_recents ?? 0;
       } catch (e) {
         console.error('Stats journal:', e);
       }
-      // Administrations distinctes (sur les 100 accès les plus récents)
+      // Administrations distinctes, comptées sur les 100 accès les plus récents.
       try {
-        const j = await journalApi.list({ limite: 100 });
-        const admins = new Set((j.entrees || []).map(a => a.administration_nom));
-        document.getElementById('stat-admins').textContent = admins.size;
+        const j = await journalApi.list({ limite: LIMITE_CHARGEMENT });
+        el('stat-total').textContent = j.pagination?.total ?? (j.entrees || []).length;
+        el('stat-admins').textContent = new Set((j.entrees || []).map(a => a.administration_nom)).size;
       } catch (_) {}
     }
 
-    loadJournal();
+    el('f-recherche').addEventListener('input', debounce(appliquerFiltres));
+    el('f-type').addEventListener('change', appliquerFiltres);
+    el('f-debut').addEventListener('change', chargerJournal);
+    el('f-fin').addEventListener('change', chargerJournal);
+
+    chargerJournal();
     loadStats();
   </script>
 </body>

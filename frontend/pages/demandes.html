@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mes demandes — e-FASO</title>
+  <title>Mes demandes | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -17,24 +17,27 @@
         <button class="btn btn-primary" onclick="openNewDemande()">+ Nouvelle demande</button>
       </div>
 
-      <!-- Formulaire nouvelle demande (caché) -->
       <div class="card mb-6 hidden" id="form-demande" style="padding:var(--space-6)">
-        <h3 style="margin-bottom:var(--space-4)">📄 Nouvelle demande de pièce</h3>
+        <h3 style="margin-bottom:var(--space-4)">Nouvelle demande de pièce</h3>
         <div class="form-group">
-          <label class="form-label" for="select-type-piece">Type de pièce</label>
-          <select class="form-input" id="select-type-piece" onchange="showPrerequis()">
-            <option value="">— Sélectionner —</option>
-          </select>
+          <label class="form-label" for="input-piece" id="label-piece">Type de pièce</label>
+          <!-- Motif ARIA combobox : liste filtrée pendant la saisie -->
+          <div class="combobox search-field">
+            <input type="text" class="form-input" id="input-piece"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="liste-pieces"
+                   placeholder="Rechercher une pièce (ex : casier, naissance…)" autocomplete="off">
+            <ul class="combobox-list hidden" id="liste-pieces" role="listbox" aria-labelledby="label-piece"></ul>
+          </div>
+          <input type="hidden" id="select-type-piece">
         </div>
         <div class="form-group" id="group-enfant" style="display:none">
           <label class="form-label" for="select-enfant">Pour un enfant à charge (optionnel)</label>
           <select class="form-input" id="select-enfant">
-            <option value="">— Pour moi-même —</option>
+            <option value="">Pour moi-même</option>
           </select>
         </div>
         <div id="prereqs-info" class="hidden" style="margin-bottom:var(--space-4)">
           <div class="alert alert-info">
-            <span class="alert-icon">🔗</span>
             <div>
               <strong>Prérequis résolus automatiquement</strong>
               <div id="prereqs-text" style="margin-top:var(--space-2);font-size:var(--font-size-sm)"></div>
@@ -47,7 +50,40 @@
         </div>
       </div>
 
-      <!-- Liste des demandes -->
+      <div class="card mb-4 hidden" id="bloc-filtres">
+        <div class="list-toolbar">
+          <div class="filter-count" id="f-count" aria-live="polite"></div>
+          <button type="button" class="search-toggle" id="btn-recherche"></button>
+        </div>
+        <!-- Ouvert par le bouton loupe -->
+        <form class="filter-bar filter-panel hidden" id="filtres" onsubmit="event.preventDefault()">
+          <div class="filter-field grow">
+            <label for="f-piece">Type de pièce</label>
+            <select class="form-input" id="f-piece">
+              <option value="">Toutes les pièces</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="f-statut">Statut</label>
+            <select class="form-input" id="f-statut">
+              <option value="">Tous les statuts</option>
+              <option value="complete">Complète</option>
+              <option value="fallback_physique">À compléter au guichet</option>
+              <option value="en_cours">En cours</option>
+              <option value="echouee">Échouée</option>
+            </select>
+          </div>
+          <div class="filter-field" id="f-pour-field" style="display:none">
+            <label for="f-pour">Pour</label>
+            <select class="form-input" id="f-pour">
+              <option value="">Tout le monde</option>
+              <option value="moi">Moi</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" onclick="reinitialiserFiltres()">Réinitialiser</button>
+        </form>
+      </div>
+
       <div id="demandes-list">
         <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
       </div>
@@ -58,8 +94,10 @@
   <script src="/js/layout.js"></script>
   <script>
     let enfants = null;
-    // ?enfant=<iue> (depuis « Mes enfants ») : ouvrir le formulaire pour cet enfant
+    let demandes = [];
+    // Lien depuis « Mes enfants » (?enfant=<iue>) : le formulaire s'ouvre pour cet enfant.
     const enfantParam = new URLSearchParams(window.location.search).get('enfant');
+    const el = id => document.getElementById(id);
 
     function renderDemande(d) {
       const enfant = d.pour_enfant
@@ -68,37 +106,103 @@
       return `
         <div class="card mb-4" style="padding:var(--space-5)">
           <div class="flex-between mb-2">
-            <strong style="font-size:var(--font-size-base)">${escapeHtml(d.type_piece?.nom || nomPiece(d.type_piece?.id)) || '—'}</strong>
+            <strong style="font-size:var(--font-size-base)">${escapeHtml(d.type_piece?.nom || nomPiece(d.type_piece?.id)) || VIDE}</strong>
             ${statusBadge(d.statut)}
           </div>
-          ${enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">👶 Pour votre enfant : ${enfant}</div>` : ''}
+          ${enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">Pour votre enfant : ${enfant}</div>` : ''}
           <div style="font-size:var(--font-size-sm);color:var(--gris-500);margin-bottom:var(--space-3)">
             Créée le ${formatDate(d.date_creation)}
-            ${d.date_completion ? ` · Complétée le ${formatDate(d.date_completion)}` : ''}
+            ${d.date_completion ? `, complétée le ${formatDate(d.date_completion)}` : ''}
           </div>
           ${Array.isArray(d.cascade) && d.cascade.length ? `
             <div style="font-size:var(--font-size-sm)">
               <strong>Chaîne de prérequis :</strong>
               ${renderCascade(d.cascade)}
             </div>` : ''}
+          ${d.statut === 'complete' ? `
+            <div class="mt-4">
+              <a href="/pages/piece.html?id=${encodeURIComponent(d.id)}" class="btn btn-sm btn-outline">Consulter ou télécharger la pièce</a>
+            </div>` : ''}
           ${d.statut === 'fallback_physique' ? `
             <div class="alert alert-warning mt-4">
-              <span class="alert-icon">🏛</span>
               <span>Certaines pièces (marquées « Manquant ») ne sont pas disponibles dans le système, par exemple un parent non enregistré.
               Rendez-vous au guichet avec les documents correspondants : l'agent les saisira et la demande reprendra automatiquement.</span>
             </div>` : ''}
         </div>`;
     }
 
+    /** Le catalogue, plus les types présents dans les demandes mais absents du catalogue. */
+    function remplirFiltrePiece() {
+      const select = el('f-piece');
+      const courant = select.value;
+      const types = new Map(cataloguePieces.map(p => [p.id, p.nom]));
+      demandes.forEach(d => { if (d.type_piece?.id && !types.has(d.type_piece.id)) types.set(d.type_piece.id, d.type_piece.nom || d.type_piece.id); });
+      select.innerHTML = '<option value="">Toutes les pièces</option>' +
+        [...types].sort((a, b) => a[1].localeCompare(b[1], 'fr'))
+          .map(([id, nom]) => `<option value="${escapeHtml(id)}">${escapeHtml(nom)}</option>`).join('');
+      select.value = courant;
+    }
+
+    function remplirFiltrePour() {
+      if (!enfants?.length) return;
+      el('f-pour-field').style.display = '';
+      el('f-pour').innerHTML = '<option value="">Tout le monde</option><option value="moi">Moi</option>' +
+        enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)}</option>`).join('');
+    }
+
+    const panneau = initPanneauRecherche('btn-recherche', 'filtres');
+
+    function nbFiltres() {
+      return [el('f-piece').value, el('f-statut').value, el('f-pour').value].filter(Boolean).length;
+    }
+
+    function filtresActifs() {
+      return nbFiltres() > 0;
+    }
+
+    function afficherDemandes() {
+      const container = el('demandes-list');
+      const piece = el('f-piece').value;
+      const statut = el('f-statut').value;
+      const pour = el('f-pour').value;
+
+      const liste = demandes.filter(d =>
+        (!piece || d.type_piece?.id === piece) &&
+        (!statut || d.statut === statut) &&
+        (!pour || (pour === 'moi' ? !d.pour_enfant : d.pour_enfant?.iue === pour)));
+
+      el('f-count').textContent = filtresActifs()
+        ? `${liste.length} demande${liste.length > 1 ? 's' : ''} sur ${demandes.length}`
+        : `${demandes.length} demande${demandes.length > 1 ? 's' : ''}`;
+      panneau.majBadge(nbFiltres());
+
+      if (liste.length === 0) {
+        container.innerHTML = `
+          <div class="card text-center" style="padding:var(--space-8);color:var(--gris-400)">
+            Aucune demande ne correspond à ces filtres.
+            <div class="mt-2"><button class="btn btn-sm btn-outline" onclick="reinitialiserFiltres()">Réinitialiser les filtres</button></div>
+          </div>`;
+        return;
+      }
+      container.innerHTML = liste.map(renderDemande).join('');
+    }
+
+    function reinitialiserFiltres() {
+      el('filtres').reset();
+      afficherDemandes();
+    }
+
     async function loadDemandes() {
-      const container = document.getElementById('demandes-list');
+      const container = el('demandes-list');
       try {
-        const { demandes = [] } = await demandesApi.list({ limite: 100 });
+        // Le catalogue donne les noms des pièces de la cascade (sans lui, on affiche l'identifiant)
+        await catalogueApi.list().catch(() => {});
+        ({ demandes = [] } = await demandesApi.list({ limite: 100 }));
 
         if (demandes.length === 0) {
+          el('bloc-filtres').classList.add('hidden');
           container.innerHTML = `
             <div class="card text-center" style="padding:var(--space-8)">
-              <div style="font-size:3rem;margin-bottom:var(--space-4)">📄</div>
               <h3 style="color:var(--gris-600);margin-bottom:var(--space-2)">Aucune demande</h3>
               <p style="color:var(--gris-400);margin-bottom:var(--space-4)">Vous n'avez pas encore fait de demande de pièce administrative.</p>
               <button class="btn btn-primary" onclick="openNewDemande()">+ Faire une demande</button>
@@ -106,43 +210,134 @@
           return;
         }
 
-        container.innerHTML = demandes.map(renderDemande).join('');
+        el('bloc-filtres').classList.remove('hidden');
+        remplirFiltrePiece();
+        afficherDemandes();
       } catch (e) {
         container.innerHTML =
           `<div class="alert alert-error">Erreur lors du chargement des demandes : ${escapeHtml(e.message)}</div>`;
       }
     }
 
-    function fillTypesPieces() {
-      const select = document.getElementById('select-type-piece');
-      select.innerHTML = '<option value="">— Sélectionner —</option>' +
-        CATALOGUE_PIECES.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.nom)}</option>`).join('');
+    // Choix de la pièce
+
+    const inputPiece = el('input-piece');
+    const listePieces = el('liste-pieces');
+    let options = [];
+    let actif = -1; // option active au clavier
+
+    function ouvrirListe() {
+      listePieces.classList.remove('hidden');
+      inputPiece.setAttribute('aria-expanded', 'true');
     }
 
-    /** Aperçu de l'arbre de prérequis de la pièce choisie (catalogue local). */
+    function fermerListe() {
+      listePieces.classList.add('hidden');
+      inputPiece.setAttribute('aria-expanded', 'false');
+      inputPiece.removeAttribute('aria-activedescendant');
+      actif = -1;
+    }
+
+    /** La recherche porte sur le nom, l'identifiant et le registre de la pièce. */
+    function filtrerPieces() {
+      const recherche = inputPiece.value;
+      options = cataloguePieces.filter(p => correspond(recherche, p.nom, p.id, p.registre_source));
+      actif = options.length ? 0 : -1;
+      listePieces.innerHTML = options.length
+        ? options.map((p, i) => `
+            <li class="combobox-option" role="option" id="option-piece-${i}" data-index="${i}" aria-selected="${i === actif}">
+              <span>${escapeHtml(p.nom)}</span>
+              <span class="combobox-meta">
+                <span class="badge badge-info">${escapeHtml(p.registre_source)}</span>
+                ${p.est_evolutive ? '<span>évolutive</span>' : ''}
+              </span>
+            </li>`).join('')
+        : '<li class="combobox-empty" role="presentation">Aucune pièce ne correspond à votre recherche</li>';
+      majOptionActive();
+      ouvrirListe();
+    }
+
+    function majOptionActive() {
+      listePieces.querySelectorAll('.combobox-option').forEach((li, i) => li.setAttribute('aria-selected', String(i === actif)));
+      if (actif >= 0) {
+        inputPiece.setAttribute('aria-activedescendant', `option-piece-${actif}`);
+        el(`option-piece-${actif}`)?.scrollIntoView({ block: 'nearest' });
+      } else {
+        inputPiece.removeAttribute('aria-activedescendant');
+      }
+    }
+
+    function choisirPiece(piece) {
+      inputPiece.value = piece.nom;
+      el('select-type-piece').value = piece.id;
+      fermerListe();
+      showPrerequis();
+    }
+
+    inputPiece.addEventListener('input', () => {
+      el('select-type-piece').value = ''; // le texte ne correspond plus à la pièce choisie
+      el('prereqs-info').classList.add('hidden');
+      filtrerPieces();
+    });
+    inputPiece.addEventListener('focus', filtrerPieces);
+    inputPiece.addEventListener('blur', () => setTimeout(fermerListe, 150));
+    inputPiece.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (listePieces.classList.contains('hidden')) { filtrerPieces(); return; }
+        if (!options.length) return;
+        actif = (actif + (e.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+        majOptionActive();
+      } else if (e.key === 'Enter') {
+        if (!listePieces.classList.contains('hidden') && actif >= 0) {
+          e.preventDefault();
+          choisirPiece(options[actif]);
+        }
+      } else if (e.key === 'Escape') {
+        fermerListe();
+      }
+    });
+    // mousedown plutôt que click : le choix doit être fait avant que le champ perde le focus.
+    listePieces.addEventListener('mousedown', e => {
+      const li = e.target.closest('.combobox-option');
+      if (!li) return;
+      e.preventDefault();
+      choisirPiece(options[Number(li.dataset.index)]);
+    });
+
     function showPrerequis() {
-      const id = document.getElementById('select-type-piece').value;
-      const info = document.getElementById('prereqs-info');
-      const toNodes = (pieceId, owner) => ({
-        type_piece: pieceId,
-        proprietaire: owner,
-        statut: null,
-        sous_prerequis: (CATALOGUE_PIECES.find(p => p.id === pieceId)?.prerequis || [])
-          .map(p => toNodes(p.prerequis_id, owner === 'citoyen' ? p.proprietaire : owner)),
-      });
-      const root = toNodes(id, 'citoyen');
-      if (!id || root.sous_prerequis.length === 0) {
+      const id = el('select-type-piece').value;
+      const info = el('prereqs-info');
+      const piece = cataloguePieces.find(p => p.id === id);
+      if (!piece || !piece.prerequis?.length) {
         info.classList.add('hidden');
         return;
       }
-      document.getElementById('prereqs-text').innerHTML =
+      el('prereqs-text').innerHTML =
         'La plateforme récupère elle-même ces pièces auprès des registres :' +
-        renderCascade(root.sous_prerequis);
+        renderCascade(piece.prerequis);
       info.classList.remove('hidden');
     }
 
-    async function loadEnfants() {
-      if (enfants !== null) return;
+    async function chargerCatalogue() {
+      try {
+        await catalogueApi.list();
+        inputPiece.disabled = false;
+      } catch (e) {
+        inputPiece.disabled = true;
+        inputPiece.placeholder = 'Catalogue indisponible';
+        showToast(`Impossible de charger les types de pièces : ${e.message}`, 'error');
+      }
+    }
+
+    let enfantsPromise = null;
+    /** Appelée au chargement et à l'ouverture du formulaire : une seule requête pour les deux. */
+    function loadEnfants() {
+      if (!enfantsPromise) enfantsPromise = chargerEnfants();
+      return enfantsPromise;
+    }
+
+    async function chargerEnfants() {
       try {
         const data = await enfantsApi.list();
         enfants = data.enfants || [];
@@ -151,38 +346,48 @@
         console.error('Erreur enfants:', e);
       }
       if (enfants.length > 0) {
-        document.getElementById('group-enfant').style.display = 'block';
-        document.getElementById('select-enfant').innerHTML = '<option value="">— Pour moi-même —</option>' +
+        el('group-enfant').style.display = 'block';
+        el('select-enfant').innerHTML = '<option value="">Pour moi-même</option>' +
           enfants.map(e => `<option value="${escapeHtml(e.iue)}">${escapeHtml(e.prenom)} ${escapeHtml(e.nom)} (${escapeHtml(e.iue)})</option>`).join('');
+        remplirFiltrePour();
       }
     }
 
     async function openNewDemande() {
-      document.getElementById('form-demande').classList.remove('hidden');
+      el('form-demande').classList.remove('hidden');
       await loadEnfants();
       if (enfantParam && enfants.some(e => e.iue === enfantParam)) {
-        document.getElementById('select-enfant').value = enfantParam;
+        el('select-enfant').value = enfantParam;
       }
+      inputPiece.focus();
     }
 
     function closeNewDemande() {
-      document.getElementById('form-demande').classList.add('hidden');
-      document.getElementById('prereqs-info').classList.add('hidden');
-      document.getElementById('select-type-piece').value = '';
+      el('form-demande').classList.add('hidden');
+      el('prereqs-info').classList.add('hidden');
+      el('select-type-piece').value = '';
+      inputPiece.value = '';
+      fermerListe();
     }
 
     async function submitDemande() {
-      const type_piece_id = document.getElementById('select-type-piece').value;
-      const pour_enfant_iue = document.getElementById('select-enfant').value || null;
+      // Un nom de pièce tapé en entier est accepté sans passer par la liste.
+      if (!el('select-type-piece').value) {
+        const exacte = cataloguePieces.find(p => normaliser(p.nom) === normaliser(inputPiece.value));
+        if (exacte) el('select-type-piece').value = exacte.id;
+      }
+      const type_piece_id = el('select-type-piece').value;
+      const pour_enfant_iue = el('select-enfant').value || null;
 
       if (!type_piece_id) {
-        showToast('Veuillez sélectionner un type de pièce', 'error');
+        showToast('Veuillez choisir un type de pièce dans la liste', 'error');
+        inputPiece.focus();
         return;
       }
 
-      const btn = document.getElementById('btn-submit');
+      const btn = el('btn-submit');
       btn.disabled = true;
-      btn.textContent = '⏳ Résolution de la cascade…';
+      btn.textContent = 'Résolution de la cascade…';
       try {
         const demande = await demandesApi.create(type_piece_id, pour_enfant_iue);
         if (demande.statut === 'fallback_physique') {
@@ -200,8 +405,11 @@
       }
     }
 
-    fillTypesPieces();
+    ['f-piece', 'f-statut', 'f-pour'].forEach(id => el(id).addEventListener('change', afficherDemandes));
+
+    chargerCatalogue();
     loadDemandes();
+    loadEnfants(); // alimente le filtre « Pour » des tuteurs
     if (enfantParam) openNewDemande();
   </script>
 </body>

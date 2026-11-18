@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mes enfants — e-FASO</title>
+  <title>Mes enfants | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <div class="main-content">
     <div class="page-content">
       <h1 class="page-title">Mes enfants</h1>
-      <p class="page-subtitle">Enfants mineurs à votre charge — vous gérez leurs consentements en tant que tuteur légal</p>
+      <p class="page-subtitle">Enfants mineurs à votre charge. En tant que tuteur légal, vous gérez leurs consentements.</p>
 
       <div id="enfants-list">
         <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
@@ -29,7 +29,6 @@
           consentsApi.list({ statut: 'en_attente', limite: 100 }).catch(() => ({ consentements: [] })),
         ]);
         const enfants = data.enfants || [];
-        // Consentements en attente par enfant (ConsentementResume.pour_enfant)
         const enAttente = {};
         (pending.consentements || []).forEach(c => {
           if (c.pour_enfant?.iue) enAttente[c.pour_enfant.iue] = (enAttente[c.pour_enfant.iue] || 0) + 1;
@@ -38,7 +37,6 @@
         if (enfants.length === 0) {
           container.innerHTML = `
             <div class="card text-center" style="padding:var(--space-8)">
-              <div style="font-size:3rem;margin-bottom:var(--space-4)">👶</div>
               <h3 style="color:var(--gris-600);margin-bottom:var(--space-2)">Aucun enfant à charge</h3>
               <p style="color:var(--gris-400)">Aucun enfant mineur n'est enregistré sous votre tutelle dans le registre d'état civil.</p>
             </div>`;
@@ -78,18 +76,17 @@
             </div>
 
             <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
-              <a href="/pages/consentements.html?enfant=${iue}" class="btn btn-sm btn-outline">🔐 Consentements</a>
-              <a href="/pages/demandes.html?enfant=${iue}" class="btn btn-sm btn-outline">📄 Faire une demande</a>
+              <a href="/pages/consentements.html?enfant=${iue}" class="btn btn-sm btn-outline">Consentements</a>
+              <a href="/pages/demandes.html?enfant=${iue}" class="btn btn-sm btn-outline">Faire une demande</a>
             </div>
 
             ${nbAttente ? `
             <div class="alert alert-warning mt-4" style="font-size:var(--font-size-sm)">
-              ⚠ <strong>${nbAttente}</strong> consentement(s) en attente pour cet enfant
+              <strong>${nbAttente}</strong> consentement(s) en attente pour cet enfant
             </div>` : ''}
 
             ${e.transfert_recommande ? `
             <div class="alert alert-info mt-4" style="font-size:var(--font-size-sm);align-items:center">
-              <span class="alert-icon">🎓</span>
               <span style="flex:1">${prenom} a ${escapeHtml(e.age)} ans : nous vous recommandons de lui transférer le contrôle de son compte.
               Il ou elle recevra un SMS pour créer son propre mot de passe.</span>
               <button class="btn btn-sm btn-primary" data-iue="${iue}" data-prenom="${prenom}" onclick="transferer(this)">Transférer le compte</button>
