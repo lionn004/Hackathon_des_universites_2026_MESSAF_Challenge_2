@@ -159,7 +159,7 @@ curl http://localhost:3000/api/journal -H "Authorization: Bearer $TOKEN"
 
 ### Mes données dans les registres
 
-En un seul appel, tout ce que les registres savent du citoyen (ou, avec `?iue=`, d'un enfant dont il est tuteur), lu à l'instant ; une pièce absente ou un registre en panne est signalé (`disponible: false` et son code) sans bloquer le reste :
+Section « Mes données dans les registres » de la page Mon profil. En un seul appel, tout ce que les registres savent du citoyen (ou, avec `?iue=`, d'un enfant dont il est tuteur), lu à l'instant ; une pièce absente ou un registre en panne est signalé (`disponible: false` et son code) sans bloquer le reste :
 
 ```bash
 curl http://localhost:3000/api/profil/registres -H "Authorization: Bearer $TOKEN"
@@ -169,7 +169,7 @@ curl http://localhost:3000/api/profil/registres -H "Authorization: Bearer $TOKEN
 
 ### Journal chaîné : une trace modifiée se voit
 
-Chaque entrée du journal est scellée par une empreinte SHA-256 qui inclut celle de l'entrée précédente. Modifier ou supprimer une entrée, même directement en base, rompt la chaîne :
+Chaque entrée du journal est scellée par une empreinte SHA-256 qui inclut celle de l'entrée précédente. Modifier ou supprimer une entrée, même directement en base, rompt la chaîne. La page Journal de l'espace usager le montre à chaque affichage (badge « Journal intact » ou alerte rouge) :
 
 ```bash
 curl http://localhost:3000/api/journal/verification -H "Authorization: Bearer $TOKEN"

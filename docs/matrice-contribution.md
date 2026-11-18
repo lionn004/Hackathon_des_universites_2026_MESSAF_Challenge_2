@@ -18,7 +18,7 @@ Légende : **R** = responsable (conçoit et réalise), **C** = contribue.
 | **3. Consentement et minimisation** | **R** : règles par démarche, base légale par démarche (déclarée, vérifiée, montrée au citoyen), demandes de consentement, rappels à 24 h et 72 h, expiration | **C** : première version du contrat |
 | **4. Journal de traçabilité** | **R** : journal en ajout seul, chaîné par empreintes et vérifiable, double traçabilité titulaire et décideur | **C** : première version du contrat |
 | **5. Espace usager : BFF** | **R** : authentification, tutelle et transfert, inscription, demandes de pièces et reprise automatique, consultation des pièces, vue d'ensemble des registres, statistiques de numérisation, interface de test | **C** : première version du contrat ; spécification de la consultation du contenu des pièces |
-| **5. Espace usager : frontend** | non concerné | **R** : toutes les pages (connexion, inscription, mot de passe en 3 étapes, tableau de bord, profil, consentements, demandes, pièce, journal, enfants), interface de test (état des registres, mise en attente d'une requête, remise unique), libellés du dictionnaire, démarche à suivre, recherche et filtres, style |
+| **5. Espace usager : frontend** | non concerné | **R** : toutes les pages (connexion, inscription, mot de passe en 3 étapes, tableau de bord, profil, consentements, demandes, pièce, journal, enfants), interface de test (état des registres, mise en attente d'une requête, remise unique), libellés du dictionnaire, démarche à suivre, base légale de chaque accès et de chaque demande, vérification de l'intégrité du journal (badge « Journal intact » ou alerte), « Mes données dans les registres » (tutelle comprise), recherche et filtres, style |
 | **Contrats OpenAPI** (7) | **R** : compléments (réponses d'erreur, statuts de panne, état des registres, dictionnaire, démarche à suivre), validation, documentation Swagger | **R** : premières versions des 7 contrats, à l'initialisation du dépôt |
 | **Déploiement** (Docker Compose, Swagger UI) | **R** : déploiement en une commande, redémarrage automatique, configuration | **C** : service du frontend |
 | **Tests d'interopérabilité** | **R** : registre externe, registres d'un autre format, registres sans IUE (table de correspondance), panne en direct, donnée numérique manquante, altération du journal (441 vérifications) | non concerné |
@@ -42,16 +42,16 @@ Lignes ajoutées par couche, sur tous les commits du dépôt (hors fusions et ho
 
 | Couche | Axel | Lionnel |
 |--------|-----:|--------:|
-| 1. Registres | 1 755 | 0 |
-| 2. Passerelle | 4 520 | 0 |
-| 3. Consentement | 1 246 | 0 |
-| 4. Journal | 811 | 0 |
-| 5. BFF | 2 580 | 0 |
-| 5. Frontend | 0 | 5 591 |
-| Contrats OpenAPI | 1 681 | 2 258 |
-| Déploiement | 215 | 10 |
-| Tests d'interopérabilité | 1 543 | 0 |
-| Documentation | 1 800 | 851 |
-| **Commits** | 34 | 28 |
+| 1. Registres | 1 755 | 0 |
+| 2. Passerelle | 4 809 | 0 |
+| 3. Consentement | 1 246 | 0 |
+| 4. Journal | 1 205 | 0 |
+| 5. BFF | 2 884 | 0 |
+| 5. Frontend | 0 | 5 958 |
+| Contrats OpenAPI | 2 101 | 2 258 |
+| Déploiement | 224 | 10 |
+| Tests d'interopérabilité | 1 973 | 0 |
+| Documentation | 2 077 | 851 |
+| **Commits** | 55 | 29 |
 
-État au 18 novembre 2026, 14 h 30, branche `main`.
+État au 18 novembre 2026, 23 h, branche `main` (après la fusion de la PR #48).

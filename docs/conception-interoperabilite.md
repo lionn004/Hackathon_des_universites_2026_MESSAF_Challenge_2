@@ -311,7 +311,9 @@ L'espace usager sert à une seule chose : **exercer ses droits sur ses données*
 
 Nouveau, et seulement ceci : les libellés du dictionnaire dans le journal, et pour une demande qui
 attend un registre le message « un registre est momentanément indisponible, votre demande reprendra
-automatiquement ». Aucune autre fonctionnalité ni finition n'est ajoutée. « Demander une pièce pour la
+automatiquement ». Ajoutés ensuite : la base légale de chaque accès et de chaque demande, la vérification
+de l'intégrité du journal et la section « Mes données dans les registres » de Mon profil (rapport
+technique, § 7, § 8 et § 11). « Demander une pièce pour la
 porter à une administration » n'est pas l'objectif : les pièces circulent entre administrations ;
 l'écran « Mes pièces » sert au droit d'accès et à suivre la cascade.
 
