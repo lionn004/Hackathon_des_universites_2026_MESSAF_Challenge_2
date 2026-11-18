@@ -13,7 +13,7 @@
       <div class="welcome-banner" id="welcome">
         <div>
           <div class="identity-badge">IUE : <span id="welcome-iue">-</span></div>
-          <h2>Bonjour <span id="welcome-name"></span></h2>
+          <h2>Bonjour<span id="welcome-name"></span></h2>
           <p>Depuis votre espace citoyen e-FASO, vous suivez vos démarches, répondez aux demandes de consentement et consultez le journal des accès à vos données.</p>
         </div>
       </div>
@@ -116,7 +116,8 @@
     async function loadDashboard() {
       const c = authApi.getCitoyen();
       if (c) {
-        document.getElementById('welcome-name').textContent = c.prenom || '';
+        // prenom vaut null quand l'état civil ne connaît pas le citoyen : « Bonjour » seul.
+        document.getElementById('welcome-name').textContent = c.prenom ? ' ' + c.prenom : '';
         document.getElementById('welcome-iue').textContent = c.iue || '';
       }
 
@@ -124,7 +125,7 @@
         const data = await dashboardApi.get();
 
         if (data.citoyen?.prenom) {
-          document.getElementById('welcome-name').textContent = data.citoyen.prenom;
+          document.getElementById('welcome-name').textContent = ' ' + data.citoyen.prenom;
         }
 
         document.getElementById('stat-consentements').textContent = data.consentements_en_attente ?? 0;

@@ -39,15 +39,25 @@
           ? `Tuteur de ${nbEnfants} enfant${nbEnfants > 1 ? 's' : ''} mineur${nbEnfants > 1 ? 's' : ''} (<a href="/pages/enfants.html">Mes enfants</a>)`
           : 'Aucun enfant à charge';
 
+        // nom et prenom valent null quand l'état civil ne connaît pas le citoyen,
+        // par exemple si le jury branche le registre d'une autre équipe.
+        const parties = [p.prenom, p.nom].filter(Boolean);
+        const initiales = parties.length ? parties.map(x => x[0]).join('').toUpperCase() : '?';
+        const titre = parties.length
+          ? escapeHtml(parties.join(' '))
+          : `<span style="color:var(--gris-500)">Nom inconnu de l'état civil</span>`;
+
         container.innerHTML = `
           <div class="card mb-4" style="padding:var(--space-6)">
             <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-6)">
               <div class="user-avatar" style="width:48px;height:48px;font-size:var(--font-size-lg)">
-                ${escapeHtml(((p.prenom || '?')[0] + (p.nom || '?')[0]).toUpperCase())}
+                ${escapeHtml(initiales)}
               </div>
               <div>
-                <h3 style="font-size:var(--font-size-lg);font-weight:600;margin-bottom:2px">${escapeHtml(p.prenom)} ${escapeHtml(p.nom)}</h3>
+                <h3 style="font-size:var(--font-size-lg);font-weight:600;margin-bottom:2px">${titre}</h3>
                 <span style="font-size:var(--font-size-xs);color:var(--gris-500)">IUE : ${escapeHtml(p.iue) || VIDE}</span>
+                ${parties.length ? '' : `<p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-top:var(--space-2)">
+                  Le registre d'état civil ne renvoie pas votre nom. Vos autres informations restent disponibles.</p>`}
               </div>
             </div>
 

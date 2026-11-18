@@ -32,9 +32,13 @@ function injectLayout() {
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
 
-  const initials = citoyen.prenom && citoyen.nom
-    ? escapeHtml((citoyen.prenom[0] + citoyen.nom[0]).toUpperCase())
+  // nom et prenom valent null quand l'état civil ne connaît pas le citoyen :
+  // la barre affiche alors l'IUE à la place du nom.
+  const parties = [citoyen.prenom, citoyen.nom].filter(Boolean);
+  const initials = parties.length
+    ? escapeHtml(parties.map(x => x[0]).join('').toUpperCase())
     : '?';
+  const nomAffiche = parties.length ? escapeHtml(parties.join(' ')) : escapeHtml(citoyen.iue) || VIDE;
 
   const appLayout = document.createElement('div');
   appLayout.className = 'app-layout';
@@ -69,7 +73,7 @@ function injectLayout() {
     </div>
     <div class="topbar-actions">
       <div class="user-info">
-        <span>${escapeHtml(citoyen.prenom)} ${escapeHtml(citoyen.nom)}</span>
+        <span>${nomAffiche}</span>
         <div class="user-avatar">${initials}</div>
       </div>
       <button class="btn btn-sm btn-outline" onclick="deconnexion()">Déconnexion</button>
