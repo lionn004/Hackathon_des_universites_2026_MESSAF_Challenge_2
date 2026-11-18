@@ -18,10 +18,10 @@ Légende : **R** = responsable (conçoit et réalise), **C** = contribue.
 | **3. Consentement et minimisation** | **R** : règles par démarche, demandes de consentement, rappels à 24 h et 72 h, expiration | **C** : première version du contrat |
 | **4. Journal de traçabilité** | **R** : journal en ajout seul, double traçabilité titulaire et décideur | **C** : première version du contrat |
 | **5. Espace usager : BFF** | **R** : authentification, tutelle et transfert, inscription, demandes de pièces et reprise automatique, consultation des pièces, interface de test | **C** : première version du contrat ; spécification de la consultation du contenu des pièces |
-| **5. Espace usager : frontend** | non concerné | **R** : toutes les pages (connexion, inscription, mot de passe, tableau de bord, consentements, demandes, pièce, journal, enfants), interface de test, recherche et filtres, style |
+| **5. Espace usager : frontend** | non concerné | **R** : toutes les pages (connexion, inscription, mot de passe en 3 étapes, tableau de bord, profil, consentements, demandes, pièce, journal, enfants), interface de test (état des registres, mise en attente d'une requête, remise unique), libellés du dictionnaire, démarche à suivre, recherche et filtres, style |
 | **Contrats OpenAPI** (7) | **R** : compléments (réponses d'erreur, statuts de panne, état des registres, dictionnaire, démarche à suivre), validation, documentation Swagger | **R** : premières versions des 7 contrats, à l'initialisation du dépôt |
 | **Déploiement** (Docker Compose, Swagger UI) | **R** : déploiement en une commande, redémarrage automatique, configuration | **C** : service du frontend |
-| **Tests d'interopérabilité** | **R** : registre externe, registres d'un autre format, panne en direct, donnée numérique manquante (363 vérifications) | non concerné |
+| **Tests d'interopérabilité** | **R** : registre externe, registres d'un autre format, panne en direct, donnée numérique manquante (367 vérifications) | non concerné |
 | **Documentation** | **R** : README, conception de l'interopérabilité, conventions du projet | **C** : sections du CLAUDE.md (acteurs du système, recherche et filtres, gestion du catalogue) |
 
 ## 2. Par livrable
@@ -43,15 +43,15 @@ Lignes ajoutées par couche, sur tous les commits du dépôt (hors fusions et ho
 | Couche | Axel | Lionnel |
 |--------|-----:|--------:|
 | 1. Registres | 1 755 | 0 |
-| 2. Passerelle | 4 086 | 0 |
+| 2. Passerelle | 4 520 | 0 |
 | 3. Consentement | 1 246 | 0 |
 | 4. Journal | 811 | 0 |
 | 5. BFF | 2 580 | 0 |
-| 5. Frontend | 0 | 4 917 |
+| 5. Frontend | 0 | 5 591 |
 | Contrats OpenAPI | 1 681 | 2 258 |
 | Déploiement | 215 | 10 |
-| Tests d'interopérabilité | 1 388 | 0 |
-| Documentation | 1 490 | 811 |
-| **Commits** | 26 | 16 |
+| Tests d'interopérabilité | 1 543 | 0 |
+| Documentation | 1 800 | 851 |
+| **Commits** | 34 | 28 |
 
-État au 18 novembre 2026, 12 h. Les travaux de Lionnel en cours de relecture (PR #25 et #26, issue #24) ne sont pas comptés.
+État au 18 novembre 2026, 14 h 30, branche `main`.

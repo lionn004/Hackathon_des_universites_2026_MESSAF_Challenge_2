@@ -63,7 +63,7 @@ Onglet A : « Vérifier le statut de la requête » de la police : dossier compl
 
 **À l'écran** (onglet C) : `backend/passerelle/config/catalogue-registres.yaml` ouvert, puis `docker compose exec passerelle npm run tester-registre -- justice 784302956148`.
 
-**Voix off** : « Les registres du jury ont un format que nous ne connaissons pas. Notre passerelle n'en a aucun écrit en dur : un registre se branche en le déclarant dans un catalogue, avec la correspondance de ses champs, puis en le testant. Notre test automatique branche ainsi des registres d'autres formats, coupe des registres en direct, et passe 363 vérifications sans échec. »
+**Voix off** : « Les registres du jury ont un format que nous ne connaissons pas. Notre passerelle n'en a aucun écrit en dur : un registre se branche en le déclarant dans un catalogue, avec la correspondance de ses champs, puis en le testant. Notre test automatique branche ainsi des registres d'autres formats, coupe des registres en direct, et passe 367 vérifications sans échec. »
 
 ### 2:45 à 3:00 : un bien commun
 

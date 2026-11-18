@@ -329,7 +329,7 @@ justice, entrée du journal de démo d'Awa (décideur = titulaire pour un accès
 | Qui | Travail |
 |-----|---------|
 | Backend (fait) | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue` et `recherche`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script de numérisation ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
-| Frontend (issue #24) | Statut « en attente d'un registre » dans Mes demandes et l'interface de test ; « donnée à numériser » à la place de « guichet » ; libellés du dictionnaire dans le journal et les consentements ; état des registres dans l'interface de test |
+| Frontend (issue #24, fait) | Statut « en attente d'un registre » dans Mes demandes et l'interface de test ; « donnée à numériser » à la place de « guichet » ; libellés du dictionnaire dans le journal et les consentements ; état des registres dans l'interface de test |
 
 ## 16. Démonstration de l'épreuve
 
