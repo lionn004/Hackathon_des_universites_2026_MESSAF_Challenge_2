@@ -38,12 +38,34 @@ const ACCES_MISSION = [
   { domaine_mission: 'telecoms', registre: 'etat-civil', champs_autorises: ['nom', 'prenom', 'date_naissance'] },
 ];
 
-/** Types de pièces et registre qui les détient. */
+/**
+ * Types de pièces et registre qui les détient.
+ * `demarche_si_absente` : démarche à suivre quand la pièce n'est pas encore dans le registre
+ * numérique (donnée numérique manquante). La plateforme se contente d'en informer le citoyen :
+ * elle ne recueille aucune information pour l'orienter. Le texte est neutre (« la personne
+ * concernée ») car la pièce manquante peut être celle d'un parent.
+ */
 const TYPES_PIECES = [
-  { id: 'extrait-naissance', nom: 'Extrait de naissance', registre_source: 'etat-civil', est_evolutive: false },
-  { id: 'certificat-nationalite', nom: 'Certificat de nationalité', registre_source: 'justice', est_evolutive: false },
-  { id: 'casier-judiciaire', nom: 'Casier judiciaire', registre_source: 'justice', est_evolutive: true },
-  { id: 'attestation-fiscale', nom: 'Attestation de situation fiscale', registre_source: 'fiscal', est_evolutive: true },
+  {
+    id: 'extrait-naissance', nom: 'Extrait de naissance', registre_source: 'etat-civil', est_evolutive: false,
+    demarche_si_absente: 'Demander au centre d\'état civil du lieu de naissance de la personne concernée de numériser '
+      + 'son acte de naissance. Si la naissance n\'a jamais été déclarée, un jugement supplétif doit d\'abord être '
+      + 'obtenu auprès du tribunal.',
+  },
+  {
+    id: 'certificat-nationalite', nom: 'Certificat de nationalité', registre_source: 'justice', est_evolutive: false,
+    demarche_si_absente: 'S\'adresser au greffe du tribunal qui a délivré le certificat de nationalité, pour qu\'il '
+      + 'l\'enregistre dans le registre numérique.',
+  },
+  {
+    id: 'casier-judiciaire', nom: 'Casier judiciaire', registre_source: 'justice', est_evolutive: true,
+    demarche_si_absente: 'S\'adresser au greffe du tribunal de grande instance du lieu de naissance de la personne '
+      + 'concernée.',
+  },
+  {
+    id: 'attestation-fiscale', nom: 'Attestation de situation fiscale', registre_source: 'fiscal', est_evolutive: true,
+    demarche_si_absente: 'S\'adresser au centre des impôts dont relève la personne concernée.',
+  },
 ];
 
 /**

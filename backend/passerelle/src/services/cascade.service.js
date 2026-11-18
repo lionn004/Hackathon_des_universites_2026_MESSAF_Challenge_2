@@ -13,7 +13,7 @@
  * existe dans le registre qui la détient :
  *  - trouvée → « resolu » ;
  *  - titulaire inconnu (parent non enregistré) ou pièce absente →
- *    « manquant_fallback_physique » : le citoyen devra présenter le document au guichet.
+ *    « manquant_fallback_physique » : la pièce n'est pas encore numérisée dans son registre.
  *
  * Deux formes de résultat :
  *  - resolveTrees : l'arbre complet (demandes de pièces des citoyens, via le BFF) ;

@@ -60,14 +60,19 @@ async function getDemarche(id) {
 }
 
 /**
- * GET /types-pieces — catalogue des types de pièces.
+ * GET /types-pieces : catalogue des types de pièces, avec la démarche à suivre quand une
+ * pièce n'est pas encore numérisée (`demarche_si_absente`, null si aucune n'est connue).
  * @returns {Promise<{types_pieces: object[]}>}
  */
 async function listTypesPieces() {
   const pieces = await catalogueModel.findAllTypesPieces();
   return {
     types_pieces: pieces.map((p) => ({
-      id: p.id, nom: p.nom, registre_source: p.registre_source, est_evolutive: p.est_evolutive,
+      id: p.id,
+      nom: p.nom,
+      registre_source: p.registre_source,
+      est_evolutive: p.est_evolutive,
+      demarche_si_absente: p.demarche_si_absente ?? null,
     })),
   };
 }

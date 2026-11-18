@@ -7,7 +7,7 @@ const config = require('./config');
 const demandesService = require('./services/demandes.service');
 
 /**
- * Reprise automatique des demandes en attente d'un registre ou bloquées au guichet
+ * Reprise automatique des demandes en attente d'un registre ou d'une donnée à numériser
  * (docs/conception-interoperabilite.md, § 9 et § 10). Une passe à la fois.
  */
 let repriseEnCours = false;
