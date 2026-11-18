@@ -248,6 +248,58 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
 
+  /profil/registres:
+    get:
+      tags: [Profil]
+      summary: Ce que les registres savent de moi (ou d'un enfant sous ma tutelle)
+      description: |
+        Vue d'ensemble, en un seul endroit, de toutes les pièces du titulaire, lues à l'instant
+        dans leurs registres. Le catalogue est lu à chaque appel (une pièce ajoutée apparaît
+        d'elle-même) ; pièces dans l'ordre du catalogue.
+
+        Échec partiel toléré : une pièce absente, un registre hors service ou une réponse
+        inattendue ne fait pas échouer la réponse ; la pièce est renvoyée avec
+        `disponible: false` et le `code` de la passerelle.
+
+        Mêmes règles que la consultation d'une pièce : pas de minimisation (le citoyen consulte
+        ses propres données), pas d'entrée au journal, rien n'est stocké. Aucune mention
+        « vérifié » : la plateforme relit les registres, elle ne certifie rien.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: iue
+          in: query
+          required: false
+          description: "IUE d'un enfant dont le citoyen est actuellement tuteur (tutelle relue en base). Absent : le citoyen connecté."
+          schema:
+            type: string
+            pattern: "^[0-9]{12}$"
+      responses:
+        "200":
+          description: Pièces du titulaire, disponibles ou non
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VueRegistres"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "TITULAIRE_NON_TROUVE : ni le citoyen ni un enfant sous sa tutelle, ou inconnu de l'état civil (sans révéler si l'IUE existe)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "503":
+          description: "REGISTRE_INDISPONIBLE : l'état civil est hors service ; sans identité, aucune pièce n'est lue"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
   # ═══════════════════════════════════════
   # ENFANTS (TUTEUR)
   # ═══════════════════════════════════════
@@ -1520,6 +1572,50 @@ components:
           type: string
           format: date-time
           description: Moment de la lecture dans le registre
+
+    VueRegistres:
+      type: object
+      description: Toutes les pièces du titulaire, lues à l'instant dans leurs registres
+      properties:
+        titulaire:
+          $ref: "#/components/schemas/PersonneIdentifiee"
+        pieces:
+          type: array
+          description: Une entrée par type de pièce du catalogue, dans l'ordre du catalogue
+          items:
+            type: object
+            properties:
+              type_piece:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "extrait-naissance"
+                  nom:
+                    type: string
+                    example: "Extrait de naissance"
+                  registre_source:
+                    type: string
+                    example: "etat-civil"
+                  est_evolutive:
+                    type: boolean
+              disponible:
+                type: boolean
+                description: Vrai si la pièce a été lue ; faux si elle est absente ou si son registre n'a pas répondu
+              donnees:
+                description: "Présent si disponible : même forme que `donnees` de ContenuPiece"
+                oneOf:
+                  - $ref: "#/components/schemas/DonneesExtraitNaissance"
+                  - $ref: "#/components/schemas/DonneesCertificatNationalite"
+                  - $ref: "#/components/schemas/DonneesCasierJudiciaire"
+                  - $ref: "#/components/schemas/DonneesSituationFiscale"
+              code:
+                type: string
+                description: "Présent si non disponible : code de la passerelle"
+                enum: [PIECE_INDISPONIBLE, REGISTRE_INDISPONIBLE, SERVICE_EN_ERREUR]
+        date_consultation:
+          type: string
+          format: date-time
 
     DonneesExtraitNaissance:
       type: object
