@@ -252,11 +252,13 @@ L'espace usager sert à une seule chose : **exercer ses droits sur ses données*
 |--------|-----------|
 | **Savoir** | Journal : qui a consulté quoi, pourquoi, quand, en accès direct ou par consentement. Tableau de bord : consentements en attente, demandes en cours, accès récents. Pour une demande qui attend un registre : « un registre est momentanément indisponible, votre demande reprendra automatiquement ». |
 | **Décider** | Consentements : accepter ou refuser les demandes des administrations privées. |
-| **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. |
+| **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. Une pièce est un ensemble de données lues dans le registre, jamais un scan ni un PDF (voir ci-dessous). |
 | **Protéger ses enfants** | Le tuteur gère les consentements et le journal de ses enfants mineurs. À 15 ans, la plateforme recommande de transférer le compte à l'enfant. |
 | Compte | Inscription par IUE (le nom est lu à l'état civil, pas saisi ; les enfants mineurs sont rattachés automatiquement par la filiation), connexion, récupération du mot de passe par SMS. |
 
 Le contrôle d'accès porte sur le **titulaire** des données : un citoyen voit ses pièces et celles des enfants dont il est **actuellement** tuteur, la tutelle étant relue en base à chaque appel. Après un transfert de compte, l'ancien tuteur perd l'accès.
+
+**Une pièce, ce sont des données, pas un scan.** Sur la plateforme, un extrait de naissance ou un casier judiciaire est l'ensemble des données structurées lues dans le registre au moment de la consultation, jamais un scan ni un PDF du document officiel. C'est ce qui permet de ne transmettre que l'utile (« majeur : oui » au lieu de l'acte entier), de ne garder aucune copie (le registre reste la seule source), et de se passer de l'authentification d'un document : une administration n'a plus de papier à vérifier, elle interroge le registre. La version imprimable proposée au citoyen porte la mention « Document informatif, non officiel ». Un document à valeur officielle, signé électroniquement par l'autorité compétente et vérifiable auprès du registre, serait une évolution possible.
 
 ## 12. Sécurité
 
