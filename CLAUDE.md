@@ -24,6 +24,40 @@ Le citoyen fournit ses informations **une seule fois**. Les administrations s'é
 
 Le jury remplacera un registre d'une équipe par celui d'une autre équipe pour vérifier que les contrats API standardisés sont respectés. Les contrats des registres doivent donc être strictement suivis.
 
+## Acteurs du système
+
+### Acteurs actuels (MVP hackathon)
+
+**Citoyens** (comptes de démo, détail dans « Données de seed »)
+
+| Citoyen | IUE | Rôle dans la démo | Mot de passe |
+|---------|-----|-------------------|--------------|
+| OUEDRAOGO Amadou | 784302956148 | majeur, fils d'Ibrahim et de Fatimata | `Amadou2026!` |
+| OUEDRAOGO Ibrahim | 291047583620 | père d'Amadou, Awa et Moussa, tuteur d'Awa et de Moussa | `Ibrahim2026!` |
+| SAWADOGO Fatimata | 638501274093 | mère d'Amadou, Awa et Moussa | `Fatimata2026!` |
+| OUEDRAOGO Awa | 456123789012 | mineure (née en 2014), sous tutelle d'Ibrahim | aucun, compte géré par le tuteur |
+| OUEDRAOGO Moussa | 527814903361 | mineur (né en 2010), sous tutelle d'Ibrahim, transfert de compte recommandé | aucun, compte géré par le tuteur |
+| OUEDRAOGO Salif | 316580942751 | majeur, présent dans les registres, sans compte (démo de l'inscription) | aucun |
+| OUEDRAOGO Aïcha | 873045129604 | fille de Salif (née en 2021), rattachée à Salif à son inscription | aucun |
+
+Mots de passe de démonstration uniquement.
+
+**Administrations**
+
+| Administration | Type | Domaine |
+|----------------|------|---------|
+| Université Joseph KI-ZERBO | publique | éducation |
+| Direction de la police nationale | publique | sécurité |
+| Tribunal de Grande Instance de Ouagadougou | publique | justice |
+| Banque Atlantique | privée | finance |
+| Orange Money Burkina | privée | télécoms |
+
+Règle : une administration publique accède aux données avec simple notification au citoyen ; une administration privée a besoin de son consentement explicite (voir « Couche 3 »).
+
+**Interface de test** (`frontend/pages/test.html`)
+
+Simule le rôle d'une administration pour la démo et le jury. Il n'y a pas d'authentification d'administration : les routes `/api/test/*` du BFF fabriquent elles-mêmes le jeton de l'administration choisie. C'est une simulation, à désactiver en production (`INTERFACE_TEST_ACTIVE=false`).
+
 ---
 
 ## Architecture imposée — 5 couches
@@ -356,6 +390,20 @@ Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE
 - Le citoyen est invité à se rendre physiquement au guichet avec les documents de ses parents
 - L'agent scanne/saisit les informations manquantes
 - La chaîne reprend automatiquement
+
+### Gestion du catalogue
+
+Le catalogue regroupe les données de référence de la plateforme : types de pièces et leurs prérequis, démarches et pièces requises par chacune, administrations et cloisonnement par mission (`AccesMission`), règles de minimisation.
+
+**Dans le MVP**, le catalogue est figé dans le code et ne se gère pas depuis une interface :
+
+| Données | Propriétaire | Source |
+|---------|--------------|--------|
+| Types de pièces, prérequis, démarches, administrations, `AccesMission` | passerelle | `backend/passerelle/prisma/reference.js`, inséré par `seed.js` à chaque démarrage |
+| Lecture d'une pièce dans son registre (route et champs) | passerelle | `PIECE_SOURCES` dans `backend/passerelle/src/clients/registres.client.js` |
+| Champs autorisés par démarche et par registre | consentement | `backend/consentement/prisma/seed.js` (table `ChampsDemarche`) |
+
+Le catalogue n'est exposé qu'en lecture (`GET /types-pieces`, `GET /types-pieces/{id}/prerequis`). Ajouter une pièce demande de modifier `reference.js` et `PIECE_SOURCES`, puis de redémarrer la passerelle. Le frontend n'a rien à changer : il lit toujours le catalogue via `GET /types-pieces`.
 
 ### Gestion des mineurs
 
