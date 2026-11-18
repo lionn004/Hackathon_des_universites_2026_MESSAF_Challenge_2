@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon profil | e-FASO</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <!-- Couche 5, espace usager : profil du citoyen connecté (GET /profil), en lecture seule. -->
+  <div class="main-content">
+    <div class="page-content">
+      <h1 class="page-title">Mon profil</h1>
+      <p class="page-subtitle">Informations de votre compte e-FASO.</p>
+
+      <div id="profil">
+        <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    /** Bloc libellé et valeur, au même format que la page Mes enfants. */
+    function champ(libelle, valeurHtml, aide) {
+      return `
+        <div>
+          <div style="font-size:var(--font-size-xs);color:var(--gris-400);margin-bottom:2px">${libelle}</div>
+          <div style="font-size:var(--font-size-sm);font-weight:500">${valeurHtml}</div>
+          ${aide ? `<div style="font-size:var(--font-size-xs);color:var(--gris-500);margin-top:var(--space-1)">${aide}</div>` : ''}
+        </div>`;
+    }
+
+    async function loadProfil() {
+      const container = document.getElementById('profil');
+      try {
+        const p = await profilApi.get();
+        const nbEnfants = p.nombre_enfants || 0;
+        const tutelle = p.est_tuteur && nbEnfants > 0
+          ? `Tuteur de ${nbEnfants} enfant${nbEnfants > 1 ? 's' : ''} mineur${nbEnfants > 1 ? 's' : ''} (<a href="/pages/enfants.html">Mes enfants</a>)`
+          : 'Aucun enfant à charge';
+
+        container.innerHTML = `
+          <div class="card mb-4" style="padding:var(--space-6)">
+            <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-6)">
+              <div class="user-avatar" style="width:48px;height:48px;font-size:var(--font-size-lg)">
+                ${escapeHtml(((p.prenom || '?')[0] + (p.nom || '?')[0]).toUpperCase())}
+              </div>
+              <div>
+                <h3 style="font-size:var(--font-size-lg);font-weight:600;margin-bottom:2px">${escapeHtml(p.prenom)} ${escapeHtml(p.nom)}</h3>
+                <span style="font-size:var(--font-size-xs);color:var(--gris-500)">IUE : ${escapeHtml(p.iue) || VIDE}</span>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-5)">
+              ${champ('Identifiant Unique Électronique (IUE)', escapeHtml(p.iue) || VIDE,
+                'Votre identifiant de connexion.')}
+              ${champ('Téléphone', escapeHtml(p.telephone) || VIDE,
+                'Reçoit les codes de récupération du mot de passe et les SMS de demande de consentement. Une administration peut aussi le consulter pour vous relancer si vous tardez à répondre.')}
+              ${champ("Date d'inscription", formatDate(p.date_inscription))}
+              ${champ('Tutelle', tutelle)}
+            </div>
+          </div>
+
+          <p style="font-size:var(--font-size-sm);color:var(--gris-500)">
+            Ces informations ne sont pas modifiables en ligne.
+            Pour changer de mot de passe, utilisez <a href="/pages/mot-de-passe.html">Mot de passe oublié</a> : un code vous sera envoyé par SMS.
+          </p>`;
+      } catch (e) {
+        container.innerHTML = `<div class="alert alert-error">Erreur lors du chargement du profil : ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    loadProfil();
+  </script>
+</body>
+</html>

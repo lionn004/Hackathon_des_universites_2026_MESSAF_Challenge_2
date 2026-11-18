@@ -18,6 +18,7 @@ function getNav() {
     { href: '/pages/demandes.html', label: 'Mes demandes', id: 'demandes' },
     { href: '/pages/journal.html', label: "Journal d'accès", id: 'journal' },
     { href: '/pages/enfants.html', label: 'Mes enfants', id: 'enfants' },
+    { href: '/pages/profil.html', label: 'Mon profil', id: 'profil' },
     { href: '/pages/test.html', label: 'Interface de test', id: 'test' },
   ];
 
