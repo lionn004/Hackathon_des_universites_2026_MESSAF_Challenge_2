@@ -93,7 +93,10 @@ registres:
   #         numero_certificat: { champ: numCertificat }
 
 # Pour chaque opération : les registres qui la servent, dans l'ordre. Le premier fait foi ;
-# les suivants sont des sources de secours, utilisées s'il est hors service.
+# les suivants sont des sources de secours, utilisées seulement s'il est hors service (bascule).
+# Une source de secours est une réplique du registre de référence (serveur ou site de secours)
+# tenue par la MÊME autorité : même « proprietaire », vérifié au démarrage. Jamais le registre
+# d'une autre administration (donnée possiblement périmée, origine masquée au journal).
 sources:
   etat-civil.fiche:     [etat-civil]
   etat-civil.filiation: [etat-civil]
