@@ -1,0 +1,19 @@
+# Test d'interopérabilité : ajoute à la stack le registre « d'une autre équipe »
+# (tests/interoperabilite/registre-externe.js), sans rien changer à nos registres.
+#
+# S'utilise en complément du docker-compose.yml principal, par le script
+# tests/interoperabilite/test-interop.js. Le branchement d'un registre se fait
+# exactement comme le fera le jury : par les variables REGISTRE_*_URL de la passerelle.
+#
+# Les chemins sont relatifs à la racine du dépôt (dossier du premier fichier -f).
+
+services:
+  registre-externe:
+    image: node:22-alpine
+    command: ["node", "/app/registre-externe.js"]
+    volumes:
+      - ./tests/interoperabilite/registre-externe.js:/app/registre-externe.js:ro
+    ports:
+      - "4001:4001"
+      - "4002:4002"
+      - "4003:4003"

@@ -13,13 +13,17 @@ const demandesService = require('./demandes.service');
 
 /**
  * GET /tableau-de-bord
+ *
+ * Comme le profil, reste disponible si l'état civil ne connaît pas le citoyen
+ * (nom et prénom à null) : consentements, demandes et journal ne dépendent pas de lui.
+ *
  * @param {string} iue IUE du citoyen connecté.
  * @returns {Promise<object>} Données agrégées (voir contrat).
  */
 async function getDashboard(iue) {
   const account = await identiteService.getAccount(iue);
   const [identity, pending, stats, unfinished, children] = await Promise.all([
-    identiteService.getKnownIdentity(iue),
+    identiteService.getIdentity(iue),
     consentementsService.countPending(account),
     journalService.stats(account),
     demandesService.countUnfinished(account),
@@ -52,7 +56,7 @@ async function getDashboard(iue) {
   }
 
   return {
-    citoyen: { nom: identity.nom, prenom: identity.prenom },
+    citoyen: { nom: identity?.nom ?? null, prenom: identity?.prenom ?? null },
     consentements_en_attente: pending,
     demandes_en_cours: unfinished,
     acces_recents: stats.acces_30_derniers_jours,

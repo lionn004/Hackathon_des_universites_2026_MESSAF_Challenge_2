@@ -10,6 +10,8 @@ const { request, unexpected } = require('./http');
 
 /** Champs exposés par chaque route du registre justice (schémas du contrat). */
 const JUSTICE_CASIER_FIELDS = ['casier_vierge', 'condamnations', 'date_delivrance'];
+/** Champs d'une condamnation (éléments du tableau CasierJudiciaire.condamnations). */
+const CONDAMNATION_FIELDS = ['date', 'nature', 'tribunal', 'duree'];
 const JUSTICE_NATIONALITE_FIELDS = ['est_national', 'nationalite', 'mode_acquisition', 'date_acquisition', 'numero_certificat'];
 /** Champs du schéma DonneesEtatCivil (contrat état-civil), hors iue. */
 const ETAT_CIVIL_FIELDS = [
@@ -47,6 +49,13 @@ function pick(data, fields) {
 
 /**
  * Appelle une route GET d'un registre.
+ *
+ * Quand des champs sont demandés, la réponse est réduite à ces champs, même si le
+ * registre a ignoré ?champs= (facultatif dans les contrats) : un champ non demandé,
+ * ou hors contrat, n'entre jamais dans la passerelle. Le test d'interopérabilité
+ * (tests/interoperabilite) l'a montré : sans ce filtre, la fiche entière d'un autre
+ * registre remontait jusqu'au BFF.
+ *
  * @param {string} registre 'etat-civil' | 'justice' | 'fiscal'
  * @param {string} path Chemin après /api (ex : "/citoyens/123/fiscal").
  * @param {string[]} [fields] Champs demandés (paramètre ?champs=), tous si absent.
@@ -58,7 +67,7 @@ async function get(registre, path, fields) {
   const res = await request(`registre ${registre}`, `${config.urls[registre]}${path}${query}`);
   if (res.status === 404) return null;
   if (res.status !== 200) unexpected(`registre ${registre}`, res);
-  return res.body;
+  return fields && fields.length && isRecord(res.body) ? pick(res.body, fields) : res.body;
 }
 
 /** GET /citoyens/{iue} — état civil (éventuellement restreint à certains champs). */
@@ -71,9 +80,20 @@ function getFiliation(iue) {
   return get('etat-civil', `/citoyens/${iue}/filiation`);
 }
 
-/** GET /citoyens/{iue}/casier — casier judiciaire. */
-function getCasier(iue, fields) {
-  return get('justice', `/citoyens/${iue}/casier`, fields);
+/**
+ * GET /citoyens/{iue}/casier : casier judiciaire.
+ *
+ * Chaque condamnation est réduite aux champs du contrat : le filtre par champ de
+ * get() ne regarde que le premier niveau, et un registre peut ajouter des champs
+ * à l'intérieur des condamnations (ex : nom du greffier).
+ */
+async function getCasier(iue, fields) {
+  const data = await get('justice', `/citoyens/${iue}/casier`, fields);
+  if (!isRecord(data) || !Array.isArray(data.condamnations)) return data;
+  return {
+    ...data,
+    condamnations: data.condamnations.filter(isRecord).map((c) => pick(c, CONDAMNATION_FIELDS)),
+  };
 }
 
 /** GET /citoyens/{iue}/nationalite — certificat de nationalité. */
@@ -173,6 +193,46 @@ async function fetchIdentity(iue) {
   return isRecord(data) ? pick(data, MINIMAL_IDENTITY_FIELDS) : null;
 }
 
+/** IUE bien formé qu'aucun registre n'attribue : sert à sonder les registres. */
+const PROBE_IUE = '000000000000';
+/** Route sondée pour chaque registre (une route de son contrat). */
+const PROBE_PATHS = {
+  'etat-civil': `/citoyens/${PROBE_IUE}`,
+  justice: `/citoyens/${PROBE_IUE}/casier`,
+  fiscal: `/citoyens/${PROBE_IUE}/fiscal`,
+};
+
+/**
+ * Vérifie que l'URL configurée pour un registre mène à un registre conforme.
+ *
+ * Un registre conforme répond en JSON à une route de son contrat : 404 { code, message }
+ * pour un IUE inconnu (ou 200 avec une fiche). Une réponse non JSON, comme la page
+ * « Cannot GET » d'Express, signale une URL qui ne mène pas aux routes du contrat
+ * (préfixe /api oublié, port d'un autre service...). Sans ce diagnostic, chaque
+ * citoyen paraîtrait simplement absent du registre.
+ *
+ * @param {string} registre 'etat-civil' | 'justice' | 'fiscal'
+ * @returns {Promise<{registre: string, url: string, status: 'conforme'|'injoignable'|'non_conforme', detail: string}>}
+ */
+async function checkRegistry(registre) {
+  const url = config.urls[registre];
+  let res;
+  try {
+    res = await request(`registre ${registre}`, `${url}${PROBE_PATHS[registre]}`);
+  } catch {
+    return { registre, url, status: 'injoignable', detail: 'aucune réponse' };
+  }
+  if ([200, 404].includes(res.status) && isRecord(res.body)) {
+    return { registre, url, status: 'conforme', detail: `HTTP ${res.status} en JSON` };
+  }
+  return {
+    registre,
+    url,
+    status: 'non_conforme',
+    detail: `HTTP ${res.status}${isRecord(res.body) ? '' : ', réponse non JSON'}`,
+  };
+}
+
 module.exports = {
-  getEtatCivil, getFiliation, fetchFields, pieceExists, fetchPiece, fetchIdentity,
+  getEtatCivil, getFiliation, fetchFields, pieceExists, fetchPiece, fetchIdentity, checkRegistry,
 };
