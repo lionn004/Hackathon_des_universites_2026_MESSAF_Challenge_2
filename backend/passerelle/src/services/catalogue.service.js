@@ -8,6 +8,7 @@
 const catalogueModel = require('../models/catalogue.model');
 const consentementClient = require('../clients/consentement.client');
 const AppError = require('../utils/AppError');
+const { FONDEMENTS } = require('../../prisma/reference');
 
 /** Garde-fou contre un arbre mal configuré (cycle dans les prérequis). */
 const MAX_DEPTH = 6;
@@ -23,8 +24,26 @@ async function toContract(demarche) {
     nom: demarche.nom,
     description: demarche.description,
     administration_cible: demarche.administration.nom,
+    base_legale: baseLegale(demarche),
     champs_requis: await consentementClient.getRules(demarche.id),
     prerequis_pieces: demarche.pieces.map((p) => p.type_piece_id),
+  };
+}
+
+/**
+ * Base légale d'une démarche, au format du contrat (BaseLegale), avec le libellé du fondement.
+ * Exportée pour la passerelle (journal) : la même forme partout.
+ * @param {object} demarche Démarche lue en base.
+ * @returns {{fondement: string, libelle: string, finalite: string, texte: string|null, reference_cil: string|null}|null}
+ */
+function baseLegale(demarche) {
+  if (!demarche.base_fondement) return null;
+  return {
+    fondement: demarche.base_fondement,
+    libelle: FONDEMENTS[demarche.base_fondement] || demarche.base_fondement,
+    finalite: demarche.base_finalite,
+    texte: demarche.base_texte ?? null,
+    reference_cil: demarche.base_reference_cil ?? null,
   };
 }
 
@@ -118,5 +137,5 @@ async function listAdministrations() {
 }
 
 module.exports = {
-  listDemarches, getDemarche, findDemarcheOrFail, listTypesPieces, getPrerequisTree, listAdministrations,
+  listDemarches, getDemarche, findDemarcheOrFail, listTypesPieces, getPrerequisTree, listAdministrations, baseLegale,
 };

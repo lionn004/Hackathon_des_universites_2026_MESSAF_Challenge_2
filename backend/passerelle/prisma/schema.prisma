@@ -99,6 +99,14 @@ model Demarche {
   id                String          @id
   nom               String
   description       String
+  // Base légale de la démarche (finalité déclarée) : fondement (liste fermée, voir
+  // prisma/reference.js), finalité, texte qui l'autorise et référence de la formalité
+  // auprès de la CIL. Facultatifs en base pour que la mise à jour d'une base existante
+  // reste sans risque ; rendus obligatoires par la vérification au démarrage (config/catalogue.js).
+  base_fondement     String?
+  base_finalite      String?
+  base_texte         String?
+  base_reference_cil String?
   administration_id String          @db.Uuid
   administration    Administration  @relation(fields: [administration_id], references: [id])
   pieces            DemarchePiece[]

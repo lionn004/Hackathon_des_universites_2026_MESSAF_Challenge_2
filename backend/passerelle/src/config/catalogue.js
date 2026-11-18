@@ -276,6 +276,34 @@ function verifierMissions(dico, erreurs) {
 }
 
 /**
+ * Vérifie la base légale de chaque démarche (prisma/reference.js) : pas de démarche sans
+ * fondement connu ni finalité, et un fondement cohérent avec le type d'administration.
+ *  - une entité privée ne peut pas invoquer la mission de service public ;
+ *  - une démarche publique fondée sur le consentement n'est pas encore prise en charge (le
+ *    service consentement ne recueille l'accord que pour les entités privées) : refusée.
+ * @param {string[]} erreurs
+ */
+function verifierDemarches(erreurs) {
+  const { ADMINISTRATIONS, DEMARCHES, FONDEMENTS } = require('../../prisma/reference');
+  const types = new Map(ADMINISTRATIONS.map((a) => [a.id, a.type]));
+  for (const d of DEMARCHES) {
+    const ou = `démarche ${d.id}`;
+    if (!Object.hasOwn(FONDEMENTS, d.base_fondement)) {
+      erreurs.push(`${ou} : base légale sans fondement connu (${Object.keys(FONDEMENTS).join(', ')})`);
+      continue;
+    }
+    if (!d.base_finalite || !String(d.base_finalite).trim()) erreurs.push(`${ou} : base légale sans finalité`);
+    const type = types.get(d.administration_id);
+    if (type === 'privee' && d.base_fondement === 'mission_service_public') {
+      erreurs.push(`${ou} : une entité privée ne peut pas invoquer la mission de service public`);
+    }
+    if (type === 'publique' && d.base_fondement === 'consentement') {
+      erreurs.push(`${ou} : démarche publique fondée sur le consentement, pas encore prise en charge`);
+    }
+  }
+}
+
+/**
  * Charge et vérifie toute la configuration.
  * @returns {{dictionnaire: object, operations: Map, registres: object, sources: object, pieces: object}}
  * @throws {Error} Si un fichier est illisible ou incohérent (message listant toutes les erreurs).
@@ -292,6 +320,7 @@ function charger() {
   const operations = verifierDictionnaire(dictionnaire, erreurs);
   verifierCatalogue(catalogue, operations, erreurs);
   verifierMissions(dictionnaire, erreurs);
+  verifierDemarches(erreurs);
   if (erreurs.length > 0) {
     throw new Error(`[passerelle] configuration invalide (${DOSSIER}) :\n  - ${erreurs.join('\n  - ')}`);
   }

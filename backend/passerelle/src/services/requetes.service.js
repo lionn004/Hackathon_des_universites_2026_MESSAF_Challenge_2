@@ -49,12 +49,15 @@ function notifyDirectAccess(iue, admin, demarche) {
 }
 
 /**
- * Trace un accès au journal (photo figée des noms incluse).
+ * Trace un accès au journal (photo figée des noms et de la base légale incluse : le
+ * citoyen voit pourquoi, et en vertu de quoi, ses données ont été consultées, même si le
+ * catalogue change ensuite).
  * @returns {Promise<object>} Entrée de journal créée.
  */
 function recordAccess({
   requeteId, iue, decideurIue, admin, demarche, registres, champs, typeAcces,
 }) {
+  const base = catalogueService.baseLegale(demarche);
   return journalClient.record({
     titulaire_iue: iue,
     decideur_iue: decideurIue,
@@ -67,6 +70,11 @@ function recordAccess({
     registres_consultes: registres,
     champs_transmis: champs,
     type_acces: typeAcces,
+    ...(base && {
+      base_legale: {
+        fondement: base.fondement, finalite: base.finalite, texte: base.texte, reference_cil: base.reference_cil,
+      },
+    }),
   });
 }
 

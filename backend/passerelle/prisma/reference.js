@@ -81,8 +81,31 @@ const PREREQUIS = [
 ];
 
 /**
+ * Fondements possibles de la base légale d'une démarche (liste fermée, vérifiée au démarrage).
+ * Une démarche est une FINALITÉ déclarée, à l'initiative du citoyen ou de l'administration :
+ * elle dit pourquoi une administration a besoin de données, et sur quel fondement.
+ */
+const FONDEMENTS = {
+  mission_service_public: 'Mission de service public',
+  obligation_legale: 'Obligation légale',
+  execution_contrat: 'Exécution d\'un contrat demandé par la personne',
+  consentement: 'Consentement',
+};
+
+/** Texte et formalité CIL : à fournir par l'administration ; aucun numéro n'est inventé. */
+const A_PRECISER = 'À préciser par l\'administration';
+const A_RENSEIGNER = 'À renseigner (formalité auprès de la CIL)';
+
+/**
  * Les 3 démarches de bout en bout. Les champs requis ne sont PAS ici : ils
  * appartiennent au service consentement (règles de minimisation).
+ *
+ * Base légale : déclarée par l'administration qui porte la démarche et validée par le
+ * gestionnaire du catalogue (en production, avec l'avis de la CIL). La qualification
+ * ci-dessous est celle de la démonstration, à valider par un juriste.
+ * Pour une entité privée, l'accord du citoyen reste exigé avant toute transmission, quel
+ * que soit son fondement : il autorise le PARTAGE des données de l'État, à côté de la
+ * base légale du traitement par l'entité (ex : obligation de vérification d'identité).
  */
 const DEMARCHES = [
   {
@@ -90,6 +113,10 @@ const DEMARCHES = [
     nom: 'Inscription universitaire',
     description: 'Inscription dans un établissement d\'enseignement supérieur',
     administration_id: '00000000-0000-4000-8000-000000000001',
+    base_fondement: 'mission_service_public',
+    base_finalite: 'Vérifier les conditions d\'inscription dans l\'enseignement supérieur (majorité, nationalité)',
+    base_texte: A_PRECISER,
+    base_reference_cil: A_RENSEIGNER,
     pieces: ['extrait-naissance'],
   },
   {
@@ -97,6 +124,10 @@ const DEMARCHES = [
     nom: 'Émission de passeport',
     description: 'Délivrance d\'un passeport ordinaire',
     administration_id: '00000000-0000-4000-8000-000000000002',
+    base_fondement: 'obligation_legale',
+    base_finalite: 'Établir l\'identité et la nationalité du demandeur avant la délivrance d\'un passeport',
+    base_texte: A_PRECISER,
+    base_reference_cil: A_RENSEIGNER,
     pieces: ['extrait-naissance', 'casier-judiciaire'],
   },
   {
@@ -104,8 +135,14 @@ const DEMARCHES = [
     nom: 'Ouverture de compte bancaire',
     description: 'Ouverture d\'un compte courant ou épargne',
     administration_id: '00000000-0000-4000-8000-000000000004',
+    base_fondement: 'obligation_legale',
+    base_finalite: 'Vérifier l\'identité du client avant l\'ouverture du compte (obligations de vigilance contre le blanchiment)',
+    base_texte: A_PRECISER,
+    base_reference_cil: A_RENSEIGNER,
     pieces: ['extrait-naissance', 'attestation-fiscale'],
   },
 ];
 
-module.exports = { ADMINISTRATIONS, ACCES_MISSION, TYPES_PIECES, PREREQUIS, DEMARCHES };
+module.exports = {
+  ADMINISTRATIONS, ACCES_MISSION, TYPES_PIECES, PREREQUIS, DEMARCHES, FONDEMENTS,
+};

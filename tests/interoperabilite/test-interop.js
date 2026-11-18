@@ -328,6 +328,12 @@ async function procedureUniversite() {
     'Procédure 1 : aucune copie gardée (relecture : complete, donnees null)',
     `${resume(relecture)} statut=${relecture.body?.statut} donnees=${JSON.stringify(relecture.body?.donnees)}`,
   );
+
+  // Base légale : l'accès est inscrit au journal avec la base légale de la démarche (photo figée).
+  const jeton = await connexion(AMADOU);
+  const derniere = (await appel('GET', `${BFF}/journal?limite=1`, { jeton })).body?.entrees?.[0];
+  verifier(derniere?.base_legale?.fondement === 'mission_service_public' && !!derniere.base_legale.finalite,
+    'Procédure 1 : le journal d\'Amadou donne la base légale de l\'accès (mission de service public, finalité)', JSON.stringify(derniere?.base_legale));
 }
 
 /** Procédure 2 : passeport (publique, cascade). */
@@ -365,6 +371,10 @@ async function procedureBanque(remplaces) {
 
   const jeton = await connexion(AMADOU);
   if (!verifier(!!jeton, 'Procédure 3 : connexion d\'Amadou à son espace')) return;
+  const demande = await appel('GET', `${BFF}/consentements/${r.body.consentement_id}`, { jeton });
+  verifier(demande.body?.base_legale?.fondement === 'obligation_legale',
+    'Procédure 3 : la demande de consentement donne la base légale de la banque (obligation légale), l\'accord reste requis',
+    JSON.stringify(demande.body?.base_legale));
   const decision = await appel('PUT', `${BFF}/consentements/${r.body.consentement_id}`, { jeton, corps: { decision: 'accepte' } });
   if (!verifier(decision.status === 200, 'Procédure 3 : Amadou accepte le consentement', resume(decision))) return;
 
@@ -488,6 +498,12 @@ async function pieces(remplaces) {
   verifier((await totalJournal()) === journalAvant, 'Mes données dans les registres : aucune entrée au journal (aucune administration n\'y accède)');
 
   if (remplaces.size === 0) {
+    // Base légale : déclarée pour chaque démarche du catalogue (vérifiée au démarrage de la passerelle).
+    const demarches = (await appel('GET', `${PASSERELLE}/demarches`)).body?.demarches || [];
+    verifier(demarches.length >= 3 && demarches.every((d) => ['mission_service_public', 'obligation_legale', 'execution_contrat', 'consentement']
+      .includes(d.base_legale?.fondement) && d.base_legale.finalite),
+    'Base légale : chaque démarche du catalogue déclare son fondement et sa finalité', JSON.stringify(demarches.map((d) => [d.id, d.base_legale?.fondement])));
+
     // Tutelle relue en base : le tuteur voit les données de l'enfant, personne d'autre.
     const ibrahim = await connexion(IBRAHIM);
     const awa = await appel('GET', `${BFF}/profil/registres?iue=${AWA_IUE}`, { jeton: ibrahim });

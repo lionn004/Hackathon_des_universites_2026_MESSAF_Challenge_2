@@ -144,6 +144,8 @@ Démarche "émission passeport"
 
 **Cloisonnement par domaine de mission** : Une administration publique ne voit que les données liées à sa mission. L'éducation ne voit pas le fiscal, la justice ne voit pas le médical, etc. Implémenté via la table `AccesMission`.
 
+**Base légale par démarche** : une démarche est une finalité déclarée (à l'initiative du citoyen ou de l'administration). Chacune déclare sa base légale dans `backend/passerelle/prisma/reference.js` : `base_fondement` (liste fermée `FONDEMENTS` : `mission_service_public`, `obligation_legale`, `execution_contrat`, `consentement`), `base_finalite`, `base_texte` et `base_reference_cil` (« à préciser » : aucun numéro inventé). La passerelle refuse de démarrer si une démarche n'a pas de base légale, si son fondement est inconnu ou sans finalité, si une entité privée invoque la mission de service public, ou si une démarche publique est fondée sur le consentement (pas encore pris en charge). La base légale est publiée dans `GET /demarches` (objet `base_legale`), ajoutée par le BFF aux demandes de consentement, et envoyée au journal avec chaque accès (photo figée, incluse dans l'empreinte seulement si présente). Base légale et accord sont distincts : l'accord du citoyen autorise le partage avec une entité privée, quel que soit son fondement (la banque : obligation légale de vigilance, plus l'accord du citoyen). Qualification à valider par un juriste ou la CIL.
+
 **Flux de consentement pour admin privée** :
 1. L'admin privée envoie une requête à la passerelle
 2. La couche consentement détecte une admin privée et crée une demande en attente

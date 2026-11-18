@@ -28,6 +28,8 @@ function toContract(e, ownIue, children) {
     demarche: e.demarche,
     champs_consultes: e.champs_transmis,
     type_acces: e.type_acces,
+    // En vertu de quoi l'accès a eu lieu (photo figée au moment de l'accès ; null avant son introduction).
+    base_legale: e.base_legale ?? null,
     pour_enfant: child,
     date_acces: e.date_acces,
   };

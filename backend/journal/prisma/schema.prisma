@@ -46,6 +46,14 @@ model JournalAcces {
   type_acces          TypeAcces
   date_acces          DateTime            @default(now())
 
+  // Photo figée de la base légale de la démarche au moment de l'accès (envoyée par la
+  // passerelle) : fondement, finalité, texte, référence CIL. Absente des entrées
+  // antérieures à la base légale ; incluse dans l'empreinte seulement si elle est présente.
+  base_fondement     String?
+  base_finalite      String?
+  base_texte         String?
+  base_reference_cil String?
+
   // Chaînage par empreintes (preuve d'intégrité, services/integrite.service.js) :
   // rang dans la chaîne (1, 2, 3...), empreinte SHA-256 de l'entrée précédente, et
   // empreinte de celle-ci (son contenu + son rang + l'empreinte précédente). Modifier ou
