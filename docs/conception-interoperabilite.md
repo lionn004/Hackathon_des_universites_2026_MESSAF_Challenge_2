@@ -257,6 +257,10 @@ tableau de bord). Les noms lus à l'état civil manquent seulement pendant la pa
 
 ## 11. Brancher un registre en quelques minutes
 
+0. **Faire proposer la déclaration** si le registre publie un contrat OpenAPI :
+   `docker compose exec passerelle npm run proposer-registre -- <contrat> <identifiant>`. L'assistant
+   propose adresse, routes, identification, enveloppe de la fiche, correspondances (rapprochement des
+   noms et des types) et tables de valeurs. Il n'active rien : brouillon `suspendu`, à relire.
 1. **Déclarer** le registre dans le catalogue : adresse, mode d'identification, routes.
 2. **Décrire les correspondances** entre ses champs et le dictionnaire.
 3. **Le désigner** dans `sources` pour les opérations qu'il sert (en premier s'il fait foi).
@@ -315,7 +319,9 @@ justice, entrée du journal de démo d'Awa (décideur = titulaire pour un accès
 ## 14. Hors périmètre aujourd'hui (perspectives)
 
 - **Catalogue en base de données**, API d'administration et page web de branchement (option C).
-- **Assistant de branchement** : proposer les correspondances en rapprochant les noms de champs.
+- **Assistant de branchement plus fin** (la première version, `npm run proposer-registre`, est
+  faite) : enrichir les synonymes au fil des registres branchés, comparer les exemples du contrat aux
+  formats attendus.
 - **Mode d'identification `correspondance`** (table IUE / identifiant local).
 
 ## 15. Répartition

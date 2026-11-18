@@ -1,0 +1,70 @@
+# Contrat OpenAPI du registre de nationalité externe simulé par registre-externe.js
+# (port 4005). Il ne connaît pas l'IUE : on retrouve une personne par nom, prénom et date
+# de naissance, puis on lit son dossier par son numéro. Sert à vérifier l'assistant de
+# branchement (npm run proposer-registre) sur un registre identifié par recherche.
+openapi: 3.0.3
+info:
+  title: Registre de la nationalité (externe)
+  version: 1.0.0
+servers:
+  - url: http://registre-externe:4005
+paths:
+  /etat:
+    get:
+      summary: État du service
+      responses:
+        "200":
+          description: Service disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+  /personnes:
+    get:
+      summary: Rechercher une personne
+      parameters:
+        - { name: nom, in: query, required: true, schema: { type: string } }
+        - { name: prenom, in: query, required: true, schema: { type: string } }
+        - { name: naissance, in: query, required: true, schema: { type: string }, example: "15/03/1998" }
+      responses:
+        "200":
+          description: Dossiers correspondants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        numeroDossier: { type: string }
+                        nom: { type: string }
+                        prenom: { type: string }
+  /personnes/{numeroDossier}/nationalite:
+    get:
+      summary: Nationalité d'une personne
+      parameters:
+        - { name: numeroDossier, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Dossier de nationalité
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      estBurkinabe: { type: string, enum: [oui, non] }
+                      nationalite: { type: string }
+                      modeObtention: { type: string, enum: [Naissance, Naturalisation, Mariage] }
+                      dateObtention: { type: string, example: "15/03/1998" }
+                      numCertificat: { type: string }
+        "404":
+          description: Dossier inconnu

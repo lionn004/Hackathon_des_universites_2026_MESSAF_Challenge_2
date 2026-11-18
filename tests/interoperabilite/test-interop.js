@@ -645,6 +645,21 @@ async function formatDifferent() {
   verifier(t2.code !== 0 && /plusieurs|introuvable/.test(t2.sortie),
     'tester-registre : un homonyme n\'est jamais choisi au hasard (Awa, deux dossiers)', t2.sortie.slice(-400));
 
+  // Assistant de branchement : à partir du seul contrat OpenAPI de chaque registre, il doit
+  // retrouver l'essentiel de la déclaration écrite à la main (et ne rien activer).
+  const p1 = executer('passerelle', ['npm', 'run', '-s', 'proposer-registre', '--', '/app/config-format-different/openapi-etat-civil-v2.yaml', 'etat-civil-v2']);
+  const attendus1 = ['identification: { mode: iue }', 'route: "GET /v2/personnes/{iue}"', 'donnees: resultat', 'nom: { champ: nomFamille }',
+    'sexe: { champ: genre, valeurs: { Masculin: M, "Féminin": F } }', 'pere_iue: { champ: parents.pere.identifiant }', 'etat: suspendu'];
+  verifier(p1.code === 0 && attendus1.every((a) => p1.sortie.includes(a)),
+    'proposer-registre etat-civil-v2 : routes, enveloppe, correspondances et table de valeurs proposées depuis le contrat OpenAPI',
+    attendus1.filter((a) => !p1.sortie.includes(a)).join(' | ') || p1.sortie.slice(-400));
+  const p2 = executer('passerelle', ['npm', 'run', '-s', 'proposer-registre', '--', '/app/config-format-different/openapi-nationalite-externe.yaml', 'nationalite-externe']);
+  const attendus2 = ['mode: recherche', 'route: "GET /personnes?nom={nom}&prenom={prenom}&naissance={date_naissance|jj/mm/aaaa}"',
+    'liste: items', 'identifiant_local: numeroDossier', 'est_national: { champ: estBurkinabe }', 'donnees: data'];
+  verifier(p2.code === 0 && attendus2.every((a) => p2.sortie.includes(a)),
+    'proposer-registre nationalite-externe : identification par recherche et correspondances proposées depuis le contrat OpenAPI',
+    attendus2.filter((a) => !p2.sortie.includes(a)).join(' | ') || p2.sortie.slice(-400));
+
   const jeton = await connexion(AMADOU);
   const profil = await appel('GET', `${BFF}/profil`, { jeton });
   verifier(profil.body?.prenom === 'Amadou', 'Format différent : l\'espace usager lit l\'identité dans le registre v2', JSON.stringify(profil.body));
