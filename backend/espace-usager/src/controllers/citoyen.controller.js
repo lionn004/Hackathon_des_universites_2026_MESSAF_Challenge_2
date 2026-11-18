@@ -17,6 +17,11 @@ async function getProfile(req, res) {
   res.status(200).json(await profilService.getProfile(req.citoyen.iue));
 }
 
+/** GET /api/profil/registres?iue= : ce que les registres savent de lui (ou d'un enfant sous sa tutelle). */
+async function getRegistryOverview(req, res) {
+  res.status(200).json(await profilService.getRegistryOverview(req.citoyen.iue, req.query));
+}
+
 /** GET /api/enfants */
 async function listChildren(req, res) {
   res.status(200).json(await enfantsService.listChildren(req.citoyen.iue));
@@ -79,6 +84,7 @@ async function getDashboard(req, res) {
 
 module.exports = {
   getProfile,
+  getRegistryOverview,
   listChildren,
   transferChild,
   listDemandes,

@@ -10,6 +10,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const router = Router();
 
 router.get('/profil', requireCitizen, asyncHandler(controller.getProfile));
+router.get('/profil/registres', requireCitizen, asyncHandler(controller.getRegistryOverview));
 
 router.get('/enfants', requireCitizen, asyncHandler(controller.listChildren));
 router.post('/enfants/:iue/transfert', requireCitizen, asyncHandler(controller.transferChild));

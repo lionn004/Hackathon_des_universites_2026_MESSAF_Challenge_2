@@ -469,6 +469,35 @@ async function pieces(remplaces) {
       );
     }
   }
+
+  // « Mes données dans les registres » : toutes les pièces en un appel, sans entrée au journal.
+  const catalogue = ((await appel('GET', `${BFF}/types-pieces`)).body?.types_pieces || []).map((t) => t.id);
+  const journalAvant = await totalJournal();
+  const vue = await appel('GET', `${BFF}/profil/registres`, { jeton });
+  if (verifier(vue.status === 200 && vue.body?.titulaire?.iue === AMADOU.iue, 'Mes données dans les registres : HTTP 200, titulaire Amadou', resume(vue))) {
+    const lues = vue.body.pieces || [];
+    const resumeVue = JSON.stringify(lues.map((p) => `${p.type_piece.id}:${p.disponible ? 'ok' : p.code}`));
+    verifier(JSON.stringify(lues.map((p) => p.type_piece.id)) === JSON.stringify(catalogue),
+      'Mes données dans les registres : une entrée par pièce, dans l\'ordre du catalogue', resumeVue);
+    verifier(lues.every((p) => (p.disponible ? p.donnees && !('iue' in p.donnees) : !!p.code)),
+      'Mes données dans les registres : données sans iue, ou code de l\'indisponibilité', resumeVue);
+    verifier(lues.find((p) => p.type_piece.id === 'extrait-naissance')?.disponible === true,
+      'Mes données dans les registres : extrait de naissance lu', resumeVue);
+    sansFuite(vue.body, 'Mes données dans les registres : aucun champ hors contrat', 'ATTENTION');
+  }
+  verifier((await totalJournal()) === journalAvant, 'Mes données dans les registres : aucune entrée au journal (aucune administration n\'y accède)');
+
+  if (remplaces.size === 0) {
+    // Tutelle relue en base : le tuteur voit les données de l'enfant, personne d'autre.
+    const ibrahim = await connexion(IBRAHIM);
+    const awa = await appel('GET', `${BFF}/profil/registres?iue=${AWA_IUE}`, { jeton: ibrahim });
+    const fiscalAwa = (awa.body?.pieces || []).find((p) => p.type_piece.id === 'attestation-fiscale');
+    verifier(awa.status === 200 && awa.body.titulaire?.prenom === 'Awa' && fiscalAwa?.disponible === false && fiscalAwa?.code === 'PIECE_INDISPONIBLE',
+      'Mes données dans les registres : le tuteur voit celles d\'Awa ; une pièce absente est signalée sans bloquer le reste', `${resume(awa)} ${JSON.stringify(fiscalAwa)}`);
+    const refus = await appel('GET', `${BFF}/profil/registres?iue=${AWA_IUE}`, { jeton });
+    verifier(refus.status === 404 && refus.body?.code === 'TITULAIRE_NON_TROUVE',
+      'Mes données dans les registres : rien sur un enfant dont on n\'est pas tuteur (404)', resume(refus));
+  }
 }
 
 /** Citoyen qui a un compte mais que le nouvel état civil ne connaît pas (Fatimata). */
@@ -767,6 +796,11 @@ async function panneEnDirect() {
     const page = await appel('GET', `${BFF}${route}`, { jeton });
     verifier(page.status === 200, `Panne du casier : espace usager GET ${route} utilisable`, resume(page));
   }
+  const vue = await appel('GET', `${BFF}/profil/registres`, { jeton });
+  const etatPieces = Object.fromEntries((vue.body?.pieces || []).map((p) => [p.type_piece.id, p.disponible ? 'ok' : p.code]));
+  verifier(vue.status === 200 && etatPieces['casier-judiciaire'] === 'REGISTRE_INDISPONIBLE' && etatPieces['certificat-nationalite'] === 'REGISTRE_INDISPONIBLE'
+    && etatPieces['extrait-naissance'] === 'ok' && etatPieces['attestation-fiscale'] === 'ok',
+  'Panne du casier : « Mes données dans les registres » montre ce qui manque, le reste est lu', `${resume(vue)} ${JSON.stringify(etatPieces)}`);
   const d = await appel('POST', `${BFF}/demandes`, { jeton, corps: { type_piece_id: 'casier-judiciaire' } });
   verifier(d.status === 201 && d.body?.statut === 'en_cours', 'Panne du casier : une nouvelle demande de casier attend le registre (en_cours)', JSON.stringify(d.body));
   if (casierAvant.body?.statut === 'complete') {
@@ -799,6 +833,9 @@ async function panneEnDirect() {
     const page = await appel('GET', `${BFF}${route}`, { jeton });
     verifier(page.status === 200, `Panne de l'état civil : espace usager GET ${route} utilisable`, resume(page));
   }
+  const vueEC = await appel('GET', `${BFF}/profil/registres`, { jeton });
+  verifier(vueEC.status === 503 && vueEC.body?.code === 'REGISTRE_INDISPONIBLE',
+    'Panne de l\'état civil : « Mes données dans les registres » répond 503 (sans identité, rien n\'est lu)', resume(vueEC));
   const ins = await appel('POST', `${BFF}/auth/inscription`, { corps: { iue: '000000000000', mot_de_passe: 'Essai2026!', telephone: '+22670000000' } });
   verifier(ins.status === 503 && ins.body?.code === 'REGISTRE_INDISPONIBLE', 'Panne de l\'état civil : inscription refusée avec un message clair (503)', resume(ins));
   compose(['start', 'registre-etat-civil']);

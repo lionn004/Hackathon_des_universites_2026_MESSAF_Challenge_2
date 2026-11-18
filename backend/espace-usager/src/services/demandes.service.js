@@ -285,4 +285,6 @@ async function resumePending() {
 
 module.exports = {
   create, list, get, getContent, countUnfinished, resumePending,
+  // Même règle d'accès pour la vue d'ensemble des registres (profil.service.js).
+  canReadPiecesOf,
 };

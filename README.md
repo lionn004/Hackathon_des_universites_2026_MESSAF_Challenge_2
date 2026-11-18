@@ -157,6 +157,16 @@ curl "http://localhost:3000/api/test/requetes/<REQUETE_ID>?administration_id=000
 curl http://localhost:3000/api/journal -H "Authorization: Bearer $TOKEN"
 ```
 
+### Mes données dans les registres
+
+En un seul appel, tout ce que les registres savent du citoyen (ou, avec `?iue=`, d'un enfant dont il est tuteur), lu à l'instant ; une pièce absente ou un registre en panne est signalé (`disponible: false` et son code) sans bloquer le reste :
+
+```bash
+curl http://localhost:3000/api/profil/registres -H "Authorization: Bearer $TOKEN"
+# {"titulaire":{"iue":"784302956148","nom":"OUEDRAOGO","prenom":"Amadou"},
+#  "pieces":[{"type_piece":{"id":"attestation-fiscale",...},"disponible":true,"donnees":{...}}, ...]}
+```
+
 ### Journal chaîné : une trace modifiée se voit
 
 Chaque entrée du journal est scellée par une empreinte SHA-256 qui inclut celle de l'entrée précédente. Modifier ou supprimer une entrée, même directement en base, rompt la chaîne :

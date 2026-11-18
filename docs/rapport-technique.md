@@ -17,7 +17,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
 
-Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct, la numérisation d'une donnée manquante et l'altération directe du journal : **393 vérifications réussies, 0 échec** au 18 novembre 2026.
+Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct, la numérisation d'une donnée manquante et l'altération directe du journal : **427 vérifications réussies, 0 échec** au 18 novembre 2026.
 
 ## 2. L'énoncé et ce que nous en avons retenu
 
@@ -260,7 +260,7 @@ L'espace usager sert à une seule chose : **exercer ses droits sur ses données*
 |--------|-----------|
 | **Savoir** | Journal : qui a consulté quoi, pourquoi, quand, en accès direct ou par consentement. Tableau de bord : consentements en attente, demandes en cours, accès récents. Pour une demande qui attend un registre : « un registre est momentanément indisponible, votre demande reprendra automatiquement ». |
 | **Décider** | Consentements : accepter ou refuser les demandes des administrations privées. |
-| **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. Une pièce est un ensemble de données lues dans le registre, jamais un scan ni un PDF (voir ci-dessous). |
+| **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. Une pièce est un ensemble de données lues dans le registre, jamais un scan ni un PDF (voir ci-dessous). Mes données dans les registres (`GET /api/profil/registres`) : en un seul appel, tout ce que les registres savent de lui ou d'un enfant sous sa tutelle ; une pièce absente ou un registre en panne est signalé sans bloquer le reste, sans entrée au journal (aucune administration n'y accède). |
 | **Protéger ses enfants** | Le tuteur gère les consentements et le journal de ses enfants mineurs. À 15 ans, la plateforme recommande de transférer le compte à l'enfant. |
 | Compte | Inscription par IUE (le nom est lu à l'état civil, pas saisi ; les enfants mineurs sont rattachés automatiquement par la filiation), connexion, récupération du mot de passe par SMS. |
 
@@ -294,7 +294,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 
 | Scénario | Ce qui est vérifié |
 |----------|--------------------|
-| Nos trois registres | Les 3 procédures, l'identité, les demandes de pièces et leur contenu |
+| Nos trois registres | Les 3 procédures, l'identité, les demandes de pièces et leur contenu, la vue d'ensemble « Mes données dans les registres » (tutelle comprise) |
 | Un registre externe à la place de l'état civil, puis de la justice, du fiscal et des trois | Les mêmes vérifications, avec un registre « d'une autre équipe » au format recommandé |
 | Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` ; l'assistant `proposer-registre`, qui retrouve les deux déclarations à partir des seuls contrats OpenAPI |
 | Identification par correspondance | Un état civil qui ne connaît que ses numéros d'acte, branché comme pivot par une table : « majeur : oui », passeport avec les parents retraduits en IUE et la cascade résolue, aucun numéro d'acte transmis ; l'homonyme du registre de nationalité levé par la table ; un IUE absent de la table inconnu ; une table incohérente refusée au démarrage ; l'assistant qui propose la table |
@@ -303,7 +303,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Journal chaîné | Chaîne intacte au démarrage ; 5 accès simultanés sans branche ; une entrée modifiée, puis une entrée supprimée directement en base, détectées ; l'altération survit à un redémarrage du service ; remise en état |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
-Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **393 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
+Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **427 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
 
 ## 15. Conformité aux livrables
 
@@ -348,7 +348,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.
 - **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, publication régulière de la dernière empreinte du journal auprès d'un tiers (ancre), bases séparées par service, vrai fournisseur de SMS.
-- **Espace usager** : vue d'ensemble de ce que les registres savent du citoyen, documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
+- **Espace usager** : documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
 
 ## Annexe A : comptes de démonstration
 

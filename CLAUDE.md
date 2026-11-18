@@ -180,6 +180,7 @@ Portail web du citoyen. Fonctionnalités :
 - **Enfants** : gestion des comptes enfants rattachés (tuteur)
 - **Transfert de compte** : recommandation à 15 ans de transférer le contrôle à l'enfant
 - **Mes pièces** : consulter le contenu de ses propres pièces (et de celles de ses enfants) et les télécharger pour son usage personnel (voir ci-dessous)
+- **Mes données dans les registres** : sur « Mon profil », tout ce que les registres savent de lui (ou d'un enfant sous sa tutelle), en un appel (`GET /api/profil/registres`, voir ci-dessous)
 
 ### Consultation et téléchargement de ses pièces
 
@@ -239,9 +240,9 @@ Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répon
 - Pas de copie stockée : le registre est relu à chaque consultation, donc une pièce évolutive (casier, fiscal) est toujours à jour.
 - Téléchargement : le frontend affiche une page imprimable (le navigateur l'enregistre en PDF avec Ctrl+P), portant la mention « Document informatif, non officiel ». Les registres ne délivrent jamais de PDF.
 
-### Vue d'ensemble de ses données dans les registres (perspective, hors MVP)
+### Vue d'ensemble de ses données dans les registres (réalisée)
 
-But : montrer au citoyen, sur la page « Mon profil », tout ce que les registres savent de lui, en un seul endroit, sans qu'il ait à faire une demande par pièce. **Cette route n'est pas réalisée dans le MVP** : c'est une perspective (rapport technique, § 17). Si elle est réalisée, elle sera reportée dans `docs/openapi-espace-usager.yaml`. `GET /api/profil` reste inchangée (données du compte seulement).
+But : montrer au citoyen, sur la page « Mon profil », tout ce que les registres savent de lui, en un seul endroit, sans qu'il ait à faire une demande par pièce. **Route réalisée** (`backend/espace-usager/src/services/profil.service.js`), décrite dans `docs/openapi-espace-usager.yaml` (schéma `VueRegistres`) et testée par `tests/interoperabilite/test-interop.js`. `GET /api/profil` reste inchangée (données du compte seulement).
 
 **BFF : `GET /api/profil/registres`** (JWT citoyen, `Authorization: Bearer`), paramètre facultatif `?iue=` pour un enfant.
 
@@ -277,7 +278,7 @@ Réponse `200` (pièces dans l'ordre du catalogue) :
 - Mêmes règles que la consultation d'une pièce : pas de minimisation (le citoyen consulte ses propres données), pas d'entrée au journal (aucune administration n'accède aux données), pas de copie stockée (registres relus à chaque appel).
 - Coût : une lecture d'identité plus une lecture par type de pièce du catalogue (5 appels aujourd'hui), acceptable pour une page consultée ponctuellement.
 
-**Usage frontend** (une fois la route disponible) : section « Mes données dans les registres » de `profil.html`, regroupée par registre source (`type_piece.registre_source`), chaque bloc nommant son registre. Une pièce `disponible: false` est signalée sans bloquer le reste. Aucune mention « vérifié » : la plateforme relit les registres, elle ne certifie rien. Pour un tuteur, un sélecteur permet de choisir un enfant (`?iue=`).
+**Usage frontend** (route disponible, page à faire) : section « Mes données dans les registres » de `profil.html`, regroupée par registre source (`type_piece.registre_source`), chaque bloc nommant son registre. Une pièce `disponible: false` est signalée sans bloquer le reste. Aucune mention « vérifié » : la plateforme relit les registres, elle ne certifie rien. Pour un tuteur, un sélecteur permet de choisir un enfant (`?iue=`).
 
 ### Interface de test (pour démo et jury)
 
