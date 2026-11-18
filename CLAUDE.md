@@ -235,17 +235,17 @@ Erreurs : `404 TYPE_PIECE_INCONNU`, `404 PIECE_INDISPONIBLE` (le registre répon
 - Pas de copie stockée : le registre est relu à chaque consultation, donc une pièce évolutive (casier, fiscal) est toujours à jour.
 - Téléchargement : le frontend affiche une page imprimable (le navigateur l'enregistre en PDF avec Ctrl+P), portant la mention « Document informatif, non officiel ». Les registres ne délivrent jamais de PDF.
 
-### Vue d'ensemble de ses données dans les registres (route à créer)
+### Vue d'ensemble de ses données dans les registres (perspective, hors MVP)
 
-But : montrer au citoyen, sur la page « Mon profil », tout ce que les registres savent de lui, en un seul endroit, sans qu'il ait à faire une demande par pièce. Cette route n'existe pas encore : elle est à implémenter par l'équipe backend, puis à reporter dans `docs/openapi-espace-usager.yaml`. `GET /api/profil` reste inchangée (données du compte seulement).
+But : montrer au citoyen, sur la page « Mon profil », tout ce que les registres savent de lui, en un seul endroit, sans qu'il ait à faire une demande par pièce. **Cette route n'est pas réalisée dans le MVP** : c'est une perspective (rapport technique, § 17). Si elle est réalisée, elle sera reportée dans `docs/openapi-espace-usager.yaml`. `GET /api/profil` reste inchangée (données du compte seulement).
 
 **BFF : `GET /api/profil/registres`** (JWT citoyen, `Authorization: Bearer`), paramètre facultatif `?iue=` pour un enfant.
 
 1. **Titulaire.** Sans `iue`, le titulaire est le citoyen connecté. Avec `iue`, l'accès n'est autorisé que pour un enfant dont il est **actuellement** tuteur (tutelle relue en base), sinon `404 TITULAIRE_NON_TROUVE`, sans révéler si l'IUE existe. C'est la même règle que pour `GET /api/demandes/{id}/contenu`.
-2. **Identité** via la passerelle `GET /api/interne/citoyens/{iue}` (route existante). Titulaire inconnu de l'état civil : `404 TITULAIRE_NON_TROUVE`.
+2. **Identité** via la passerelle `GET /api/interne/citoyens/{iue}` (route existante). Titulaire inconnu de l'état civil : `404 TITULAIRE_NON_TROUVE`. État civil hors service : `503 REGISTRE_INDISPONIBLE` pour toute la réponse (sans identité, rien n'est lu).
 3. **Catalogue** via la passerelle `GET /types-pieces`, jamais une liste codée en dur : une pièce ajoutée au catalogue apparaît d'elle-même.
 4. **Une lecture par pièce**, en parallèle, via la route existante de la passerelle `GET /api/interne/citoyens/{iue}/pieces/{type_piece_id}`. Aucune nouvelle route n'est nécessaire côté passerelle.
-5. **Échec partiel toléré.** Une pièce absente (`404 PIECE_INDISPONIBLE`) ou un registre injoignable (`502`) ne fait pas échouer la réponse : la pièce est renvoyée avec `disponible: false` et un `code`. Le citoyen voit ainsi ce qui manque, par exemple quand le jury remplace un registre.
+5. **Échec partiel toléré.** Une pièce absente (`404 PIECE_INDISPONIBLE`), un registre hors service (`503 REGISTRE_INDISPONIBLE`) ou un registre qui répond de façon inattendue (`502 SERVICE_EN_ERREUR`) ne fait pas échouer la réponse : la pièce est renvoyée avec `disponible: false` et le `code` de la passerelle. Le citoyen voit ainsi ce qui manque, par exemple quand le jury remplace un registre ou qu'un registre tombe.
 
 Réponse `200` (pièces dans l'ordre du catalogue) :
 ```json
@@ -260,14 +260,14 @@ Réponse `200` (pièces dans l'ordre du catalogue) :
     {
       "type_piece": { "id": "attestation-fiscale", "nom": "Attestation de situation fiscale", "registre_source": "fiscal", "est_evolutive": true },
       "disponible": false,
-      "code": "REGISTRE_INJOIGNABLE"
+      "code": "REGISTRE_INDISPONIBLE"
     }
   ],
   "date_consultation": "2026-11-18T10:00:00Z"
 }
 ```
 
-`donnees` a exactement la forme de `GET /api/demandes/{id}/contenu` (même passerelle, même filtrage). `code` vaut `PIECE_INDISPONIBLE` ou `REGISTRE_INJOIGNABLE`.
+`donnees` a exactement la forme de `GET /api/demandes/{id}/contenu` (même passerelle, même filtrage). `code` vaut `PIECE_INDISPONIBLE`, `REGISTRE_INDISPONIBLE` ou `SERVICE_EN_ERREUR` (codes de la passerelle, repris tels quels).
 
 **Règles**
 - Mêmes règles que la consultation d'une pièce : pas de minimisation (le citoyen consulte ses propres données), pas d'entrée au journal (aucune administration n'accède aux données), pas de copie stockée (registres relus à chaque appel).
