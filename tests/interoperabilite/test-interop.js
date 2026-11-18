@@ -13,6 +13,8 @@
  *   panne en direct : on coupe le casier puis l'état civil, la plateforme tient, rien ne se
  *     perd, et tout se complète seul au retour du registre ;
  *   donnée numérique manquante : les actes sont numérisés, la demande bloquée se complète seule ;
+ *   journal chaîné : accès simultanés, puis modification et suppression directes en base,
+ *     détectées par la chaîne des empreintes (même après un redémarrage) ;
  *   pannes et configuration : registre externe arrêté, URL mal saisie.
  *
  * Le branchement se fait comme le fera le jury : variables REGISTRE_*_URL de la
@@ -829,6 +831,54 @@ async function donneeManquante() {
   executer('registre-etat-civil', ['npm', 'run', '-s', 'numeriser-actes', '--', '--annuler']);
 }
 
+/** Journal chaîné par empreintes : toute altération directe de la base est détectée. */
+async function journalChaine() {
+  await brancher(new Set());
+  const jeton = await connexion(AMADOU);
+  const verification = async () => (await appel('GET', `${BFF}/journal/verification`, { jeton })).body || {};
+  const alterer = (...options) => executer('journal', ['npm', 'run', '-s', 'simuler-alteration', ...(options.length ? ['--', ...options] : [])]);
+
+  const v0 = await verification();
+  verifier(v0.integre === true && v0.entrees_verifiees >= 4 && v0.entrees_hors_chaine === 0 && v0.rupture === null && v0.vos_entrees >= 3,
+    'Journal chaîné : chaîne intègre (entrées de démo scellées au démarrage)', JSON.stringify(v0));
+
+  // Accès simultanés : un verrou sérialise les écritures, la chaîne ne se divise jamais.
+  const simultanes = await Promise.all([1, 2, 3, 4, 5].map(() => requeteAdmin(ADMIN.universite, AMADOU.iue, 'inscription-universite')));
+  const v1 = await verification();
+  verifier(simultanes.every((r) => r.status === 200) && v1.integre === true && v1.entrees_verifiees === v0.entrees_verifiees + 5
+    && v1.derniere_empreinte !== v0.derniere_empreinte,
+  'Journal chaîné : 5 accès simultanés, 5 entrées ajoutées, chaîne intacte', JSON.stringify(v1));
+
+  // Quelqu'un qui a accès à la base modifie une entrée d'Amadou en contournant l'API.
+  const m = alterer();
+  const v2 = await verification();
+  verifier(m.code === 0 && v2.integre === false && v2.rupture?.cause === 'contenu_modifie' && v2.rupture?.concerne_vos_donnees === true,
+    'Journal chaîné : une entrée modifiée directement en base est détectée (contenu_modifie)', `${m.sortie.slice(-200)} ${JSON.stringify(v2)}`);
+  sansFuite(v2, 'Journal chaîné : la vérification ne renvoie aucune donnée');
+  const page = await appel('GET', `${BFF}/journal`, { jeton });
+  verifier(page.status === 200, 'Journal chaîné : le journal reste consultable pendant l\'alerte', resume(page));
+  alterer('--annuler');
+  verifier((await verification()).integre === true, 'Journal chaîné : entrée remise dans son état d\'origine, chaîne de nouveau intacte');
+
+  // Suppression directe en base.
+  const s = alterer('--supprimer');
+  const v3 = await verification();
+  verifier(s.code === 0 && v3.integre === false && v3.rupture?.cause === 'entree_supprimee',
+    'Journal chaîné : une entrée supprimée directement en base est détectée (entree_supprimee)', `${s.sortie.slice(-200)} ${JSON.stringify(v3)}`);
+  alterer('--annuler');
+  verifier((await verification()).integre === true, 'Journal chaîné : entrée recréée à l\'identique, chaîne intacte');
+
+  // Un redémarrage n'efface pas une altération : le seed ne réécrit jamais une entrée.
+  alterer();
+  compose(['restart', 'journal']);
+  await attendreCondition(async () => (await appel('GET', `${BFF}/journal/verification`, { jeton })).status === 200, 60000);
+  const v4 = await verification();
+  verifier(v4.integre === false && v4.rupture?.cause === 'contenu_modifie',
+    'Journal chaîné : un redémarrage du service n\'efface pas l\'altération (seed en ajout seul)', JSON.stringify(v4));
+  alterer('--annuler');
+  verifier((await verification()).integre === true, 'Journal chaîné : remis en état après le redémarrage');
+}
+
 // Déroulé
 
 const SCENARIOS = [
@@ -864,7 +914,8 @@ async function main() {
       }
     }
     const speciaux = [['format différent', formatDifferent], ['identification par correspondance', correspondance],
-      ['panne en direct', panneEnDirect], ['donnée manquante', donneeManquante], ['pannes et configuration', pannes]];
+      ['panne en direct', panneEnDirect], ['donnée manquante', donneeManquante], ['journal chaîné', journalChaine],
+      ['pannes et configuration', pannes]];
     for (const [nom, scenario] of speciaux.filter(([n]) => retenu(n))) {
       scenarioCourant = nom;
       console.log(`\n== Scénario : ${nom}`);

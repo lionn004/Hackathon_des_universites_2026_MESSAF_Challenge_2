@@ -6,12 +6,14 @@
  *  - déterminer quelles entrées un citoyen a le droit de voir ;
  *  - appliquer les filtres et la pagination du contrat ;
  *  - calculer les statistiques du tableau de bord ;
+ *  - (chaînage par empreintes et vérification : integrite.service.js) ;
  *  - convertir les entrées au format EntreeJournal (docs/openapi-journal.yaml).
  *
  * Ce fichier ne connaît ni req ni res : il est appelé par le controller
  * et utilise le model pour accéder aux données.
  */
 const journalModel = require('../models/journalAcces.model');
+const integriteService = require('./integrite.service');
 const AppError = require('../utils/AppError');
 
 /** Format officiel de l'IUE : exactement 12 chiffres. */
@@ -157,13 +159,14 @@ function parseDate(raw, name) {
 
 /**
  * POST /journal/enregistrer — enregistre un accès (appelé par la passerelle).
+ * L'entrée est ajoutée en bout de chaîne, avec son empreinte (integrite.service.js).
  * @param {object} body Corps NouvelAcces.
  * @returns {Promise<object>} L'EntreeJournal créée.
  * @throws {AppError} 400 si le corps est invalide.
  */
 async function recordAccess(body) {
   validateNewAccess(body);
-  const entry = await journalModel.create({
+  const entry = await integriteService.ajouter({
     titulaire_iue: body.titulaire_iue,
     decideur_iue: body.decideur_iue,
     administration_id: body.administration_id,

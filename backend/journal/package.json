@@ -10,6 +10,7 @@
     "dev": "node --watch src/server.js",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
+    "simuler-alteration": "node scripts/simuler-alteration.js",
     "prisma:generate": "prisma generate"
   },
   "dependencies": {

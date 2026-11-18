@@ -16,6 +16,8 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+# Outil de démonstration : simulation d'une altération de la base (npm run simuler-alteration).
+COPY scripts ./scripts
 
 EXPOSE 3006
 

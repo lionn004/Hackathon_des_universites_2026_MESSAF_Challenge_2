@@ -12,7 +12,7 @@ Projet réalisé pour le Hackathon des Universités 2026 (MTDPCE, Semaine du Num
 
 1. **Démarrer** : `docker compose up -d --build` (une seule commande), puis ouvrir l'espace usager http://localhost:3020, l'interface de test des administrations http://localhost:3020/pages/test.html et la documentation des API http://localhost:3010.
 2. **Ne transmettre que l'utile (« majeur : oui »)** : dans l'interface de test, choisir « Université Joseph KI-ZERBO », « Inscription universitaire » et l'IUE d'Amadou (`784302956148`). L'université reçoit seulement `est_majeur: true` et la nationalité, jamais la date de naissance.
-3. **Montrer à l'usager qui a consulté ses données** : se connecter avec Amadou (`784302956148` / `Amadou2026!`), ouvrir « Journal d'accès » : administration, démarche, données transmises, date, accès direct ou par consentement. Pour le consentement : même interface de test avec « Banque Atlantique », puis « Consentements » côté Amadou.
+3. **Montrer à l'usager qui a consulté ses données** : se connecter avec Amadou (`784302956148` / `Amadou2026!`), ouvrir « Journal d'accès » : administration, démarche, données transmises, date, accès direct ou par consentement. Le journal est chaîné par empreintes : une trace modifiée directement en base se voit (voir « Journal chaîné » plus bas). Pour le consentement : même interface de test avec « Banque Atlantique », puis « Consentements » côté Amadou.
 4. **Tenir quand un registre tombe** : `docker compose stop registre-justice`. En quelques secondes, l'état des registres de l'interface de test le montre hors service ; l'université reste servie ; la police (« Émission de passeport ») est mise en attente, sans rien recevoir. `docker compose start registre-justice` : au retour, « Vérifier le statut » de la police donne le dossier complet, sans nouvelle demande.
 5. **Brancher vos registres** : un registre se branche par configuration, sans code. Procédure pas à pas : [docs/brancher-un-registre.md](docs/brancher-un-registre.md).
 6. **Tout rejouer automatiquement** : `node tests/interoperabilite/test-interop.js` (stack principale arrêtée) : procédures, remplacement des registres, registres d'un autre format, panne en direct, donnée numérique manquante.
@@ -157,6 +157,22 @@ curl "http://localhost:3000/api/test/requetes/<REQUETE_ID>?administration_id=000
 curl http://localhost:3000/api/journal -H "Authorization: Bearer $TOKEN"
 ```
 
+### Journal chaîné : une trace modifiée se voit
+
+Chaque entrée du journal est scellée par une empreinte SHA-256 qui inclut celle de l'entrée précédente. Modifier ou supprimer une entrée, même directement en base, rompt la chaîne :
+
+```bash
+curl http://localhost:3000/api/journal/verification -H "Authorization: Bearer $TOKEN"
+# {"integre":true,"entrees_verifiees":4,"vos_entrees":3,"derniere_empreinte":"...","rupture":null,...}
+
+docker compose exec journal npm run simuler-alteration               # quelqu'un modifie une entrée d'Amadou en base
+curl http://localhost:3000/api/journal/verification -H "Authorization: Bearer $TOKEN"
+# {"integre":false,...,"rupture":{"rang":1,"cause":"contenu_modifie","concerne_vos_donnees":true}}
+
+docker compose exec journal npm run simuler-alteration -- --supprimer  # ou une suppression (cause entree_supprimee)
+docker compose exec journal npm run simuler-alteration -- --annuler    # remise en état de la démonstration
+```
+
 ### Inscription en direct
 
 Salif OUEDRAOGO est connu de l'état civil mais n'a pas encore de compte. Il s'inscrit en ne donnant que son IUE, un mot de passe et son téléphone :
@@ -292,6 +308,7 @@ Un redémarrage du registre de l'état civil remet aussi cette démonstration à
 - branche, par des tables de correspondance ([tests/interoperabilite/config-correspondance/](tests/interoperabilite/config-correspondance/)), un état civil qui ne connaît que ses numéros d'acte (comme pivot) et le registre de nationalité, dont l'homonyme est levé par la table ;
 - coupe le casier puis l'état civil en direct, vérifie que la plateforme tient, que rien ne se perd et que tout se complète au retour ;
 - joue la numérisation d'une donnée manquante et la reprise automatique ;
+- modifie puis supprime une entrée du journal directement en base, et vérifie que la chaîne des empreintes le détecte ;
 - vérifie partout qu'aucun champ hors dictionnaire ne sort de la plateforme.
 
 Option `--garder` pour laisser la stack de test en marche à la fin, `--sans-build` pour réutiliser les images, `--seul=<scénario>` pour rejouer un seul scénario (par exemple `--seul="panne en direct"`).

@@ -18,4 +18,9 @@ async function stats(token) {
   return expectOk(SERVICE, await request(SERVICE, `${config.urls.journal}/journal/statistiques`, { headers: auth(token) }));
 }
 
-module.exports = { list, stats };
+/** GET /journal/verification — intégrité de la chaîne des empreintes. */
+async function verify(token) {
+  return expectOk(SERVICE, await request(SERVICE, `${config.urls.journal}/journal/verification`, { headers: auth(token) }));
+}
+
+module.exports = { list, stats, verify };

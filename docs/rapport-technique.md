@@ -12,7 +12,7 @@ DLNUF est un socle d'interopérabilité libre qui fait circuler les pièces entr
 Trois réponses à l'épreuve en direct structurent la solution :
 
 - **Ne transmettre que l'utile.** Chaque démarche déclare ses données ; tout le reste est filtré. La plateforme calcule elle-même les données dérivées : l'université reçoit « majeur : oui », jamais la date de naissance.
-- **Montrer à l'usager qui a consulté ses données.** Chaque accès est inscrit dans un journal en ajout seul, que le citoyen consulte depuis son espace, y compris pour ses enfants mineurs.
+- **Montrer à l'usager qui a consulté ses données.** Chaque accès est inscrit dans un journal en ajout seul, chaîné par empreintes (une trace modifiée ou effacée, même directement en base, se voit), que le citoyen consulte depuis son espace, y compris pour ses enfants mineurs.
 - **Tenir quand un registre tombe.** Un registre en panne est détecté et contourné ; ce qui n'en dépend pas continue ; ce qui en dépend est mis en attente sans rien perdre, puis se complète seul à son retour.
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
@@ -204,6 +204,7 @@ Le tuteur d'un mineur répond pour lui. Il perd ce droit dès qu'il a transfér�
 Le journal enregistre **chaque accès** : quelle administration, quelles données de quels registres, pour quelle démarche, quand, et par quel type d'accès (direct ou consentement).
 
 - **Ajout seul.** Le service journal n'a qu'une route d'écriture (`POST /journal/enregistrer`, appelée par la passerelle) : aucune entrée n'est modifiée ni supprimée. Il conserve une photo figée des noms (administration, démarche), pour que le journal reste lisible même si le catalogue change.
+- **Chaîné par empreintes.** L'ajout seul de l'API ne protège pas contre quelqu'un qui accède directement à la base. Chaque entrée porte donc son rang, l'empreinte de l'entrée précédente et la sienne (SHA-256 de son contenu, de son rang et de l'empreinte précédente). Modifier une entrée change son empreinte ; en supprimer une laisse un rang manquant. Les écritures passent sous un verrou PostgreSQL, pour que deux accès simultanés ne forment jamais deux branches. `GET /api/journal/verification` recalcule toute la chaîne et dit si le journal est intact, sinon où se trouve la première rupture et si elle touche les données du citoyen, sans rien révéler des autres. Elle renvoie aussi la dernière empreinte : conservée ailleurs (ancre), elle permet de détecter même une réécriture complète de la fin de la chaîne.
 - **Double traçabilité.** Chaque entrée porte le **titulaire** des données et le **décideur**. Pour un mineur dont le tuteur a répondu au consentement, le titulaire est l'enfant et le décideur le tuteur.
 - **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Le journal et les consentements affichent le libellé de chaque donnée, tiré du dictionnaire (`GET /api/dictionnaire`) : « Majeur » plutôt que `est_majeur`.
 - **Pas de trace, pas de données.** Si le journal est indisponible, la passerelle ne transmet rien.
@@ -275,6 +276,7 @@ Le contrôle d'accès porte sur le **titulaire** des données : un citoyen voit 
 - **Moindre exposition** : en production, seuls la passerelle (administrations) et le BFF (citoyens) sont publiés ; les registres, le consentement, le journal et la base restent sur le réseau interne.
 - **Configuration de production** : changer `JWT_SECRET` et `CLE_SERVICE_INTERNE`, limiter `CORS_ORIGINES` à l'adresse du frontend, désactiver l'interface de test (`INTERFACE_TEST_ACTIVE=false`), qui peut se faire passer pour n'importe quelle administration.
 - **Données** : aucune copie des données transmises ; un champ hors dictionnaire n'entre jamais dans la plateforme ; un citoyen ne peut lire que ses données et celles de ses enfants sous tutelle.
+- **Intégrité du journal** : chaîne des empreintes (§ 8), vérifiable par le citoyen ; une altération directe de la base est détectée, même après un redémarrage (les données de démonstration ne réécrivent jamais une entrée existante).
 
 ## 13. Les trois procédures de bout en bout
 
@@ -298,6 +300,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Identification par correspondance | Un état civil qui ne connaît que ses numéros d'acte, branché comme pivot par une table : « majeur : oui », passeport avec les parents retraduits en IUE et la cascade résolue, aucun numéro d'acte transmis ; l'homonyme du registre de nationalité levé par la table ; un IUE absent de la table inconnu ; une table incohérente refusée au démarrage ; l'assistant qui propose la table |
 | Panne en direct | Coupure du casier, puis de l'état civil : ce qui n'en dépend pas reste servi, ce qui en dépend attend, rien n'est transmis ni copié, tout se complète au retour, une seule entrée au journal |
 | Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
+| Journal chaîné | Chaîne intacte au démarrage ; 5 accès simultanés sans branche ; une entrée modifiée, puis une entrée supprimée directement en base, détectées ; l'altération survit à un redémarrage du service ; remise en état |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
 Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **383 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
@@ -317,7 +320,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 ## 16. Démonstration de l'épreuve
 
 1. L'université demande l'inscription d'Amadou : elle reçoit « majeur : oui » et la nationalité, rien d'autre.
-2. Amadou ouvre son journal : il voit l'université, la démarche, « Majeur », l'heure.
+2. Amadou ouvre son journal : il voit l'université, la démarche, « Majeur », l'heure. Si quelqu'un modifie une entrée directement en base (`docker compose exec journal npm run simuler-alteration`), la vérification du journal le signale.
 3. On coupe le registre du casier (`docker compose stop registre-justice`) : l'université est toujours servie ; la police (passeport) reçoit « en attente du registre » ; l'état des registres (`GET /api/registres`, affiché dans l'interface de test) montre la justice hors service ; l'espace usager fonctionne.
 4. On rallume le registre (`docker compose start registre-justice`) : la police consulte sa requête et reçoit le dossier complet, sans refaire sa demande ; le journal d'Amadou montre l'accès.
 5. On branche un registre d'un autre format par le catalogue, on le teste avec `tester-registre`, et la plateforme le lit.
@@ -335,6 +338,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - Remise unique : une administration qui perd la réponse doit refaire sa demande, qui est alors à nouveau inscrite au journal. C'est voulu (aucune copie), mais cela suppose des administrations fiables.
 - Les SMS sont simulés (écrits dans les journaux des services).
 - Le secret des jetons est partagé entre services (HS256), et tous les schémas sont dans une même instance PostgreSQL. C'est suffisant pour une démonstration, pas pour une production.
+- La vérification du journal recalcule toute la chaîne à chaque appel : à grande échelle, il faudrait des points de contrôle (vérifier depuis la dernière empreinte déjà validée).
 
 **Perspectives**
 
@@ -343,7 +347,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Table de correspondance alimentée par l'enrôlement** : le mode `correspondance` est fait, avec une table en fichier. En production, le lien entre l'IUE et les autres identifiants (numéro d'acte, NIP, IFU) naît à l'enrôlement et appartient à l'autorité de l'IUE. La passerelle le consulterait donc par API auprès de cette autorité, au lieu d'un fichier, avec les mêmes règles qu'aujourd'hui. Les ajouts seraient pris en compte sans redémarrage, chaque modification serait tracée, et les rapprochements douteux seraient validés par un agent, avec une voie de contestation pour le citoyen. La table est elle-même une donnée personnelle, à accès restreint. À terme, les registres adoptent l'IUE (mode `iue`) : la correspondance, comme la recherche, est un mécanisme de transition.
 - **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.
 - **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
-- **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, journal chaîné par empreintes pour prouver qu'aucune entrée n'a été modifiée, bases séparées par service, vrai fournisseur de SMS.
+- **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, publication régulière de la dernière empreinte du journal auprès d'un tiers (ancre), bases séparées par service, vrai fournisseur de SMS.
 - **Espace usager** : vue d'ensemble de ce que les registres savent du citoyen, documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
 
 ## Annexe A : comptes de démonstration
@@ -373,5 +377,6 @@ Mots de passe de démonstration uniquement.
 | État des registres | `curl http://localhost:3000/api/registres` |
 | Simuler une panne | `docker compose stop registre-justice`, puis `docker compose start registre-justice` |
 | Numériser les actes manquants (et remise à zéro) | `docker compose exec registre-etat-civil npm run numeriser-actes` (`-- --annuler`) |
+| Simuler une altération du journal (et remise en état) | `docker compose exec journal npm run simuler-alteration` (`-- --supprimer`, `-- --annuler`), puis `GET /api/journal/verification` |
 | Test d'interopérabilité complet | `node tests/interoperabilite/test-interop.js` (stack principale arrêtée) |
 | Notifications et SMS simulés | `docker compose logs passerelle consentement espace-usager` |

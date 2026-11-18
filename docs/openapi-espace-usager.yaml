@@ -932,6 +932,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
 
+  /journal/verification:
+    get:
+      tags: [Journal]
+      summary: Vérifier que son journal est intact
+      description: |
+        Relais du service journal. Recalcule la chaîne des empreintes de tout le journal : une
+        entrée modifiée ou supprimée, même directement en base, est détectée. Sert à afficher
+        « journal intègre » (ou l'alerte) sur la page Journal. Aucune donnée d'un autre citoyen.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Résultat de la vérification (intègre ou non)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationJournal"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+
   # ═══════════════════════════════════════
   # TABLEAU DE BORD
   # ═══════════════════════════════════════
@@ -1694,6 +1718,49 @@ components:
           type: integer
         pages:
           type: integer
+
+    VerificationJournal:
+      type: object
+      description: "Intégrité du journal : chaîne des empreintes recalculée"
+      properties:
+        integre:
+          type: boolean
+          description: "Vrai si aucune entrée n'a été modifiée, supprimée ou ajoutée hors de l'API"
+          example: true
+        entrees_verifiees:
+          type: integer
+          description: Nombre d'entrées de toute la chaîne recalculées
+          example: 128
+        entrees_hors_chaine:
+          type: integer
+          description: "Entrées sans empreinte (ajoutées hors de l'API) : 0 attendu"
+          example: 0
+        vos_entrees:
+          type: integer
+          description: Entrées de la chaîne visibles par le citoyen connecté (lui et ses enfants)
+          example: 4
+        derniere_empreinte:
+          type: string
+          description: "Empreinte SHA-256 de la dernière entrée : la conserver ailleurs (ancre) permet de détecter une réécriture de toute la fin de la chaîne"
+          example: "9f2c4e7a1b0d3c5e8f6a2b4d1c3e5f7a9b0c2d4e6f8a1b3c5d7e9f0a2b4c6d8e"
+        rupture:
+          type: object
+          nullable: true
+          description: Première rupture de la chaîne, ou null
+          properties:
+            rang:
+              type: integer
+              example: 1
+            cause:
+              type: string
+              enum: [contenu_modifie, entree_supprimee, chainage_rompu]
+            concerne_vos_donnees:
+              type: boolean
+              nullable: true
+              description: "Vrai si l'entrée en cause est visible par le citoyen ; null pour une entrée supprimée"
+        date_verification:
+          type: string
+          format: date-time
 
     Erreur:
       type: object
