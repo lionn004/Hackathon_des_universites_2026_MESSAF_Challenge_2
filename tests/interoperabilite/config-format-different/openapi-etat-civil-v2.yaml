@@ -1,0 +1,70 @@
+# Contrat OpenAPI du registre d'état civil « format v2 » simulé par registre-externe.js
+# (port 4004). Sert à vérifier l'assistant de branchement (npm run proposer-registre) :
+# ses propositions doivent retrouver la déclaration écrite à la main dans
+# catalogue-registres.yaml de ce dossier.
+openapi: 3.0.3
+info:
+  title: Registre de l'état civil (format v2, externe)
+  version: 2.0.0
+servers:
+  - url: http://registre-externe:4004
+paths:
+  /v2/etat:
+    get:
+      summary: État du service
+      responses:
+        "200":
+          description: Service disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+  /v2/personnes/{identifiant}:
+    get:
+      summary: Fiche d'une personne
+      parameters:
+        - name: identifiant
+          in: path
+          required: true
+          description: IUE de la personne (12 chiffres)
+          schema: { type: string, pattern: "^[0-9]{12}$" }
+      responses:
+        "200":
+          description: Fiche trouvée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statut: { type: string, example: ok }
+                  resultat: { $ref: "#/components/schemas/Personne" }
+        "404":
+          description: Personne inconnue
+components:
+  schemas:
+    Personne:
+      type: object
+      properties:
+        identifiant: { type: string }
+        nomFamille: { type: string }
+        prenoms: { type: string }
+        dateNaissance: { type: string, example: "15/03/1998" }
+        lieuNaissance: { type: string }
+        genre: { type: string, enum: [Masculin, Féminin] }
+        nationalite: { type: string }
+        parents:
+          type: object
+          properties:
+            pere:
+              type: object
+              nullable: true
+              properties:
+                identifiant: { type: string }
+            mere:
+              type: object
+              nullable: true
+              properties:
+                identifiant: { type: string }
+        profession: { type: string }

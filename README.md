@@ -220,6 +220,14 @@ La passerelle n'a aucun registre écrit en dur. Elle lit deux fichiers, montés 
 Pour brancher un registre, par exemple celui du jury :
 
 1. Le déclarer dans le catalogue : adresse, routes, mode d'identification (`iue`, ou `recherche` par nom, prénom et date de naissance pour une base qui ne connaît pas encore l'IUE), et correspondances de ses champs (conversions de dates `JJ/MM/AAAA`, de booléens `oui/non`, de codes).
+
+   Si le registre publie un contrat OpenAPI, l'**assistant de branchement** en tire un brouillon de déclaration :
+
+   ```bash
+   docker compose exec passerelle npm run proposer-registre -- <fichier ou URL du contrat OpenAPI> <identifiant>
+   ```
+
+   Il propose l'adresse, les routes, l'identification (IUE dans la route, ou route de recherche), l'emplacement de la fiche dans la réponse, les correspondances (par rapprochement des noms et des types) et les tables de valeurs (`Masculin` vers `M`). Il **n'active rien** : le registre est marqué `suspendu`, chaque correspondance est à relire, car le sens d'un champ ne se devine pas avec certitude. Le fichier doit être lisible depuis le conteneur (par exemple dans `backend/passerelle/config/`, monté sur `/app/config`), ou donné par son URL. Sous Git Bash (Windows), préfixer la commande par `MSYS_NO_PATHCONV=1`, sinon le chemin `/app/...` est réécrit en chemin Windows.
 2. Le désigner dans `sources` pour les opérations qu'il sert (en premier s'il fait foi ; les suivants servent de secours et doivent être des répliques tenues par la même autorité, même `proprietaire`, ce que la passerelle vérifie au démarrage).
 3. Le tester avant de l'activer :
 
@@ -265,7 +273,7 @@ Un redémarrage du registre de l'état civil remet aussi cette démonstration à
 `node tests/interoperabilite/test-interop.js` rejoue tout cela sans intervention (Node 18 ou plus, stack principale arrêtée). Il démarre une stack de test séparée (projet Docker `dlnuf-interop`, base à part) avec un registre « d'une autre équipe » ([tests/interoperabilite/registre-externe.js](tests/interoperabilite/registre-externe.js)) et :
 
 - branche ce registre à la place de l'état civil, de la justice, du fiscal, puis des trois, et rejoue les 3 procédures, les demandes de pièces et l'inscription ;
-- branche, par le seul catalogue ([tests/interoperabilite/config-format-different/](tests/interoperabilite/config-format-different/)), deux registres d'un autre format : un état civil sans `est_majeur` (la passerelle le calcule), et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi au hasard ; il teste la source de secours et la commande `tester-registre` ;
+- branche, par le seul catalogue ([tests/interoperabilite/config-format-different/](tests/interoperabilite/config-format-different/)), deux registres d'un autre format : un état civil sans `est_majeur` (la passerelle le calcule), et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi au hasard ; il teste la source de secours, la commande `tester-registre`, et l'assistant `proposer-registre`, qui doit retrouver ces deux déclarations à partir des seuls contrats OpenAPI des registres ;
 - coupe le casier puis l'état civil en direct, vérifie que la plateforme tient, que rien ne se perd et que tout se complète au retour ;
 - joue la numérisation d'une donnée manquante et la reprise automatique ;
 - vérifie partout qu'aucun champ hors dictionnaire ne sort de la plateforme.

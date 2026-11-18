@@ -13,7 +13,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 - **Montrer à l'usager qui a consulté ses données.** Chaque accès est inscrit dans un journal en ajout seul, que le citoyen consulte depuis son espace, y compris pour ses enfants mineurs.
 - **Tenir quand un registre tombe.** Un registre en panne est détecté et contourné ; ce qui n'en dépend pas continue ; ce qui en dépend est mis en attente sans rien perdre, puis se complète seul à son retour.
 
-Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code.
+Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
 
 Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, la panne en direct et la numérisation d'une donnée manquante : **363 vérifications réussies, 0 échec** au 18 novembre 2026.
 
@@ -128,7 +128,7 @@ Toute requête désigne le citoyen par son IUE, sans exception : c'est l'identif
 
 ### 5.4 Brancher un registre en quatre étapes
 
-1. **Déclarer** le registre au catalogue : adresse, identification, routes, correspondances.
+1. **Déclarer** le registre au catalogue : adresse, identification, routes, correspondances. Si le registre publie un contrat OpenAPI, l'**assistant de branchement** en tire un brouillon (§ 5.5).
 2. **Le désigner** dans `sources` pour les opérations qu'il sert.
 3. **Le tester** avant de l'activer :
 
@@ -140,6 +140,24 @@ Toute requête désigne le citoyen par son IUE, sans exception : c'est l'identif
 4. **L'activer** : `docker compose restart passerelle`. Les fichiers sont montés dans le conteneur : aucune image n'est reconstruite.
 
 `GET /api/registres` montre ensuite l'état de chaque registre ; `GET /api/dictionnaire` donne les libellés. Nos trois registres suivent le **format recommandé** (contrats `docs/openapi-registre-*.yaml`) et se branchent sans aucune correspondance.
+
+### 5.5 L'assistant de branchement : proposer, pas activer
+
+```
+docker compose exec passerelle npm run proposer-registre -- <fichier ou URL du contrat OpenAPI> <identifiant>
+```
+
+L'assistant lit le contrat OpenAPI du registre et écrit un brouillon de déclaration :
+
+- l'adresse (`servers`), la route d'état pour la sonde et le paramètre de filtrage des champs ;
+- l'identification : IUE reconnu par le nom du paramètre, sa description ou son format (12 chiffres), sinon route de recherche par nom, prénom et date de naissance, avec la liste des résultats et l'identifiant local ;
+- pour chaque route de lecture, l'opération du dictionnaire qu'elle sert et l'emplacement de la fiche dans la réponse (enveloppe `data`, `resultat`...) ;
+- les correspondances, par rapprochement des noms (même nom, synonyme connu, nom proche) et des types, et les tables de valeurs (`Masculin` vers `M`) ;
+- les données calculées par la passerelle, celles qui manquent, et les champs ignorés.
+
+Il **n'active rien** : le sens d'un champ ne se devine pas avec certitude, et une correspondance fausse ferait sortir une mauvaise donnée sous un nom officiel. Le brouillon est marqué `suspendu`, chaque correspondance porte son niveau de confiance, et le registre passe par `tester-registre` avant d'être activé.
+
+Résultat sur nos contrats : nos trois registres sont reconnus au format recommandé, sans correspondance. Sur les deux registres d'un autre format du test d'interopérabilité, décrits par leur contrat OpenAPI, l'assistant retrouve **toute** la déclaration écrite à la main (8 correspondances sur 8 pour l'état civil, avec la table de valeurs du sexe ; identification par recherche et 5 correspondances sur 5 pour la nationalité), et la passerelle accepte le catalogue ainsi obtenu. Seuls le propriétaire et l'activation restent à décider par un humain.
 
 ## 6. Ne transmettre que l'utile
 
@@ -267,7 +285,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 |----------|--------------------|
 | Nos trois registres | Les 3 procédures, l'identité, les demandes de pièces et leur contenu |
 | Un registre externe à la place de l'état civil, puis de la justice, du fiscal et des trois | Les mêmes vérifications, avec un registre « d'une autre équipe » au format recommandé |
-| Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` |
+| Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` ; l'assistant `proposer-registre`, qui retrouve les deux déclarations à partir des seuls contrats OpenAPI |
 | Panne en direct | Coupure du casier, puis de l'état civil : ce qui n'en dépend pas reste servi, ce qui en dépend attend, rien n'est transmis ni copié, tout se complète au retour, une seule entrée au journal |
 | Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
@@ -310,7 +328,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 **Perspectives**
 
 - **Catalogue en base de données**, avec une API et une interface d'administration réservées à un rôle « gestionnaire du catalogue » (autorité du référentiel), et l'historique de chaque modification.
-- **Assistant de branchement** qui propose les correspondances en rapprochant les noms de champs d'un registre de ceux du dictionnaire.
+- **Assistant de branchement plus fin** : enrichir les synonymes au fil des registres branchés, et comparer les exemples du contrat OpenAPI aux formats attendus (dates, codes).
 - **Mode d'identification `correspondance`** : une table IUE / identifiant local (numéro d'acte, NIP, IFU), remplie au fil de l'enrôlement.
 - **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, journal chaîné par empreintes pour prouver qu'aucune entrée n'a été modifiée, bases séparées par service, vrai fournisseur de SMS.
@@ -338,6 +356,7 @@ Mots de passe de démonstration uniquement.
 | Documentation des API | http://localhost:3010 |
 | Espace usager | http://localhost:3020 |
 | Jetons d'administration de démo | `docker compose exec passerelle npm run jeton:admin` |
+| Proposer une déclaration depuis un contrat OpenAPI | `docker compose exec passerelle npm run proposer-registre -- <contrat> <identifiant>` |
 | Tester un registre | `docker compose exec passerelle npm run tester-registre -- <registre> <iue>` |
 | État des registres | `curl http://localhost:3000/api/registres` |
 | Simuler une panne | `docker compose stop registre-justice`, puis `docker compose start registre-justice` |
