@@ -220,7 +220,7 @@ La passerelle n'a aucun registre écrit en dur. Elle lit deux fichiers, montés 
 Pour brancher un registre, par exemple celui du jury :
 
 1. Le déclarer dans le catalogue : adresse, routes, mode d'identification (`iue`, ou `recherche` par nom, prénom et date de naissance pour une base qui ne connaît pas encore l'IUE), et correspondances de ses champs (conversions de dates `JJ/MM/AAAA`, de booléens `oui/non`, de codes).
-2. Le désigner dans `sources` pour les opérations qu'il sert (en premier s'il fait foi, les suivants servent de secours).
+2. Le désigner dans `sources` pour les opérations qu'il sert (en premier s'il fait foi ; les suivants servent de secours et doivent être des répliques tenues par la même autorité, même `proprietaire`, ce que la passerelle vérifie au démarrage).
 3. Le tester avant de l'activer :
 
    ```bash
@@ -244,7 +244,7 @@ Quand un registre ne fournit qu'une date de naissance, la passerelle calcule ell
 - Ce qui ne dépend pas du registre en panne continue normalement (l'université reste servie si le casier tombe), et l'espace usager reste utilisable.
 - Une requête qui en dépend passe `en_attente_registre` (réponse 202) : rien n'est transmis ni copié. Dès que le registre revient, la consultation suivante de `GET /api/requetes/{id}` remet le dossier complet, sans nouvelle demande.
 - Une demande de pièce d'un citoyen passe `en_cours` et se termine seule au retour du registre (reprise automatique toutes les 10 s).
-- Si un registre de secours est déclaré pour l'opération, il prend le relais.
+- Si un registre de secours (réplique du registre, tenue par la même autorité) est déclaré pour l'opération, il prend le relais.
 - Tous les services redémarrent seuls après un plantage (`restart: unless-stopped`).
 
 Pour le montrer en direct : `docker compose stop registre-justice`, une requête de la police (passeport) passe en attente pendant que l'université reste servie, puis `docker compose start registre-justice` et la police reçoit son dossier à la consultation suivante.

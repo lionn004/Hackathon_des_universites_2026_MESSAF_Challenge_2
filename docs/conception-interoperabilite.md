@@ -50,7 +50,7 @@ registre. Un registre qui ne le suit pas se branche quand même, par le catalogu
 | **Opération** | Une lecture précise dans un domaine | `etat-civil.fiche`, `etat-civil.filiation`, `justice.casier`, `justice.nationalite`, `fiscal.situation` |
 | **Donnée** | Une entrée du dictionnaire, rattachée à un domaine et à une opération | `etat-civil.date_naissance`, `justice.casier_vierge` |
 | **Registre** | Un service réel, avec une adresse, qui sert une ou plusieurs opérations | notre registre `justice` ; le registre `nationalite-jury` |
-| **Source** | Pour une opération, la liste ordonnée des registres qui la servent : le premier fait foi, les suivants sont des sources de secours | `justice.nationalite : [nationalite-jury, justice]` |
+| **Source** | Pour une opération, la liste ordonnée des registres qui la servent : le premier fait foi, les suivants sont des sources de secours (répliques tenues par la même autorité, § 10) | `justice.nationalite : [nationalite-jury, justice]`, deux registres du ministère de la Justice |
 
 Le domaine et l'opération sont **logiques** ; le registre est **physique**. Les règles existantes
 (démarches, missions, consentements) ne changent pas : elles parlent déjà de domaines et de données.
@@ -223,7 +223,12 @@ délai `delai_ms` dépassé, erreur 5xx) le passe `hors_service` ; une sonde tou
 attendre de délai. Un registre `suspendu` dans le catalogue est traité comme `hors_service`.
 
 **Source de secours** : si le registre qui fait foi est hors service, la passerelle prend le suivant de
-la source, s'il est disponible et sait fournir toutes les données demandées.
+la source, s'il est disponible et sait fournir toutes les données demandées. C'est une bascule vers
+une **réplique** du registre de référence (serveur ou site de secours, haute disponibilité), tenue par
+la **même autorité** : la passerelle vérifie au démarrage que les sources d'une opération ont le même
+`proprietaire`. Jamais le registre d'une autre administration qui détiendrait aussi la donnée : elle
+pourrait être périmée, et son origine serait masquée au journal, qui enregistre le domaine consulté et
+non le serveur qui a répondu. La plateforme, elle, ne copie jamais rien.
 
 **Requêtes des administrations : tout ou rien, puis complétion automatique.** Si une donnée nécessaire
 ne peut pas être lue, rien n'est remis : la requête passe `en_attente_registre` (réponse 202 avec la

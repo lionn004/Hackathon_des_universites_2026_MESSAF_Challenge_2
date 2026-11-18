@@ -111,7 +111,7 @@ Fichier `backend/passerelle/config/catalogue-registres.yaml`. Il dit, pour chaqu
 - ses **routes**, une par opération (lectures `GET` uniquement) ;
 - ses **correspondances** : pour chaque donnée du dictionnaire, le champ du registre (chemin possible, par exemple `identite.nom`) et la conversion (`date` pour `JJ/MM/AAAA`, `booleen` pour `oui/non`, `nombre`, ou une table de valeurs comme `{ Masculin: M, Féminin: F }`).
 
-Il dit aussi, pour chaque opération, la liste ordonnée des **sources** : le premier registre fait foi, les suivants sont des **sources de secours**. Exemple : `justice.nationalite: [nationalite-jury, justice]`.
+Il dit aussi, pour chaque opération, la liste ordonnée des **sources** : le premier registre fait foi, les suivants sont des **sources de secours**. Exemple : `justice.nationalite: [nationalite-jury, justice]`. Une source de secours est une **réplique** du registre de référence (serveur ou site de secours), tenue par la **même autorité** : la passerelle vérifie au démarrage que les sources d'une opération ont le même propriétaire. Ce n'est jamais le registre d'une autre administration qui détiendrait aussi la donnée : elle pourrait être périmée, et le journal, qui enregistre le domaine consulté, masquerait son origine. Dans notre configuration, chaque opération n'a qu'une source.
 
 Un champ que le registre envoie sans correspondance **n'entre jamais dans la plateforme**. Le catalogue et le dictionnaire sont validés au démarrage : routes, sources, correspondances vers des données existantes, cohérence avec les démarches et les missions. S'ils sont incohérents, la passerelle refuse de démarrer et liste toutes les erreurs.
 
@@ -187,7 +187,7 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 
 **Détection.** Chaque registre est `disponible` ou `hors_service`. Un appel sans réponse dans le délai déclaré (2 s par défaut), ou une erreur 5xx, le passe `hors_service`. Une sonde l'appelle toutes les 5 s et le repasse `disponible` dès qu'il répond.
 
-**Contournement immédiat.** Un registre `hors_service` n'est plus appelé : les requêtes suivantes sont traitées sans attendre de délai. Si une **source de secours** est déclarée pour l'opération, elle prend le relais.
+**Contournement immédiat.** Un registre `hors_service` n'est plus appelé : les requêtes suivantes sont traitées sans attendre de délai. Si une **source de secours** (réplique tenue par la même autorité, § 5.2) est déclarée pour l'opération, elle prend le relais : c'est une bascule, pas une répartition de charge.
 
 **Ce qui ne dépend pas du registre continue.** Si le casier tombe, l'université (qui ne lit que l'état civil) reste servie. L'espace usager reste utilisable : connexion, journal, consentements, tableau de bord.
 

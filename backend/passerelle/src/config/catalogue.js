@@ -182,6 +182,18 @@ function verifierCatalogue(cat, operations, erreurs) {
         erreurs.push(`sources ${cle} : le registre « ${id} » doit être identifié par l'IUE (pivot des recherches)`);
       }
     }
+    // Une source de secours est une réplique du registre de référence (serveur ou site de
+    // secours), tenue par la même autorité : jamais le registre d'une autre administration,
+    // dont la donnée pourrait être périmée et dont l'origine serait masquée au journal (qui
+    // enregistre le domaine consulté, pas le serveur qui a répondu).
+    const reference = registres[ids[0]];
+    for (const id of ids.slice(1)) {
+      const secours = registres[id];
+      if (reference && secours && secours.proprietaire !== reference.proprietaire) {
+        erreurs.push(`sources ${cle} : le registre de secours « ${id} » (${secours.proprietaire || 'propriétaire non renseigné'}) `
+          + `doit appartenir à la même autorité que « ${ids[0]} » (${reference.proprietaire || 'propriétaire non renseigné'})`);
+      }
+    }
   }
   if (!cat.sources || !cat.sources['etat-civil.fiche']) erreurs.push('sources : « etat-civil.fiche » est obligatoire (pivot de l\'IUE)');
 
