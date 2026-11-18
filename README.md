@@ -291,7 +291,7 @@ Un redémarrage du registre de l'état civil remet aussi cette démonstration à
 - joue la numérisation d'une donnée manquante et la reprise automatique ;
 - vérifie partout qu'aucun champ hors dictionnaire ne sort de la plateforme.
 
-Option `--garder` pour laisser la stack de test en marche à la fin, `--sans-build` pour réutiliser les images.
+Option `--garder` pour laisser la stack de test en marche à la fin, `--sans-build` pour réutiliser les images, `--seul=<scénario>` pour rejouer un seul scénario (par exemple `--seul="panne en direct"`).
 
 ---
 
@@ -334,7 +334,7 @@ Le frontend citoyen est d'abord une application web en HTML / CSS / JavaScript. 
    - elle interroge les registres en ne demandant que les champs requis ;
    - le service de minimisation retire tout champ non autorisé pour la démarche ;
    - l'accès est inscrit au journal (si le journal est indisponible, rien n'est transmis) ;
-   - le citoyen est notifié et les données sont renvoyées.
+   - le citoyen est notifié (notification simulée, visible avec `docker compose logs passerelle`) et les données sont renvoyées.
 3. **Administration privée** : une demande de consentement est créée et le citoyen est prévenu par SMS (rappels à 24 h et 72 h, expiration à 30 jours). Quand l'administration consulte sa requête, la passerelle vérifie la réponse du citoyen : en cas d'acceptation, seuls les champs acceptés sont transmis et l'accès est tracé ; un refus est également tracé.
 
 ### Mineurs
@@ -387,7 +387,7 @@ Les valeurs par défaut conviennent pour la démonstration. Pour les modifier, c
 
 En production, changer `JWT_SECRET` et `CLE_SERVICE_INTERNE`, mettre l'adresse du frontend dans `CORS_ORIGINES`, passer `INTERFACE_TEST_ACTIVE=false` (l'interface de test peut se faire passer pour n'importe quelle administration), et ne publier que les ports de la passerelle et du BFF.
 
-Les SMS sont simulés et écrits dans les logs : `docker compose logs consentement` (demandes de consentement, rappels) et `docker compose logs espace-usager` (codes de mot de passe, transferts de compte, demandes complétées par la reprise automatique).
+Les notifications et les SMS sont simulés et écrits dans les logs : `docker compose logs passerelle` (notification après coup d'un accès direct par une administration publique), `docker compose logs consentement` (demandes de consentement, rappels) et `docker compose logs espace-usager` (codes de mot de passe, transferts de compte, demandes complétées par la reprise automatique).
 
 La première construction télécharge les images Docker, les paquets npm et les moteurs Prisma : une connexion internet est nécessaire. Ensuite, la plateforme fonctionne sans aucun service extérieur.
 

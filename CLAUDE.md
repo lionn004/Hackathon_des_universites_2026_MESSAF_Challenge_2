@@ -481,7 +481,7 @@ Le catalogue n'est exposé qu'en lecture (`GET /types-pieces`, `GET /types-piece
 
 - Un enfant est rattaché à un tuteur (via `tuteur_id` dans Citoyen)
 - Le tuteur administre l'espace de l'enfant
-- La plateforme détecte automatiquement les mineurs via VENEEM (registre des naissances)
+- La plateforme détecte automatiquement les mineurs par leur date de naissance, lue au registre de l'état civil (via la passerelle) ; à son inscription, un parent se voit rattacher ses enfants mineurs trouvés par la filiation de l'état civil
 - À **15 ans**, le système recommande au tuteur de transférer le contrôle du compte à l'enfant
 - Le journal enregistre `titulaire = enfant` et `decideur = tuteur` pour toute action du tuteur
 
@@ -671,7 +671,7 @@ UUID fixes de référence : tous les services (passerelle, consentement, journal
 - **BFF** : ne lit jamais les registres directement (identité et cascade via la passerelle). Les tutelles sont relues en base à chaque requête ; pour appeler consentement et journal, le BFF fabrique un jeton citoyen de 2 minutes avec la liste `enfants` à jour. L'interface de test (`/api/test/*`) fabrique des jetons d'administration : à désactiver en production (`INTERFACE_TEST_ACTIVE=false`).
 - **Interopérabilité** : aucun registre n'est écrit en dur dans la passerelle. Le dictionnaire des données (`config/dictionnaire.yaml`) et le catalogue des registres (`config/catalogue-registres.yaml`) décrivent quoi lire, où et comment ; ils sont validés au démarrage (la passerelle refuse de démarrer s'ils sont incohérents). Brancher un registre : le déclarer au catalogue (si le registre publie un contrat OpenAPI, `docker compose exec passerelle npm run proposer-registre -- <contrat> <identifiant>` en propose un brouillon, `suspendu`, à relire : il n'active jamais rien), le tester (`docker compose exec passerelle npm run tester-registre -- <registre> <iue>`), redémarrer la passerelle. Les adresses de nos registres restent surchargeables (`REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` dans un `.env` à la racine). On ne renomme jamais une donnée du dictionnaire. Une source de secours est une réplique du registre de référence tenue par la même autorité (même `proprietaire`, vérifié au démarrage), jamais le registre d'une autre administration.
 - **Minimisation** : les règles « champs autorisés par démarche et par registre » appartiennent au service consentement (table `ChampsDemarche`, seed dans `backend/consentement/prisma/seed.js`). Identifiants des démarches : `inscription-universite`, `emission-passeport`, `ouverture-compte-bancaire`.
-- **SMS** : simulés, écrits dans les logs (`docker compose logs consentement` pour les demandes de consentement, `docker compose logs espace-usager` pour les codes de mot de passe et les transferts).
+- **SMS** : simulés, écrits dans les logs (`docker compose logs passerelle` pour la notification après coup d'un accès direct par une administration publique, `docker compose logs consentement` pour les demandes de consentement, `docker compose logs espace-usager` pour les codes de mot de passe et les transferts).
 - **Journal** : en ajout seul, aucune entrée n'est modifiée ni supprimée. La passerelle envoie, en plus des identifiants, une photo figée des noms (`administration_nom`, `administration_type`, `demarche_nom`).
 - **Erreurs** : Format uniforme `{ code: "STRING_CONSTANTE", message: "Message lisible" }`
 - **Pagination** : `{ page, limite, total, pages }`

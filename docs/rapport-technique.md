@@ -365,4 +365,4 @@ Mots de passe de démonstration uniquement.
 | Simuler une panne | `docker compose stop registre-justice`, puis `docker compose start registre-justice` |
 | Numériser les actes manquants (et remise à zéro) | `docker compose exec registre-etat-civil npm run numeriser-actes` (`-- --annuler`) |
 | Test d'interopérabilité complet | `node tests/interoperabilite/test-interop.js` (stack principale arrêtée) |
-| SMS simulés | `docker compose logs consentement espace-usager` |
+| Notifications et SMS simulés | `docker compose logs passerelle consentement espace-usager` |

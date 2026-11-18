@@ -18,8 +18,7 @@ Fil conducteur : les trois points de l'épreuve en direct (ne transmettre que l'
    - B : espace usager, connecté avec Amadou (`784302956148` / `Amadou2026!`) ;
    - C : un terminal à la racine du dépôt, commandes déjà tapées ;
    - D : la documentation des API, http://localhost:3010.
-3. **Dépend de l'issue #24** : l'état des registres dans l'interface de test et l'affichage de « en attente du registre ». Si ce n'est pas fusionné au moment d'enregistrer, montrer à la place la réponse JSON de l'interface de test et http://localhost:3000/api/registres dans un onglet.
-4. Faire une répétition complète sans enregistrer : la sonde met jusqu'à 5 secondes à voir un registre tomber ou revenir.
+3. Faire une répétition complète sans enregistrer : la sonde met jusqu'à 5 secondes à voir un registre tomber ou revenir.
 
 ## Déroulé
 
