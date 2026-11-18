@@ -7,6 +7,7 @@ const catalogueRoutes = require('./catalogue.routes');
 const citoyenRoutes = require('./citoyen.routes');
 const testRoutes = require('./test.routes');
 const interneRoutes = require('./interne.routes');
+const statistiquesRoutes = require('./statistiques.routes');
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.use('/auth', authRoutes);
 router.use('/', catalogueRoutes);
 router.use('/test', testRoutes);
 router.use('/interne', interneRoutes);
+router.use('/statistiques', statistiquesRoutes);
 router.use('/', citoyenRoutes);
 
 module.exports = router;

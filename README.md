@@ -309,6 +309,16 @@ docker compose exec registre-etat-civil npm run numeriser-actes -- --annuler # r
 
 Un redémarrage du registre de l'état civil remet aussi cette démonstration à zéro (son seed est relancé) : faire la numérisation après une coupure de ce registre, pas avant.
 
+**Pilotage de la numérisation.** Les demandes bloquées disent à l'État quels actes numériser en priorité. Statistiques publiques et anonymes (aucun IUE, aucun nom), recalculées à chaque appel :
+
+```bash
+curl http://localhost:3000/api/statistiques/numerisation
+# {"demandes":{"total":1,"en_attente_numerisation":1,...},"titulaires_concernes":1,
+#  "pieces_a_numeriser":[{"type_piece":{"id":"extrait-naissance",...,"registre_source":"etat-civil"},"proprietaire":"pere","demandes_bloquees":1},
+#                        {"type_piece":{"id":"extrait-naissance",...},"proprietaire":"mere","demandes_bloquees":1}],
+#  "par_registre":[{"registre_source":"etat-civil","demandes_bloquees":1}]}
+```
+
 ### Test automatique
 
 `node tests/interoperabilite/test-interop.js` rejoue tout cela sans intervention (Node 18 ou plus, stack principale arrêtée). Il démarre une stack de test séparée (projet Docker `dlnuf-interop`, base à part) avec un registre « d'une autre équipe » ([tests/interoperabilite/registre-externe.js](tests/interoperabilite/registre-externe.js)) et :

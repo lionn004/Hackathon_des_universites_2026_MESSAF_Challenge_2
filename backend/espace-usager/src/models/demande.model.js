@@ -58,6 +58,26 @@ function update(id, data) {
   return prisma.demande.update({ where: { id }, data });
 }
 
+/**
+ * Nombre de demandes par statut (statistiques de numérisation).
+ * @returns {Promise<Array<{statut: string, _count: {_all: number}}>>}
+ */
+function countByStatut() {
+  return prisma.demande.groupBy({ by: ['statut'], _count: { _all: true } });
+}
+
+/**
+ * Demandes bloquées par une donnée numérique manquante : seulement ce qu'il faut pour les
+ * statistiques (type de pièce, titulaire pour compter les personnes distinctes, cascade).
+ * @returns {Promise<Array<{type_piece_id: string, titulaire_iue: string, cascade: object[]}>>}
+ */
+function findAwaitingDigitization() {
+  return prisma.demande.findMany({
+    where: { statut: 'fallback_physique' },
+    select: { type_piece_id: true, titulaire_iue: true, cascade: true },
+  });
+}
+
 module.exports = {
-  create, findById, findPage, count, findToResume, update,
+  create, findById, findPage, count, findToResume, update, countByStatut, findAwaitingDigitization,
 };
