@@ -16,6 +16,9 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+# Dictionnaire des données et catalogue des registres (monté aussi en volume par
+# docker-compose : on peut les modifier sans reconstruire l'image).
+COPY config ./config
 # Outils de démo (ex : génération de jetons d'administration).
 COPY scripts ./scripts
 

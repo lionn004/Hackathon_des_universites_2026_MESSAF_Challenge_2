@@ -63,6 +63,8 @@ function unexpected(serviceName, res) {
  *  - code attendu (ex : 200) → corps renvoyé ;
  *  - erreur métier 4xx du service appelé → relayée telle quelle au frontend
  *    (même statut, même { code, message }), car elle a un sens pour le citoyen ;
+ *  - 503 REGISTRE_INDISPONIBLE (un registre est hors service) → relayée aussi :
+ *    le citoyen voit quel registre manque, et que sa demande reprendra ;
  *  - toute autre réponse → 502.
  *
  * @param {string} serviceName
@@ -73,7 +75,8 @@ function unexpected(serviceName, res) {
  */
 function expectOk(serviceName, res, okStatuses = [200]) {
   if (okStatuses.includes(res.status)) return res.body;
-  if (res.status >= 400 && res.status < 500 && res.body && res.body.code) {
+  const relayee = (res.status >= 400 && res.status < 500) || (res.status === 503 && res.body && res.body.code === 'REGISTRE_INDISPONIBLE');
+  if (relayee && res.body && res.body.code) {
     throw new AppError(res.status, res.body.code, res.body.message);
   }
   return unexpected(serviceName, res);

@@ -46,4 +46,22 @@ async function listTypesPieces() {
   };
 }
 
-module.exports = { listTypesPieces };
+/**
+ * GET /registres : état des registres branchés à la plateforme (relais de la passerelle).
+ * Information publique, sans donnée citoyenne : l'espace usager l'affiche pendant une panne.
+ * @returns {Promise<object>}
+ */
+function getRegistres() {
+  return passerelleClient.getRegistres();
+}
+
+/**
+ * GET /dictionnaire : données de la plateforme et leurs libellés (relais de la passerelle).
+ * Le journal du citoyen affiche « Majeur » plutôt que « est_majeur ».
+ * @returns {Promise<object>}
+ */
+function getDictionnaire() {
+  return passerelleClient.getDictionnaire();
+}
+
+module.exports = { listTypesPieces, getRegistres, getDictionnaire };

@@ -21,6 +21,14 @@
  * Aucune dépendance : node registre-externe.js (Node 18 ou plus).
  * Écoute sur trois ports, un par registre, tous sous le préfixe /api :
  * état civil 4001, justice 4002, fiscal 4003 (surchargeables par variables d'environnement).
+ *
+ * Deux registres d'un AUTRE format, pour prouver qu'un registre se branche par le seul
+ * catalogue (tests/interoperabilite/config-format-different/) :
+ *  - 4004 : état civil v2 (autres routes et noms, réponse emballée, dates JJ/MM/AAAA,
+ *    sexe en toutes lettres, pas de « est_majeur » : la passerelle doit le calculer) ;
+ *  - 4005 : registre de nationalité sans IUE (recherche par nom, prénom, date ; Awa y a
+ *    un homonyme, la plateforme ne doit jamais choisir au hasard).
+ * Port 4009 : pilotage des pannes simulées (GET /panne/<registre>?etat=on|off).
  */
 const http = require('node:http');
 
@@ -250,6 +258,7 @@ function creerRegistre(registre) {
   return http.createServer((req, res) => {
     const url = new URL(req.url, 'http://registre-externe');
     console.log(`[registre-externe ${registre}] ${req.method} ${url.pathname}${url.search}`);
+    if (enPanne(registre, res)) return undefined;
 
     if (req.method !== 'GET' || !url.pathname.startsWith('/api/')) return routeInconnue(res, url.pathname);
     const chemin = url.pathname.slice('/api'.length);
@@ -259,6 +268,152 @@ function creerRegistre(registre) {
       if (trouve) return ficheOu404(res, lire(trouve[1], url));
     }
     return routeInconnue(res, url.pathname);
+  });
+}
+
+// Pannes simulées : GET http://registre-externe:4009/panne/<registre>?etat=on|off
+
+/** Registres actuellement « en panne » : ils répondent 503 à tout. */
+const pannes = new Set();
+
+/**
+ * Répond 503 si le registre est en panne simulée.
+ * @param {string} registre
+ * @param {http.ServerResponse} res
+ * @returns {boolean} Vrai si la réponse a été envoyée.
+ */
+function enPanne(registre, res) {
+  if (!pannes.has(registre)) return false;
+  json(res, 503, { code: 'PANNE_SIMULEE', message: `Registre ${registre} en panne (simulation)` });
+  return true;
+}
+
+// Registres dans un AUTRE format, branchés à la plateforme seulement par le catalogue
+// (tests/interoperabilite/config-format-different/catalogue-registres.yaml).
+
+/** @returns {string} Date AAAA-MM-JJ écrite JJ/MM/AAAA. */
+function enJJMMAAAA(date) {
+  const [a, m, j] = date.split('-');
+  return `${j}/${m}/${a}`;
+}
+
+/** État civil v2 : nos citoyens de démonstration, Amadou avec ses deux parents. */
+const ETAT_CIVIL_V2 = {
+  ...ETAT_CIVIL,
+  '784302956148': { ...ETAT_CIVIL['784302956148'], mere_iue: '638501274093' },
+  '638501274093': {
+    nom: 'SAWADOGO', prenom: 'Fatimata', date_naissance: '1972-11-20', lieu_naissance: 'Ouahigouya',
+    sexe: 'F', nationalite: 'Burkinabè', pere_iue: null, mere_iue: null, date_deces: null,
+  },
+};
+
+/**
+ * Fiche de l'état civil v2 : noms de champs différents, réponse emballée, dates JJ/MM/AAAA,
+ * sexe en toutes lettres, parents imbriqués, et AUCUN « est_majeur ».
+ * @param {string} iue
+ * @returns {object|null}
+ */
+function ficheV2(iue) {
+  const f = ETAT_CIVIL_V2[iue];
+  if (!f) return null;
+  return {
+    statut: 'ok',
+    resultat: {
+      identifiant: iue,
+      nomFamille: f.nom,
+      prenoms: f.prenom,
+      dateNaissance: enJJMMAAAA(f.date_naissance),
+      lieuNaissance: f.lieu_naissance,
+      genre: f.sexe === 'F' ? 'Féminin' : 'Masculin',
+      nationalite: f.nationalite,
+      parents: {
+        pere: f.pere_iue ? { identifiant: f.pere_iue } : null,
+        mere: f.mere_iue ? { identifiant: f.mere_iue } : null,
+      },
+      profession: `Agent de saisie (${MARQUEUR_FUITE})`,
+    },
+  };
+}
+
+/**
+ * Registre de nationalité externe : il ne connaît pas l'IUE. Chaque personne a un numéro
+ * de dossier ; on la retrouve par nom, prénom et date de naissance. Awa y figure DEUX fois
+ * (homonymes) : la plateforme ne doit jamais choisir au hasard.
+ */
+const DOSSIERS_NATIONALITE = [
+  { numeroDossier: 'N-0001', iue: '784302956148', modeObtention: 'Naissance' },
+  { numeroDossier: 'N-0002', iue: '291047583620', modeObtention: 'Naissance' },
+  { numeroDossier: 'N-0003', iue: '638501274093', modeObtention: 'Naissance' },
+  { numeroDossier: 'N-0004', iue: '316580942751', modeObtention: 'Naissance' },
+  { numeroDossier: 'N-0010', iue: '456123789012', modeObtention: 'Naissance' },
+  { numeroDossier: 'N-0011', iue: '456123789012', modeObtention: 'Naissance' },
+].map((d) => ({ ...d, personne: ETAT_CIVIL_V2[d.iue] }));
+
+/**
+ * Serveur de l'état civil v2 (port 4004).
+ * @returns {http.Server}
+ */
+function creerEtatCivilV2() {
+  return http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://registre-externe');
+    console.log(`[registre-externe etat-civil-v2] ${req.method} ${url.pathname}${url.search}`);
+    if (enPanne('etat-civil-v2', res)) return undefined;
+    if (url.pathname === '/v2/etat') return json(res, 200, { ok: true });
+    const m = url.pathname.match(/^\/v2\/personnes\/([^/]+)$/);
+    if (!m) return routeInconnue(res, url.pathname);
+    const fiche = ficheV2(m[1]);
+    return fiche ? json(res, 200, fiche) : json(res, 404, { erreur: 'introuvable' });
+  });
+}
+
+/**
+ * Serveur du registre de nationalité externe (port 4005).
+ * @returns {http.Server}
+ */
+function creerNationaliteExterne() {
+  return http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://registre-externe');
+    console.log(`[registre-externe nationalite-externe] ${req.method} ${url.pathname}${url.search}`);
+    if (enPanne('nationalite-externe', res)) return undefined;
+    if (url.pathname === '/etat') return json(res, 200, { ok: true });
+    if (url.pathname === '/personnes') {
+      const q = (cle) => (url.searchParams.get(cle) || '').trim().toLowerCase();
+      const items = DOSSIERS_NATIONALITE
+        .filter((d) => d.personne && d.personne.nom.toLowerCase() === q('nom') && d.personne.prenom.toLowerCase() === q('prenom')
+          && enJJMMAAAA(d.personne.date_naissance) === q('naissance'))
+        .map((d) => ({ numeroDossier: d.numeroDossier, nom: d.personne.nom, prenom: d.personne.prenom }));
+      return json(res, 200, { total: items.length, items });
+    }
+    const m = url.pathname.match(/^\/personnes\/([^/]+)\/nationalite$/);
+    if (!m) return routeInconnue(res, url.pathname);
+    const d = DOSSIERS_NATIONALITE.find((x) => x.numeroDossier === m[1]);
+    if (!d || !d.personne) return json(res, 404, { erreur: 'dossier inconnu' });
+    return json(res, 200, {
+      data: {
+        estBurkinabe: 'oui',
+        nationalite: d.personne.nationalite,
+        modeObtention: d.modeObtention,
+        dateObtention: enJJMMAAAA(d.personne.date_naissance),
+        numCertificat: `NAT-${d.numeroDossier}`,
+        adresse: `Secteur 15, Ouagadougou (${MARQUEUR_FUITE})`,
+      },
+    });
+  });
+}
+
+/**
+ * Serveur de pilotage des pannes (port 4009) : /panne/<registre>?etat=on|off.
+ * @returns {http.Server}
+ */
+function creerPilotage() {
+  return http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://registre-externe');
+    const m = url.pathname.match(/^\/panne\/([a-z0-9-]+)$/);
+    if (!m) return routeInconnue(res, url.pathname);
+    if (url.searchParams.get('etat') === 'on') pannes.add(m[1]);
+    else pannes.delete(m[1]);
+    console.log(`[registre-externe] panne simulée ${m[1]} : ${pannes.has(m[1]) ? 'ON' : 'OFF'}`);
+    return json(res, 200, { registre: m[1], en_panne: pannes.has(m[1]) });
   });
 }
 
@@ -273,3 +428,6 @@ for (const [registre, port] of Object.entries(PORTS)) {
     console.log(`[registre-externe] ${registre} prêt sur le port ${port} (préfixe /api)`);
   });
 }
+creerEtatCivilV2().listen(4004, () => console.log('[registre-externe] etat-civil-v2 prêt sur le port 4004'));
+creerNationaliteExterne().listen(4005, () => console.log('[registre-externe] nationalite-externe prêt sur le port 4005'));
+creerPilotage().listen(4009, () => console.log('[registre-externe] pilotage des pannes sur le port 4009'));

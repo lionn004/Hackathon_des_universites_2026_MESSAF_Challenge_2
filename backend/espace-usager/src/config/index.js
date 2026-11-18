@@ -31,6 +31,8 @@ module.exports = {
   testInterfaceEnabled: (process.env.INTERFACE_TEST_ACTIVE || 'true') === 'true',
   /** Délai maximal d'attente d'un autre service (ms). */
   callTimeoutMs: Number(process.env.DELAI_APPEL_MS) || 8000,
+  /** Intervalle de la reprise automatique des demandes en attente (ms). */
+  resumeIntervalMs: Number(process.env.REPRISE_INTERVALLE_MS) || 30000,
   /** Adresses des autres services (préfixe /api inclus). */
   urls: {
     passerelle: process.env.PASSERELLE_URL || 'http://localhost:3004/api',

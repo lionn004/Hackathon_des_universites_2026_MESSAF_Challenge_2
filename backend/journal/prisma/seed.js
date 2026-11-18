@@ -20,7 +20,6 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const AMADOU = '784302956148';
-const IBRAHIM = '291047583620';
 const AWA = '456123789012';
 
 const ADMIN = {
@@ -76,9 +75,12 @@ const entries = [
     type_acces: 'consentement',
     date_acces: new Date('2026-11-10T11:05:00Z'),
   }),
+  // Accès direct d'une administration publique aux données d'une mineure : personne ne
+  // « décide » (accès autorisé par la loi), le titulaire est donc inscrit comme décideur,
+  // comme le fait la passerelle. Ibrahim voit tout de même l'accès, en tant que tuteur.
   entry('10000000-0000-4000-8000-000000000004', ADMIN.universite, {
     titulaire_iue: AWA,
-    decideur_iue: IBRAHIM,
+    decideur_iue: AWA,
     demarche_id: 'inscription-universite',
     demarche_nom: 'Inscription universitaire',
     registres_consultes: ['etat-civil'],

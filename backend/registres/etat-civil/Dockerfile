@@ -16,6 +16,8 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+# Script de démonstration du guichet (saisie des actes des parents d'Ibrahim).
+COPY scripts ./scripts
 
 EXPOSE 3001
 
