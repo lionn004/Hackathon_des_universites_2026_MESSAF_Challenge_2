@@ -26,6 +26,17 @@ if (!process.env.CLE_SERVICE_INTERNE) {
   throw new Error('[passerelle] Variable CLE_SERVICE_INTERNE manquante (voir .env.example)');
 }
 
+/**
+ * Retire les « / » finaux d'une URL. Les chemins sont ajoutés avec un « / » initial :
+ * « http://registre:4001/api/ » donnerait « /api//citoyens/... », route inconnue de
+ * la plupart des registres, et chaque citoyen paraîtrait absent.
+ * @param {string} url
+ * @returns {string}
+ */
+function withoutTrailingSlash(url) {
+  return url.replace(/\/+$/, '');
+}
+
 module.exports = {
   /** Clé partagée exigée sur les routes /interne et envoyée au BFF (en-tête X-Cle-Service). */
   serviceKey: process.env.CLE_SERVICE_INTERNE,
@@ -35,13 +46,19 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET,
   /** Délai maximal d'attente d'un autre service (ms) avant d'abandonner. */
   callTimeoutMs: Number(process.env.DELAI_APPEL_MS) || 5000,
-  /** Adresses des autres services (préfixe /api inclus). */
-  urls: {
+  /** Adresses des autres services (préfixe /api inclus, sans « / » final). */
+  urls: Object.fromEntries(Object.entries({
     'etat-civil': process.env.REGISTRE_ETAT_CIVIL_URL || 'http://localhost:3001/api',
     justice: process.env.REGISTRE_JUSTICE_URL || 'http://localhost:3002/api',
     fiscal: process.env.REGISTRE_FISCAL_URL || 'http://localhost:3003/api',
     consentement: process.env.CONSENTEMENT_URL || 'http://localhost:3005/api',
     journal: process.env.JOURNAL_URL || 'http://localhost:3006/api',
     bff: process.env.BFF_URL || 'http://localhost:3000/api',
+  }).map(([service, url]) => [service, withoutTrailingSlash(url)])),
+  /** Variable d'environnement de chaque registre, citée dans les messages de diagnostic. */
+  registryEnvVars: {
+    'etat-civil': 'REGISTRE_ETAT_CIVIL_URL',
+    justice: 'REGISTRE_JUSTICE_URL',
+    fiscal: 'REGISTRE_FISCAL_URL',
   },
 };

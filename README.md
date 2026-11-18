@@ -221,7 +221,12 @@ Les contrats des registres (`docs/openapi-registre-*.yaml`) sont standardisés. 
    ```
 
 3. Redémarrer la passerelle : `docker compose up -d passerelle`.
-4. Rejouer les procédures ci-dessus.
+4. Vérifier le branchement dans les logs : `docker compose logs passerelle`. Au démarrage, la passerelle sonde chaque registre et écrit `registre etat-civil : <url> (conforme)`, ou un avertissement si l'URL est injoignable ou ne mène pas aux routes du contrat (préfixe `/api` oublié, par exemple). Un `/` final dans l'URL est accepté.
+5. Rejouer les procédures ci-dessus.
+
+### Test automatique
+
+`node tests/interoperabilite/test-interop.js` répète ce test sans intervention (Node 18 ou plus, stack principale arrêtée). Il démarre une stack de test séparée (projet Docker `dlnuf-interop`, base à part) avec un registre « d'une autre équipe » ([tests/interoperabilite/registre-externe.js](tests/interoperabilite/registre-externe.js)). Ce registre respecte les contrats mais ignore `?champs=`, ajoute des champs hors contrat et contient d'autres données. Le script branche ce registre à la place de l'état civil, de la justice, du fiscal, puis des trois, rejoue les 3 procédures, les demandes de pièces et l'inscription, et simule des pannes. Il vérifie notamment qu'aucun champ hors contrat ne sort de la plateforme. Option `--garder` pour laisser la stack de test en marche à la fin.
 
 Ce que la passerelle attend d'un registre :
 
