@@ -14,6 +14,21 @@
       <p class="page-subtitle">Informations de votre compte e-FASO.</p>
 
       <div id="profil" data-squelette="cartes" data-nombre="1"></div>
+
+      <!-- Ce que les registres savent du titulaire, lu à chaque affichage (GET /profil/registres). -->
+      <section class="mt-6" aria-labelledby="titre-registres">
+        <div class="flex-between" style="flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-2)">
+          <h2 class="section-title" id="titre-registres" style="margin:0">Mes données dans les registres</h2>
+          <div id="registres-choix" class="hidden" style="display:flex;align-items:center;gap:var(--space-2)">
+            <label for="registres-titulaire" style="font-size:var(--font-size-sm);color:var(--gris-600)">Données de</label>
+            <select class="form-input" id="registres-titulaire" style="width:auto"></select>
+          </div>
+        </div>
+        <p id="registres-meta" style="font-size:var(--font-size-sm);color:var(--gris-500);margin-bottom:var(--space-4)">
+          Les registres des administrations sont relus à chaque affichage. Aucune copie n'est conservée par la plateforme.
+        </p>
+        <div id="registres-vue" data-squelette="cartes" data-nombre="3"></div>
+      </section>
     </div>
   </div>
 
@@ -80,7 +95,103 @@
       }
     }
 
+    // Titre de chaque bloc : le registre source de ses pièces (valeur brute si inconnue).
+    const NOMS_REGISTRES = { 'etat-civil': 'État civil', justice: 'Justice', fiscal: 'Fiscal' };
+
+    // Pièce non lue : le reste de la vue reste affiché (échec partiel toléré par le BFF).
+    const PIECES_NON_LUES = {
+      PIECE_INDISPONIBLE: 'Pas encore dans le registre numérique.',
+      REGISTRE_INDISPONIBLE: 'Registre momentanément indisponible.',
+      SERVICE_EN_ERREUR: 'Lecture impossible pour le moment.',
+    };
+
+    /** Une pièce de la vue : ses données, ou la raison pour laquelle elle n'a pas été lue. */
+    function renderPieceRegistre(p) {
+      const tp = p.type_piece || {};
+      const nom = escapeHtml(tp.nom || nomPiece(tp.id) || VIDE);
+      if (!p.disponible) {
+        const demarche = p.code === 'PIECE_INDISPONIBLE' ? demarchePiece(tp.id) : null;
+        return `
+          <div class="registre-piece">
+            <h4>${nom}</h4>
+            <div class="alert alert-warning" style="margin:0">
+              <span>${escapeHtml(PIECES_NON_LUES[p.code] || 'Lecture impossible pour le moment.')}
+              ${demarche ? `<br><strong>Démarche à suivre :</strong> ${escapeHtml(demarche)}` : ''}</span>
+            </div>
+          </div>`;
+      }
+      const lignes = lignesDonneesPiece(p.donnees, tp.registre_source);
+      return `
+        <div class="registre-piece">
+          <h4>${nom}</h4>
+          ${lignes ? `<table class="registre-donnees"><tbody>${lignes}</tbody></table>`
+            : '<p style="font-size:var(--font-size-sm);color:var(--gris-500)">Aucune donnée.</p>'}
+        </div>`;
+    }
+
+    /**
+     * Charge et affiche la vue des registres du citoyen, ou d'un enfant sous sa tutelle.
+     * @param {string} [iue] IUE de l'enfant ; absent pour le citoyen connecté.
+     */
+    async function loadRegistres(iue) {
+      const vue = document.getElementById('registres-vue');
+      const meta = document.getElementById('registres-meta');
+      vue.innerHTML = squeletteCartes(3);
+      try {
+        // Catalogue (démarche à suivre) et dictionnaire (libellés) : leur échec n'empêche pas l'affichage.
+        const [data] = await Promise.all([
+          profilApi.registres(iue),
+          catalogueApi.list().catch(() => {}),
+          dictionnaireApi.charger(),
+        ]);
+        const t = data.titulaire || {};
+        const quand = data.date_consultation
+          ? ` (${formatDate(data.date_consultation)}, ${formatTime(data.date_consultation)})` : '';
+        meta.innerHTML = `Lu à l'instant dans les registres${quand}`
+          + (iue ? ` pour <strong>${escapeHtml([t.prenom, t.nom].filter(Boolean).join(' ') || t.iue || iue)}</strong>` : '')
+          + `. Aucune copie n'est conservée par la plateforme.`;
+
+        // Regroupement par registre source, dans l'ordre du catalogue.
+        const groupes = new Map();
+        (data.pieces || []).forEach(p => {
+          const reg = p.type_piece?.registre_source || 'autre';
+          if (!groupes.has(reg)) groupes.set(reg, []);
+          groupes.get(reg).push(p);
+        });
+        vue.innerHTML = groupes.size ? [...groupes].map(([reg, pieces]) => `
+          <div class="card mb-4 registre-bloc">
+            <h3>${escapeHtml(NOMS_REGISTRES[reg] || reg)}</h3>
+            ${pieces.map(renderPieceRegistre).join('')}
+          </div>`).join('')
+          : '<div class="card" style="color:var(--gris-500)">Aucune pièce au catalogue.</div>';
+      } catch (e) {
+        meta.textContent = '';
+        let texte;
+        if (e.code === 'REGISTRE_INDISPONIBLE') texte = "Le registre de l'état civil est momentanément indisponible. Réessayez dans quelques minutes.";
+        else if (e.code === 'TITULAIRE_NON_TROUVE') texte = "Ce titulaire n'est pas connu de l'état civil.";
+        else texte = `Lecture des registres impossible : ${e.message || 'erreur inconnue'}`;
+        vue.innerHTML = `<div class="alert ${e.code === 'REGISTRE_INDISPONIBLE' ? 'alert-warning' : 'alert-error'}"><span>${escapeHtml(texte)}</span></div>`;
+      }
+    }
+
+    /** Pour un tuteur : sélecteur « Moi / chaque enfant », qui relance la lecture avec ?iue=. */
+    async function initChoixTitulaire() {
+      try {
+        const { enfants = [] } = await enfantsApi.list();
+        if (!enfants.length) return;
+        const select = document.getElementById('registres-titulaire');
+        select.innerHTML = '<option value="">Moi</option>' + enfants.map(e =>
+          `<option value="${escapeHtml(e.iue)}">${escapeHtml([e.prenom, e.nom].filter(Boolean).join(' ') || e.iue)}</option>`).join('');
+        select.addEventListener('change', () => loadRegistres(select.value || undefined));
+        document.getElementById('registres-choix').classList.remove('hidden');
+      } catch (_) {
+        // Sans la liste des enfants, seule la vue du citoyen est proposée.
+      }
+    }
+
     loadProfil();
+    loadRegistres();
+    initChoixTitulaire();
   </script>
 </body>
 </html>

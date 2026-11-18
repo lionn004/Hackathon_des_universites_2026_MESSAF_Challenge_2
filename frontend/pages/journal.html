@@ -12,6 +12,12 @@
       <h1 class="page-title">Journal d'accès</h1>
       <p class="page-subtitle">Traçabilité complète de tous les accès à vos données personnelles</p>
 
+      <!-- Intégrité du journal : chaîne des empreintes recalculée par le service journal. -->
+      <div class="journal-integrite mb-6">
+        <div id="integrite" class="journal-integrite-etat" aria-live="polite"></div>
+        <button type="button" class="btn btn-sm btn-outline" id="btn-verifier" onclick="verifierJournal()">Vérifier</button>
+      </div>
+
       <div class="stat-cards mb-6">
         <div class="stat-card">
           <div class="stat-value" id="stat-total">-</div>
@@ -113,6 +119,7 @@
           <td>
             ${escapeHtml(j.demarche) || VIDE}
             ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">Pour ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
+            ${renderBaseLegale(j.base_legale)}
           </td>
           <td style="font-size:var(--font-size-xs);color:var(--gris-500);max-width:200px">
             ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(libellesDonnees(j.champs_consultes).join(', ')) : VIDE}
@@ -137,7 +144,7 @@
       resultats = entrees.filter(j =>
         (!type || j.type_acces === type) &&
         correspond(recherche, j.administration_nom, j.demarche, j.champs_consultes,
-          libellesDonnees(j.champs_consultes), j.pour_enfant?.nom));
+          libellesDonnees(j.champs_consultes), texteBaseLegale(j.base_legale), j.pour_enfant?.nom));
       page = 1;
       afficher();
     }
@@ -217,6 +224,51 @@
       chargerJournal();
     }
 
+    // Message de l'alerte selon la cause de la première rupture de la chaîne.
+    const CAUSES_RUPTURE = {
+      contenu_modifie: 'Une entrée du journal a été modifiée.',
+      entree_supprimee: 'Une entrée du journal a été supprimée.',
+      chainage_rompu: 'La chaîne du journal est rompue.',
+    };
+
+    /**
+     * GET /journal/verification : badge « Journal intact » ou alerte de rupture.
+     * Le journal reste affiché normalement sous l'alerte. On n'écrit jamais « certifié » :
+     * la plateforme vérifie l'intégrité, elle ne certifie rien.
+     */
+    async function verifierJournal() {
+      const zone = el('integrite');
+      const btn = el('btn-verifier');
+      btn.disabled = true;
+      zone.innerHTML = `<span style="color:var(--gris-500)">Vérification du journal…</span>`;
+      try {
+        const v = await journalApi.verification();
+        const heure = formatTime(v.date_verification);
+        if (v.integre) {
+          const n = v.entrees_verifiees ?? 0;
+          const empreinte = v.derniere_empreinte ? `
+            <span class="journal-empreinte" title="Empreinte de la dernière entrée : conservée ailleurs, elle prouve qu'aucune entrée n'a été réécrite">
+              Empreinte ${escapeHtml(v.derniere_empreinte.slice(0, 12))}</span>` : '';
+          zone.innerHTML = `
+            <span class="badge badge-complete">Journal intact</span>
+            <span>${n} entrée${n > 1 ? 's' : ''} vérifiée${n > 1 ? 's' : ''}${heure ? ` à ${heure}` : ''}</span>
+            ${empreinte}`;
+        } else {
+          const r = v.rupture || {};
+          const texte = (CAUSES_RUPTURE[r.cause] || "L'intégrité du journal n'a pas pu être confirmée.")
+            + (r.concerne_vos_donnees === true ? ' Elle concerne vos données.' : '');
+          zone.innerHTML = `
+            <div class="alert alert-error" style="margin:0">
+              <span><strong>${escapeHtml(texte)}</strong>${heure ? ` Vérification à ${heure}.` : ''}</span>
+            </div>`;
+        }
+      } catch (e) {
+        zone.innerHTML = `<span style="color:var(--gris-500)">Vérification du journal impossible : ${escapeHtml(e.message)}</span>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
     async function loadStats() {
       // Le nombre d'accès sur 30 jours vient du tableau de bord.
       try {
@@ -240,6 +292,7 @@
 
     chargerJournal();
     loadStats();
+    verifierJournal();
   </script>
 </body>
 </html>

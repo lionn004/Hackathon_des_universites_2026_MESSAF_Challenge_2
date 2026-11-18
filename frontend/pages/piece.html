@@ -23,85 +23,13 @@
   <script>
     const demandeId = new URLSearchParams(window.location.search).get('id');
 
-    /** Libellés des champs des registres (contrats docs/openapi-registre-*.yaml). */
-    const LIBELLES = {
-      iue: 'IUE',
-      nom: 'Nom',
-      prenom: 'Prénom(s)',
-      date_naissance: 'Date de naissance',
-      lieu_naissance: 'Lieu de naissance',
-      sexe: 'Sexe',
-      nationalite: 'Nationalité',
-      pere: 'Père',
-      mere: 'Mère',
-      pere_iue: 'IUE du père',
-      mere_iue: 'IUE de la mère',
-      date_deces: 'Date de décès',
-      est_majeur: 'Majeur',
-      casier_vierge: 'Bulletin',
-      condamnations: 'Condamnations',
-      date_delivrance: 'Date de délivrance',
-      est_national: 'Burkinabè',
-      mode_acquisition: 'Mode d\'acquisition',
-      date_acquisition: 'Date d\'acquisition',
-      numero_certificat: 'N° de certificat',
-      ifu: 'IFU',
-      en_regle: 'Situation fiscale',
-      type_contribuable: 'Type de contribuable',
-      regime_fiscal: 'Régime fiscal',
-      derniere_declaration: 'Dernière déclaration',
-      montant_impot_du: 'Montant d\'impôt dû',
-    };
-
     const REGISTRES = { 'etat-civil': 'Registre de l\'état civil', justice: 'Registre de la justice', fiscal: 'Registre fiscal' };
 
-    /** Libellé par défaut d'un champ absent de LIBELLES : « type_contribuable » donne « Type contribuable ». */
-    function libelle(cle) {
-      if (LIBELLES[cle]) return LIBELLES[cle];
-      const s = cle.replace(/_/g, ' ');
-      return s.charAt(0).toUpperCase() + s.slice(1);
-    }
-
-    const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v);
-
-    /** Valeur lisible (déjà échappée) d'un champ. */
-    function valeur(cle, v) {
-      if ((cle === 'pere' || cle === 'mere') && !v) {
-        return '<span style="color:var(--gris-500)">Inconnu de l\'état civil</span>';
-      }
-      if (cle === 'sexe') return v === 'M' ? 'Masculin' : v === 'F' ? 'Féminin' : escapeHtml(v);
-      if (cle === 'casier_vierge') return v ? 'Néant (casier vierge)' : 'Mentions inscrites (voir condamnations)';
-      if (cle === 'en_regle') return v ? 'En règle' : 'Non en règle';
-      if (cle === 'montant_impot_du' && typeof v === 'number') return `${v.toLocaleString('fr-FR')} FCFA`;
-      if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
-      if (isDate(v)) return formatDate(v);
-      if (Array.isArray(v)) {
-        if (v.length === 0) return 'Aucune';
-        return `<ul style="margin:0;padding-left:var(--space-5)">${v.map(item => `<li>${valeur('', item)}</li>`).join('')}</ul>`;
-      }
-      if (v && typeof v === 'object') {
-        // Personne liée (père, mère) : « Prénom NOM (IUE ...) »
-        if ('nom' in v || 'prenom' in v) {
-          const nom = [v.prenom, v.nom].filter(Boolean).join(' ') || VIDE;
-          return `${escapeHtml(nom)}${v.iue ? ` <span style="color:var(--gris-500)">(IUE ${escapeHtml(v.iue)})</span>` : ''}`;
-        }
-        return Object.entries(v).map(([k, x]) => `${escapeHtml(libelle(k))} : ${valeur(k, x)}`).join(', ');
-      }
-      return escapeHtml(v);
-    }
-
     function renderPiece(p) {
-      const donnees = { ...(p.donnees || {}) };
-      // pere et mere remplacent pere_iue et mere_iue, et valent null si le parent est inconnu (CLAUDE.md).
-      if ('pere' in donnees) delete donnees.pere_iue;
-      if ('mere' in donnees) delete donnees.mere_iue;
-      const PARENTS = ['pere', 'mere'];
-      const lignes = Object.entries(donnees)
-        .filter(([k, v]) => PARENTS.includes(k) || (v !== null && v !== undefined && v !== ''))
-        .map(([k, v]) => `<tr><th>${escapeHtml(libelle(k))}</th><td>${valeur(k, v)}</td></tr>`)
-        .join('');
       const t = p.titulaire || {};
       const tp = p.type_piece || {};
+      // Rendu commun avec « Mes données dans les registres » (api.js).
+      const lignes = lignesDonneesPiece(p.donnees, tp.registre_source);
 
       document.title = `${tp.nom || 'Pièce'} | e-FASO`;
       document.getElementById('piece').innerHTML = `
@@ -160,7 +88,7 @@
         return;
       }
       try {
-        await catalogueApi.list().catch(() => {});
+        await Promise.all([catalogueApi.list().catch(() => {}), dictionnaireApi.charger()]);
         renderPiece(await demandesApi.contenu(demandeId));
       } catch (e) {
         renderErreur(e);
