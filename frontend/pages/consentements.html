@@ -62,7 +62,8 @@
 
     async function loadConsentements() {
       try {
-        const data = await consentsApi.list({ limite: 100 });
+        // Le dictionnaire donne les libellés des données ; sans lui, les noms techniques restent affichés.
+        const [data] = await Promise.all([consentsApi.list({ limite: 100 }), dictionnaireApi.charger()]);
         allConsentements = data.consentements || [];
         if (enfantFiltre) {
           allConsentements = allConsentements.filter(c => c.pour_enfant?.iue === enfantFiltre);
@@ -92,7 +93,7 @@
       }
       const recherche = document.getElementById('f-recherche').value;
       items = items.filter(c => correspond(recherche,
-        c.administration_nom, c.demarche_nom, c.champs_demandes,
+        c.administration_nom, c.demarche_nom, c.champs_demandes, libellesDonnees(c.champs_demandes),
         c.pour_enfant && [c.pour_enfant.prenom, c.pour_enfant.nom]));
       document.getElementById('f-count').textContent = recherche.trim()
         ? `${items.length} résultat${items.length > 1 ? 's' : ''} pour « ${recherche.trim()} »`
@@ -124,7 +125,7 @@
           </p>
           ${Array.isArray(c.champs_demandes) && c.champs_demandes.length ? `
             <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-3)">
-              Données demandées : ${escapeHtml(c.champs_demandes.join(', '))}
+              Données demandées : ${escapeHtml(libellesDonnees(c.champs_demandes).join(', '))}
             </p>` : ''}
           ${echeance(c)}
           ${c.statut === 'en_attente' ? `

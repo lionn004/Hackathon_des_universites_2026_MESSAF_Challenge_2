@@ -141,7 +141,11 @@
       if (e.code === 'ROUTE_NON_TROUVEE') {
         html = `<div class="alert alert-info">La consultation du contenu des pièces sera bientôt disponible : le service est en cours de développement.</div>`;
       } else if (e.code === 'PIECE_INDISPONIBLE') {
-        html = `<div class="alert alert-warning">Cette pièce n'est pas disponible dans les registres. Rendez-vous au guichet avec les documents correspondants.</div>`;
+        html = `<div class="alert alert-warning">Cette pièce n'est pas encore numérisée dans son registre. Elle sera disponible dès que l'administration qui la détient l'aura numérisée.</div>`;
+      } else if (e.code === 'REGISTRE_INDISPONIBLE') {
+        // 503 : panne passagère du registre, la consultation pourra être refaite plus tard.
+        const message = (e.message || 'Le registre de cette pièce est momentanément hors service').replace(/[.\s]*$/, '.');
+        html = `<div class="alert alert-warning">${escapeHtml(message)} Réessayez dans quelques minutes.</div>`;
       } else if (e.status === 404) {
         html = `<div class="alert alert-error">Demande introuvable.</div>`;
       } else {
