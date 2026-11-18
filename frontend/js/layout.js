@@ -31,9 +31,13 @@ function injectLayout() {
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) return;
 
-  const initials = citoyen.prenom && citoyen.nom
-    ? escapeHtml((citoyen.prenom[0] + citoyen.nom[0]).toUpperCase())
+  // nom et prenom valent null quand l'état civil ne connaît pas le citoyen :
+  // la barre affiche alors l'IUE à la place du nom.
+  const parties = [citoyen.prenom, citoyen.nom].filter(Boolean);
+  const initials = parties.length
+    ? escapeHtml(parties.map(x => x[0]).join('').toUpperCase())
     : '?';
+  const nomAffiche = parties.length ? escapeHtml(parties.join(' ')) : escapeHtml(citoyen.iue) || VIDE;
 
   const appLayout = document.createElement('div');
   appLayout.className = 'app-layout';
@@ -59,6 +63,10 @@ function injectLayout() {
     </div>
   `;
 
+  // Page courante, pour signaler le lien Mon profil de la barre du haut comme actif.
+  // C'est le seul accès à Mon profil : la page n'est pas dans le menu latéral.
+  const page = window.location.pathname.split('/').pop();
+
   const topbar = document.createElement('div');
   topbar.className = 'topbar';
   topbar.innerHTML = `
@@ -67,10 +75,10 @@ function injectLayout() {
       <span style="font-size:var(--font-size-sm);color:var(--gris-500)">IUE : <strong>${escapeHtml(citoyen.iue) || VIDE}</strong></span>
     </div>
     <div class="topbar-actions">
-      <div class="user-info">
-        <span>${escapeHtml(citoyen.prenom)} ${escapeHtml(citoyen.nom)}</span>
-        <div class="user-avatar">${initials}</div>
-      </div>
+      <a href="/pages/profil.html" class="user-info" title="Mon profil"${page === 'profil.html' ? ' aria-current="page"' : ''}>
+        <span>${nomAffiche}</span>
+        <span class="user-avatar" aria-hidden="true">${initials}</span>
+      </a>
       <button class="btn btn-sm btn-outline" onclick="deconnexion()">Déconnexion</button>
     </div>
   `;

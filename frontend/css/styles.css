@@ -930,8 +930,17 @@ input[type="password"]::-ms-clear {
   gap: var(--space-3);
   font-size: var(--font-size-sm);
   font-weight: 500;
+  /* Lien vers Mon profil : garde l'apparence du texte. */
+  color: var(--gris-700);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
 }
-.topbar .user-avatar {
+.topbar .user-info:hover { background: var(--gris-50); color: var(--vert); text-decoration: none; }
+.topbar .user-info[aria-current="page"] { color: var(--vert); }
+/* Pastille d'initiales : barre du haut, Mon profil, Mes enfants. */
+.user-avatar {
+  flex-shrink: 0;
   width: 36px;
   height: 36px;
   background: var(--or-clair);
@@ -1553,4 +1562,37 @@ input[type="password"]::-ms-clear {
   .piece-doc { border: none; box-shadow: none; max-width: none; padding: 0; }
   .piece-flag { position: static; margin-bottom: var(--space-4); }
   .piece-flag, .piece-stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* Squelettes de chargement : formes grises à la place du contenu attendu.
+   Remplis par api.js (attribut data-squelette), remplacés par la page à l'arrivée des données. */
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.skeleton {
+  display: block;
+  background: linear-gradient(90deg, var(--gris-100) 25%, var(--gris-200) 50%, var(--gris-100) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+.skeleton-text { height: 12px; width: 60%; margin: 4px 0; }
+.skeleton-title { height: 18px; width: 40%; margin-bottom: var(--space-3); }
+.skeleton-value { height: 28px; width: 48px; }
+.skeleton-card { padding: var(--space-5); }
+.skeleton-card .skeleton-text + .skeleton-text { margin-top: var(--space-2); }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* Texte lu par les lecteurs d'écran, invisible à l'écran. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

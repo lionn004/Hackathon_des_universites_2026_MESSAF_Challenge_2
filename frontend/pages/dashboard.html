@@ -13,7 +13,7 @@
       <div class="welcome-banner" id="welcome">
         <div>
           <div class="identity-badge">IUE : <span id="welcome-iue">-</span></div>
-          <h2>Bonjour <span id="welcome-name"></span></h2>
+          <h2>Bonjour<span id="welcome-name"></span></h2>
           <p>Depuis votre espace citoyen e-FASO, vous suivez vos démarches, répondez aux demandes de consentement et consultez le journal des accès à vos données.</p>
         </div>
       </div>
@@ -25,19 +25,19 @@
       </div>
       <div class="stat-cards" id="stats">
         <div class="stat-card">
-          <div class="stat-value" id="stat-consentements">-</div>
+          <div class="stat-value" id="stat-consentements"><span class="skeleton skeleton-value" aria-hidden="true"></span></div>
           <div class="stat-label">Consentements en attente</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-demandes">-</div>
+          <div class="stat-value" id="stat-demandes"><span class="skeleton skeleton-value" aria-hidden="true"></span></div>
           <div class="stat-label">Demandes en cours</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-acces">-</div>
+          <div class="stat-value" id="stat-acces"><span class="skeleton skeleton-value" aria-hidden="true"></span></div>
           <div class="stat-label">Accès (30 derniers jours)</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-enfants">-</div>
+          <div class="stat-value" id="stat-enfants"><span class="skeleton skeleton-value" aria-hidden="true"></span></div>
           <div class="stat-label">Enfants à charge</div>
         </div>
       </div>
@@ -86,9 +86,7 @@
               <th>Date</th>
             </tr>
           </thead>
-          <tbody id="tbody-consentements">
-            <tr><td colspan="4" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
-          </tbody>
+          <tbody id="tbody-consentements" data-squelette="lignes" data-colonnes="4"></tbody>
         </table>
       </div>
 
@@ -106,9 +104,7 @@
               <th>Date</th>
             </tr>
           </thead>
-          <tbody id="tbody-journal">
-            <tr><td colspan="4" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
-          </tbody>
+          <tbody id="tbody-journal" data-squelette="lignes" data-colonnes="4"></tbody>
         </table>
       </div>
     </div>
@@ -120,7 +116,8 @@
     async function loadDashboard() {
       const c = authApi.getCitoyen();
       if (c) {
-        document.getElementById('welcome-name').textContent = c.prenom || '';
+        // prenom vaut null quand l'état civil ne connaît pas le citoyen : « Bonjour » seul.
+        document.getElementById('welcome-name').textContent = c.prenom ? ' ' + c.prenom : '';
         document.getElementById('welcome-iue').textContent = c.iue || '';
       }
 
@@ -128,7 +125,7 @@
         const data = await dashboardApi.get();
 
         if (data.citoyen?.prenom) {
-          document.getElementById('welcome-name').textContent = data.citoyen.prenom;
+          document.getElementById('welcome-name').textContent = ' ' + data.citoyen.prenom;
         }
 
         document.getElementById('stat-consentements').textContent = data.consentements_en_attente ?? 0;
@@ -143,6 +140,7 @@
           </a>`).join('');
       } catch (e) {
         console.error('Erreur tableau de bord:', e);
+        document.querySelectorAll('.stat-value').forEach(v => { if (v.querySelector('.skeleton')) v.textContent = VIDE; });
       }
 
       const tbodyC = document.getElementById('tbody-consentements');

@@ -48,9 +48,7 @@
         <div class="filter-count" id="f-count" aria-live="polite"></div>
       </div>
 
-      <div id="consent-list">
-        <div class="text-center" style="padding:var(--space-8);color:var(--gris-400)">Chargement…</div>
-      </div>
+      <div id="consent-list" data-squelette="cartes"></div>
     </div>
   </div>
 
@@ -128,17 +126,43 @@
             <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-3)">
               Données demandées : ${escapeHtml(c.champs_demandes.join(', '))}
             </p>` : ''}
+          ${echeance(c)}
           ${c.statut === 'en_attente' ? `
             <div style="display:flex;gap:var(--space-3);margin-top:var(--space-3)">
               <button class="btn btn-sm btn-primary" onclick="decider('${escapeHtml(c.id)}', 'accepte', this)">Accepter</button>
               <button class="btn btn-sm btn-danger" onclick="decider('${escapeHtml(c.id)}', 'refuse', this)">Refuser</button>
             </div>` : ''}
-          ${c.statut === 'en_attente' && c.date_expiration ? `
-            <div style="font-size:var(--font-size-xs);color:var(--gris-400);margin-top:var(--space-2)">
-              Expire le ${formatDate(c.date_expiration)}
-            </div>` : ''}
         </div>
       `).join('');
+    }
+
+    // En dessous de ce nombre de jours restants, l'échéance est mise en avant.
+    const ECHEANCE_PROCHE_JOURS = 7;
+
+    /**
+     * Ligne d'échéance d'un consentement. Une demande sans réponse expire
+     * 30 jours après sa création (date_expiration fournie par le BFF).
+     * @param {object} c Consentement du contrat (statut, date_expiration).
+     * @returns {string} HTML, vide si le statut n'a pas d'échéance.
+     */
+    function echeance(c) {
+      if (!c.date_expiration) return '';
+      const date = formatDate(c.date_expiration);
+      if (c.statut === 'expire') {
+        return `<p style="font-size:var(--font-size-sm);color:var(--gris-500);margin-bottom:var(--space-3)">
+          Expiré le ${date}, sans réponse de votre part.</p>`;
+      }
+      if (c.statut !== 'en_attente') return '';
+
+      // Écart en jours du calendrier (minuit à minuit), pour que « demain » désigne bien le jour suivant.
+      const minuit = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const jours = Math.round((minuit(new Date(c.date_expiration)) - minuit(new Date())) / 86400000);
+      const reste = jours <= 0 ? "expire aujourd'hui"
+        : jours === 1 ? 'expire demain'
+        : `expire dans ${jours} jours`;
+      const proche = jours <= ECHEANCE_PROCHE_JOURS;
+      return `<p style="font-size:var(--font-size-sm);margin-bottom:var(--space-3);color:${proche ? 'var(--or-fonce)' : 'var(--gris-600)'}${proche ? ';font-weight:600' : ''}">
+        Sans réponse, cette demande ${reste} (le ${date}).</p>`;
     }
 
     async function decider(id, decision, btn) {

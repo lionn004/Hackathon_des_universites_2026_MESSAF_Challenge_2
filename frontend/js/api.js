@@ -416,6 +416,48 @@ function emptyRow(colspan, message, isError = false) {
   return `<tr><td colspan="${colspan}" class="text-center" style="padding:var(--space-6);color:${color}">${escapeHtml(message)}</td></tr>`;
 }
 
+// Squelettes de chargement. Chaque bloc porte un texte masqué « Chargement… »
+// pour les lecteurs d'écran ; il disparaît quand la page remplace le contenu.
+
+const SR_CHARGEMENT = '<span class="sr-only">Chargement…</span>';
+// Largeurs variées pour que les lignes ne paraissent pas identiques.
+const LARGEURS_SQUELETTE = ['70%', '50%', '85%', '40%', '60%'];
+
+/**
+ * Lignes de tableau en attente de données.
+ * @param {number} colonnes Nombre de colonnes du tableau.
+ * @param {number} [lignes=3]
+ * @returns {string} HTML de lignes <tr>.
+ */
+function squeletteLignes(colonnes, lignes = 3) {
+  return Array.from({ length: lignes }, (_, l) => `<tr>${Array.from({ length: colonnes }, (_, c) =>
+    `<td>${l === 0 && c === 0 ? SR_CHARGEMENT : ''}<span class="skeleton skeleton-text" aria-hidden="true" style="width:${LARGEURS_SQUELETTE[(l + c) % LARGEURS_SQUELETTE.length]}"></span></td>`).join('')}</tr>`).join('');
+}
+
+/**
+ * Cartes en attente de données (listes de consentements, demandes, enfants...).
+ * @param {number} [nombre=3]
+ * @returns {string} HTML de cartes.
+ */
+function squeletteCartes(nombre = 3) {
+  return SR_CHARGEMENT + Array.from({ length: nombre }, (_, i) => `
+    <div class="card mb-4 skeleton-card" aria-hidden="true">
+      <span class="skeleton skeleton-title" style="width:${LARGEURS_SQUELETTE[i % 5]}"></span>
+      <span class="skeleton skeleton-text" style="width:85%"></span>
+      <span class="skeleton skeleton-text" style="width:55%"></span>
+    </div>`).join('');
+}
+
+// Remplit les conteneurs marqués dans le HTML : data-squelette="lignes" (avec
+// data-colonnes) ou "cartes" (avec data-nombre facultatif). Ce script est chargé
+// en fin de page, le HTML est donc déjà en place.
+document.querySelectorAll('[data-squelette]').forEach(conteneur => {
+  const nombre = Number(conteneur.dataset.nombre) || undefined;
+  conteneur.innerHTML = conteneur.dataset.squelette === 'lignes'
+    ? squeletteLignes(Number(conteneur.dataset.colonnes) || 1, nombre)
+    : squeletteCartes(nombre);
+});
+
 // Bouton afficher ou masquer le mot de passe. Il remplace le bouton natif d'Edge,
 // qui disparaît dès que le champ perd le focus.
 
