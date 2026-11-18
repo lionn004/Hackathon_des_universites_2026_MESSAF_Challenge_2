@@ -50,11 +50,15 @@ async function identity(iue) {
 /**
  * POST /interne/cascade — résout la cascade d'une pièce demandée par un citoyen.
  *
- * Statut global : « complete » si toutes les pièces de l'arbre sont trouvées,
- * « fallback_physique » si au moins une manque (le citoyen doit passer au guichet).
+ * Statut global :
+ *  - « en_attente_registre » si un registre nécessaire est hors service : la demande n'est
+ *    pas perdue, le BFF la relance (reprise automatique) jusqu'à son retour ;
+ *  - sinon « complete » si toutes les pièces de l'arbre sont trouvées ;
+ *  - sinon « fallback_physique » : au moins une manque (le citoyen doit passer au guichet).
  *
  * @param {object} body { type_piece_id, iue }.
- * @returns {Promise<{type_piece: {id: string, nom: string}, statut: string, cascade: object[]}>}
+ * @returns {Promise<{type_piece: {id: string, nom: string}, statut: string, cascade: object[],
+ *          registres_indisponibles?: string[]}>}
  * @throws {AppError} 400 corps invalide, 404 TYPE_PIECE_INCONNU / CITOYEN_NON_TROUVE.
  */
 async function cascadeForPiece(body) {
@@ -63,11 +67,21 @@ async function cascadeForPiece(body) {
 
   const piece = await catalogueModel.findTypePieceWithPrerequis(body.type_piece_id);
   if (!piece) throw new AppError(404, 'TYPE_PIECE_INCONNU', `Type de pièce « ${body.type_piece_id} » inconnu`);
-  if (!(await registresClient.pieceExists('extrait-naissance', 'etat-civil', body.iue))) {
-    throw new AppError(404, 'CITOYEN_NON_TROUVE', 'Aucun citoyen trouvé avec cet IUE');
-  }
+  const typePiece = { id: piece.id, nom: piece.nom };
 
-  const trees = await cascadeService.resolveTrees([piece.id], body.iue);
+  let existe;
+  try {
+    existe = await registresClient.pieceExists('extrait-naissance', 'etat-civil', body.iue);
+  } catch (err) {
+    if (err.code !== 'REGISTRE_INDISPONIBLE') throw err;
+    // État civil hors service : on ne peut même pas vérifier le citoyen ; la demande attend.
+    return {
+      type_piece: typePiece, statut: 'en_attente_registre', cascade: [], registres_indisponibles: err.registres,
+    };
+  }
+  if (!existe) throw new AppError(404, 'CITOYEN_NON_TROUVE', 'Aucun citoyen trouvé avec cet IUE');
+
+  const { trees, indisponibles } = await cascadeService.resolveTrees([piece.id], body.iue);
   let complete = true;
   /** Vrai seulement si le nœud et tous ses descendants sont résolus. */
   const check = (node) => {
@@ -76,10 +90,13 @@ async function cascadeForPiece(body) {
   };
   trees.forEach(check);
 
+  let statut = complete ? 'complete' : 'fallback_physique';
+  if (indisponibles.length) statut = 'en_attente_registre';
   return {
-    type_piece: { id: piece.id, nom: piece.nom },
-    statut: complete ? 'complete' : 'fallback_physique',
+    type_piece: typePiece,
+    statut,
     cascade: trees.map(cascadeService.stripKeys),
+    ...(indisponibles.length && { registres_indisponibles: indisponibles }),
   };
 }
 

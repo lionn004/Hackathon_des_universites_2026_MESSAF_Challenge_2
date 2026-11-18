@@ -9,4 +9,14 @@ async function listTypesPieces(req, res) {
   res.status(200).json(await catalogueService.listTypesPieces());
 }
 
-module.exports = { listTypesPieces };
+/** GET /api/registres */
+async function getRegistres(req, res) {
+  res.status(200).json(await catalogueService.getRegistres());
+}
+
+/** GET /api/dictionnaire */
+async function getDictionnaire(req, res) {
+  res.status(200).json(await catalogueService.getDictionnaire());
+}
+
+module.exports = { listTypesPieces, getRegistres, getDictionnaire };

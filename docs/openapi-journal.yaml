@@ -71,6 +71,18 @@ paths:
                       $ref: "#/components/schemas/EntreeJournal"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
+        "400":
+          description: "DONNEES_INVALIDES : dates, page ou limite invalides"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton citoyen absent ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /journal/statistiques:
     get:
@@ -104,6 +116,12 @@ paths:
                         nombre_acces:
                           type: integer
                           example: 2
+        "401":
+          description: "Jeton citoyen absent ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ─── Enregistrement interne ───
   /journal/enregistrer:
@@ -126,6 +144,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EntreeJournal"
+        "400":
+          description: "DONNEES_INVALIDES : entrée de journal incomplète ou mal formée"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
 components:
   securitySchemes:
@@ -237,6 +261,17 @@ components:
             Facultatif. Nom lisible de la démarche (renvoyé dans EntreeJournal.demarche).
             À défaut, le journal affiche demarche_id.
           example: "Inscription universitaire"
+
+    Erreur:
+      type: object
+      description: Format uniforme des erreurs de la plateforme
+      properties:
+        code:
+          type: string
+          example: "DONNEES_INVALIDES"
+        message:
+          type: string
+          example: "titulaire_iue doit contenir 12 chiffres"
 
     Pagination:
       type: object

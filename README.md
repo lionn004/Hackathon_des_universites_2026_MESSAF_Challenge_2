@@ -200,43 +200,77 @@ curl -X POST http://localhost:3004/api/requetes \
 | Route | Rôle |
 |-------|------|
 | `POST /api/requetes` | Demander des données (200 si publique, 202 si consentement requis) |
-| `GET /api/requetes/{id}` | Suivre une requête ; les données arrivent après l'acceptation du citoyen |
+| `GET /api/requetes/{id}` | Suivre une requête ; les données arrivent après l'acceptation du citoyen, remises une seule fois (la passerelle n'en garde pas de copie) |
 | `GET /api/requetes/{id}/telephone` | Obtenir le téléphone du citoyen pour le relancer (requête en attente uniquement) |
 | `GET /api/demarches`, `GET /api/types-pieces`, `GET /api/types-pieces/{id}/prerequis` | Catalogue public |
 
 ---
 
-## Test d'interopérabilité : brancher le registre d'une autre équipe
+## Brancher n'importe quel registre, et tenir quand il tombe
 
-Les contrats des registres (`docs/openapi-registre-*.yaml`) sont standardisés. La passerelle n'utilise que les routes de ces contrats : n'importe quel registre conforme peut remplacer le nôtre sans modifier le code.
+L'énoncé prévoit des registres fournis par le jury (état civil, nationalité, casier), dans un format qui n'est pas connu à l'avance, et une épreuve en direct où un registre tombe en panne. Conception complète : [docs/conception-interoperabilite.md](docs/conception-interoperabilite.md).
 
-1. Démarrer le registre de l'autre équipe et noter son adresse. Depuis un conteneur Docker, la machine hôte s'appelle `host.docker.internal`.
-2. Créer un fichier `.env` à la racine du dépôt :
+### Brancher un registre : une déclaration, pas du code
+
+La passerelle n'a aucun registre écrit en dur. Elle lit deux fichiers, montés dans le conteneur (on les modifie sans reconstruire l'image) :
+
+- [backend/passerelle/config/dictionnaire.yaml](backend/passerelle/config/dictionnaire.yaml) : le **dictionnaire des données**, langue commune de la plateforme (nom, type, libellé montré au citoyen, sensibilité, données calculées comme `est_majeur`) ;
+- [backend/passerelle/config/catalogue-registres.yaml](backend/passerelle/config/catalogue-registres.yaml) : le **catalogue des registres** (adresse, routes, identification de la personne, correspondances entre les champs du registre et le dictionnaire, sources de secours).
+
+Pour brancher un registre, par exemple celui du jury :
+
+1. Le déclarer dans le catalogue : adresse, routes, mode d'identification (`iue`, ou `recherche` par nom, prénom et date de naissance pour une base qui ne connaît pas encore l'IUE), et correspondances de ses champs (conversions de dates `JJ/MM/AAAA`, de booléens `oui/non`, de codes).
+2. Le désigner dans `sources` pour les opérations qu'il sert (en premier s'il fait foi, les suivants servent de secours).
+3. Le tester avant de l'activer :
 
    ```bash
-   # Exemple : registre état-civil d'une autre équipe, lancé sur le port 4001 de la machine
-   REGISTRE_ETAT_CIVIL_URL=http://host.docker.internal:4001/api
-   # REGISTRE_JUSTICE_URL=http://...
-   # REGISTRE_FISCAL_URL=http://...
+   docker compose exec passerelle npm run tester-registre -- <registre> <iue>
    ```
 
-3. Redémarrer la passerelle : `docker compose up -d passerelle`.
-4. Vérifier le branchement dans les logs : `docker compose logs passerelle`. Au démarrage, la passerelle sonde chaque registre et écrit `registre etat-civil : <url> (conforme)`, ou un avertissement si l'URL est injoignable ou ne mène pas aux routes du contrat (préfixe `/api` oublié, par exemple). Un `/` final dans l'URL est accepté.
-5. Rejouer les procédures ci-dessus.
+   La commande affiche la connexion, l'identification, puis pour chaque opération les données obtenues, celles qui manquent et les champs ignorés (hors dictionnaire : ils n'entrent jamais dans la plateforme).
+4. Redémarrer la passerelle : `docker compose restart passerelle`. Si le catalogue est incohérent, elle refuse de démarrer et liste les erreurs (`docker compose logs passerelle`).
+
+`GET http://localhost:3000/api/registres` montre l'état de chaque registre ; `GET http://localhost:3000/api/dictionnaire` donne les libellés des données. Les adresses de nos trois registres restent surchargeables par `REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL` et `REGISTRE_FISCAL_URL` (fichier `.env` à la racine) ; depuis un conteneur, la machine hôte s'appelle `host.docker.internal`.
+
+Nos registres suivent le **format recommandé** (`docs/openapi-registre-*.yaml`) : ils se branchent sans aucune correspondance.
+
+### « Majeur : oui » : ne transmettre que l'utile
+
+Quand un registre ne fournit qu'une date de naissance, la passerelle calcule elle-même `est_majeur`. Seule la donnée calculée est remise à l'administration et inscrite au journal ; la date de naissance ne quitte jamais la passerelle.
+
+### Tenir quand un registre tombe
+
+- Une sonde vérifie chaque registre toutes les 5 s ; un registre en panne est contourné immédiatement, sans attendre de délai.
+- Ce qui ne dépend pas du registre en panne continue normalement (l'université reste servie si le casier tombe), et l'espace usager reste utilisable.
+- Une requête qui en dépend passe `en_attente_registre` (réponse 202) : rien n'est transmis ni copié. Dès que le registre revient, la consultation suivante de `GET /api/requetes/{id}` remet le dossier complet, sans nouvelle demande.
+- Une demande de pièce d'un citoyen passe `en_cours` et se termine seule au retour du registre (reprise automatique toutes les 10 s).
+- Si un registre de secours est déclaré pour l'opération, il prend le relais.
+- Tous les services redémarrent seuls après un plantage (`restart: unless-stopped`).
+
+Pour le montrer en direct : `docker compose stop registre-justice`, une requête de la police (passeport) passe en attente pendant que l'université reste servie, puis `docker compose start registre-justice` et la police reçoit son dossier à la consultation suivante.
+
+### Le guichet
+
+Quand une pièce manque (parents d'Ibrahim jamais enregistrés), la demande est bloquée au guichet. L'agent vérifie les actes papier et les numérise **dans le registre de l'état civil** : la reprise automatique complète alors la demande, et le citoyen est notifié. Démonstration :
+
+```bash
+docker compose exec registre-etat-civil npm run guichet              # l'agent saisit les actes des parents d'Ibrahim
+docker compose exec registre-etat-civil npm run guichet -- --annuler # remise à zéro de la démonstration
+```
+
+Un redémarrage du registre de l'état civil remet aussi cette démonstration à zéro (son seed est relancé) : faire le guichet après une coupure de ce registre, pas avant.
 
 ### Test automatique
 
-`node tests/interoperabilite/test-interop.js` répète ce test sans intervention (Node 18 ou plus, stack principale arrêtée). Il démarre une stack de test séparée (projet Docker `dlnuf-interop`, base à part) avec un registre « d'une autre équipe » ([tests/interoperabilite/registre-externe.js](tests/interoperabilite/registre-externe.js)). Ce registre respecte les contrats mais ignore `?champs=`, ajoute des champs hors contrat et contient d'autres données. Le script branche ce registre à la place de l'état civil, de la justice, du fiscal, puis des trois, rejoue les 3 procédures, les demandes de pièces et l'inscription, et simule des pannes. Il vérifie notamment qu'aucun champ hors contrat ne sort de la plateforme. Option `--garder` pour laisser la stack de test en marche à la fin.
+`node tests/interoperabilite/test-interop.js` rejoue tout cela sans intervention (Node 18 ou plus, stack principale arrêtée). Il démarre une stack de test séparée (projet Docker `dlnuf-interop`, base à part) avec un registre « d'une autre équipe » ([tests/interoperabilite/registre-externe.js](tests/interoperabilite/registre-externe.js)) et :
 
-Ce que la passerelle attend d'un registre :
+- branche ce registre à la place de l'état civil, de la justice, du fiscal, puis des trois, et rejoue les 3 procédures, les demandes de pièces et l'inscription ;
+- branche, par le seul catalogue ([tests/interoperabilite/config-format-different/](tests/interoperabilite/config-format-different/)), deux registres d'un autre format : un état civil sans `est_majeur` (la passerelle le calcule), et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi au hasard ; il teste la source de secours et la commande `tester-registre` ;
+- coupe le casier puis l'état civil en direct, vérifie que la plateforme tient, que rien ne se perd et que tout se complète au retour ;
+- joue le guichet et la reprise automatique ;
+- vérifie partout qu'aucun champ hors dictionnaire ne sort de la plateforme.
 
-| Registre | Routes utilisées |
-|----------|------------------|
-| État-civil | `GET /citoyens/{iue}?champs=...`, `GET /citoyens/{iue}/filiation` |
-| Justice | `GET /citoyens/{iue}/casier?champs=...`, `GET /citoyens/{iue}/nationalite?champs=...` |
-| Fiscal | `GET /citoyens/{iue}/fiscal?champs=...` |
-
-Réponses : `200` avec les champs du contrat, `404` si le citoyen est inconnu, erreurs au format `{ code, message }`. L'IUE est composé de 12 chiffres.
+Option `--garder` pour laisser la stack de test en marche à la fin, `--sans-build` pour réutiliser les images.
 
 ---
 
@@ -325,11 +359,16 @@ Les valeurs par défaut conviennent pour la démonstration. Pour les modifier, c
 | `CLE_SERVICE_INTERNE` | `dlnuf-cle-interne-a-changer` | Clé qui protège les routes internes entre la passerelle et le BFF |
 | `CORS_ORIGINES` | `*` | Origines autorisées à appeler le BFF depuis un navigateur |
 | `INTERFACE_TEST_ACTIVE` | `true` | Active l'interface de test `/api/test/*` |
-| `REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` | registres internes | Registres utilisés par la passerelle (interopérabilité) |
+| `REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` | registres internes | Adresses de nos registres, lues par le catalogue des registres |
+| `CATALOGUE_DOSSIER` | `/app/config` | Dossier du dictionnaire et du catalogue des registres, dans le conteneur de la passerelle |
+| `SONDE_INTERVALLE_MS` | `5000` | Intervalle de la sonde de disponibilité des registres |
+| `REPRISE_INTERVALLE_MS` | `10000` | Intervalle de la reprise automatique des demandes en attente ou bloquées au guichet |
 
 En production, changer `JWT_SECRET` et `CLE_SERVICE_INTERNE`, mettre l'adresse du frontend dans `CORS_ORIGINES`, passer `INTERFACE_TEST_ACTIVE=false` (l'interface de test peut se faire passer pour n'importe quelle administration), et ne publier que les ports de la passerelle et du BFF.
 
-Les SMS sont simulés et écrits dans les logs : `docker compose logs consentement` (demandes de consentement, rappels) et `docker compose logs espace-usager` (codes de mot de passe, transferts de compte).
+Les SMS sont simulés et écrits dans les logs : `docker compose logs consentement` (demandes de consentement, rappels) et `docker compose logs espace-usager` (codes de mot de passe, transferts de compte, demandes complétées par la reprise automatique).
+
+La première construction télécharge les images Docker, les paquets npm et les moteurs Prisma : une connexion internet est nécessaire. Ensuite, la plateforme fonctionne sans aucun service extérieur.
 
 ---
 

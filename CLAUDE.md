@@ -20,9 +20,15 @@ Le citoyen fournit ses informations **une seule fois**. Les administrations s'é
 - Vidéo de démonstration de 3 minutes
 - Matrice de contribution par membre et par couche
 
-### Test d'interopérabilité
+### Énoncé officiel et épreuve en direct
 
-Le jury remplacera un registre d'une équipe par celui d'une autre équipe pour vérifier que les contrats API standardisés sont respectés. Les contrats des registres doivent donc être strictement suivis.
+Texte officiel du challenge :
+- **Objectif** : « Faire circuler les pièces entre administrations plutôt que les usagers entre les guichets, dans le respect de leurs droits sur leurs données. »
+- **Données** : « Registres simulés fournis par le jury (état civil, nationalité, casier), peuplés de citoyens fictifs. »
+- **Épreuve en direct** : « Ne transmettre que l'utile (« majeur : oui »), montrer à l'usager qui a consulté ses données, et tenir quand un registre tombe en panne. »
+- **Bien commun** : « Un socle d'interopérabilité libre, avec ses règles de consentement et de traçabilité, réutilisable par l'administration. »
+
+Le format des registres du jury n'est pas connu à l'avance. La plateforme se branche donc sur **n'importe quel registre par configuration** (dictionnaire des données et catalogue des registres), calcule elle-même les données dérivées (« majeur : oui ») et **tient quand un registre tombe** (mise en attente puis complétion automatique). Conception de référence : `docs/conception-interoperabilite.md`. Test qui rejoue tout : `node tests/interoperabilite/test-interop.js`.
 
 ## Acteurs du système
 
@@ -98,16 +104,20 @@ Bases de données simulées d'administrations existantes. Chaque registre est un
 
 **Important** : Les registres exposent des **données structurées** (JSON), jamais des documents PDF. Un « extrait de naissance » sur la plateforme, c'est les champs structurés du registre état-civil, pas un PDF.
 
+Nos trois registres suivent le **format recommandé** (`docs/openapi-registre-*.yaml`) et se branchent sans correspondance. Un registre d'un autre format (ceux du jury) se branche en le décrivant dans le catalogue de la passerelle (`backend/passerelle/config/catalogue-registres.yaml`), jamais en modifiant le code.
+
 ### Couche 2 : passerelle d'échange (port 3004)
 
-Point central qui route les requêtes entre administrations et registres. Responsabilités :
+Point central qui route les requêtes entre administrations et registres. Il sait où aller chercher chaque donnée grâce au **catalogue des registres** et traduit chaque registre vers le **dictionnaire des données** (`backend/passerelle/config/`). Responsabilités :
 
 - Recevoir une requête d'une administration (publique ou privée) pour une démarche
 - Résoudre les **chaînes de dépendances en cascade** (voir section dédiée)
 - Appeler le service de minimisation pour filtrer les champs
 - Déclencher une demande de consentement si administration privée
 - Appeler le journal pour tracer l'accès
-- Retourner les données filtrées
+- Retourner les données filtrées, **une seule fois et sans en garder de copie** (remise unique) : réponse 200 du `POST /requetes` pour une administration publique, première consultation de `GET /requetes/{id}` après l'acceptation pour une privée. Ensuite `donnees` vaut `null` et seule la trace reste au journal.
+- Calculer les données dérivées (`est_majeur` à partir de `date_naissance`) : seule la donnée calculée sort.
+- **Tenir** : un registre hors service est contourné (sonde toutes les 5 s, sources de secours) ; une requête qui en dépend passe `en_attente_registre` (tout ou rien, rien n'est transmis ni copié) et se complète à une consultation suivante, sans nouvelle demande.
 
 ### Couche 3 : consentement et minimisation (port 3005)
 
@@ -120,7 +130,7 @@ Démarche "inscription université"
 
 Démarche "émission passeport"
   registre état-civil : [nom, prenom, date_naissance,
-    lieu_naissance, sexe, pere, mere, nationalite]          (tous les champs)
+    lieu_naissance, sexe, pere_iue, mere_iue, nationalite]  (tous les champs)
 ```
 
 **Consentement** : deux régimes selon le type d'administration.
@@ -150,7 +160,7 @@ Enregistre **chaque accès** aux données d'un citoyen :
 - Pour quelle démarche
 - Quand
 - Type d'accès (direct pour admin publique, consentement pour admin privée)
-- **Double traçabilité** : `titulaire_id` (propriétaire des données) + `decideur_id` (qui a autorisé). Pour les adultes c'est la même personne. Pour les mineurs, le titulaire est l'enfant et le décideur est le tuteur.
+- **Double traçabilité** : `titulaire_id` (propriétaire des données) + `decideur_id` (qui a autorisé). Pour les adultes c'est la même personne. Pour les mineurs, le titulaire est l'enfant et le décideur est le tuteur quand c'est lui qui répond au consentement. Pour un accès direct d'une administration publique, personne ne décide : le titulaire est inscrit comme décideur (le tuteur voit quand même l'accès).
 
 Le citoyen peut consulter tout son journal depuis son espace usager.
 
@@ -249,6 +259,8 @@ Règles :
 ---
 
 ## Modèle de données
+
+Modèle de conception initial. Le modèle réel est dans le `prisma/schema.prisma` de chaque service. Écarts principaux : la filiation est lue à l'état civil (pas de table `LienParente`) ; une demande garde son arbre de cascade en JSON (pas de table `DemandePrerequis`) ; `DemarcheChamps` s'appelle `ChampsDemarche` (service consentement) ; la passerelle a en plus `Requete` (sans copie des données transmises) et `DemarchePiece`.
 
 ### Tables principales
 
@@ -405,22 +417,23 @@ La passerelle :
 Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE) :
 - Le prérequis est marqué `manquant`
 - Le citoyen est invité à se rendre physiquement au guichet avec les documents de ses parents
-- L'agent scanne/saisit les informations manquantes
-- La chaîne reprend automatiquement
+- L'agent vérifie les originaux et numérise les actes **dans le registre de l'état civil** (jamais dans la plateforme) ; démonstration : `docker compose exec registre-etat-civil npm run guichet`
+- La chaîne reprend automatiquement : le BFF relance toutes les 10 s les demandes `fallback_physique` et `en_cours` (en attente d'un registre) et notifie le citoyen quand elles se complètent
 
 ### Gestion du catalogue
 
 Le catalogue regroupe les données de référence de la plateforme : types de pièces et leurs prérequis, démarches et pièces requises par chacune, administrations et cloisonnement par mission (`AccesMission`), règles de minimisation.
 
-**Dans le MVP**, le catalogue est figé dans le code et ne se gère pas depuis une interface :
+**Dans le MVP**, le catalogue est décrit dans des fichiers et ne se gère pas depuis une interface :
 
 | Données | Propriétaire | Source |
 |---------|--------------|--------|
 | Types de pièces, prérequis, démarches, administrations, `AccesMission` | passerelle | `backend/passerelle/prisma/reference.js`, inséré par `seed.js` à chaque démarrage |
-| Lecture d'une pièce dans son registre (route et champs) | passerelle | `PIECE_SOURCES` dans `backend/passerelle/src/clients/registres.client.js` |
+| Données de la plateforme (nom, type, libellé, données calculées) | passerelle | dictionnaire des données, `backend/passerelle/config/dictionnaire.yaml` |
+| Registres, lecture d'une pièce dans son registre, sources de secours | passerelle | catalogue des registres, `backend/passerelle/config/catalogue-registres.yaml` (section `pieces`) |
 | Champs autorisés par démarche et par registre | consentement | `backend/consentement/prisma/seed.js` (table `ChampsDemarche`) |
 
-Le catalogue n'est exposé qu'en lecture (`GET /types-pieces`, `GET /types-pieces/{id}/prerequis`). Ajouter une pièce demande de modifier `reference.js` et `PIECE_SOURCES`, puis de redémarrer la passerelle. Le frontend n'a rien à changer : il lit toujours le catalogue via `GET /types-pieces`.
+Le catalogue n'est exposé qu'en lecture (`GET /types-pieces`, `GET /types-pieces/{id}/prerequis`, `GET /registres`, `GET /dictionnaire`). Ajouter une pièce demande de modifier `reference.js` et la section `pieces` du catalogue des registres, puis de redémarrer la passerelle. Le frontend n'a rien à changer : il lit toujours le catalogue via `GET /types-pieces`.
 
 ### Gestion des mineurs
 
@@ -614,7 +627,7 @@ UUID fixes de référence : tous les services (passerelle, consentement, journal
 - **Jetons d'administration** (passerelle) : `{ "administration_id": "<uuid>" }`, HS256 avec `JWT_SECRET`. Jetons de démo : `docker compose exec passerelle npm run jeton:admin`.
 - **Routes internes** (sans JWT, jamais appelées par le frontend) : consentement `GET /interne/consentements/{id}` et `GET /minimisation/regles/{demarche_id}`. La passerelle et le BFF étant exposés (administrations / internet), leurs routes internes exigent en plus la clé partagée `CLE_SERVICE_INTERNE` dans l'en-tête `X-Cle-Service` : passerelle `GET /interne/citoyens/{iue}` et `POST /interne/cascade` (appelées par le BFF), BFF `GET /interne/citoyens/{iue}/telephone` (appelée par la passerelle).
 - **BFF** : ne lit jamais les registres directement (identité et cascade via la passerelle). Les tutelles sont relues en base à chaque requête ; pour appeler consentement et journal, le BFF fabrique un jeton citoyen de 2 minutes avec la liste `enfants` à jour. L'interface de test (`/api/test/*`) fabrique des jetons d'administration : à désactiver en production (`INTERFACE_TEST_ACTIVE=false`).
-- **Interopérabilité** : les URL des registres utilisées par la passerelle sont surchargeables (`REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` dans un `.env` à la racine) pour brancher le registre d'une autre équipe.
+- **Interopérabilité** : aucun registre n'est écrit en dur dans la passerelle. Le dictionnaire des données (`config/dictionnaire.yaml`) et le catalogue des registres (`config/catalogue-registres.yaml`) décrivent quoi lire, où et comment ; ils sont validés au démarrage (la passerelle refuse de démarrer s'ils sont incohérents). Brancher un registre : le déclarer au catalogue, le tester (`docker compose exec passerelle npm run tester-registre -- <registre> <iue>`), redémarrer la passerelle. Les adresses de nos registres restent surchargeables (`REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` dans un `.env` à la racine). On ne renomme jamais une donnée du dictionnaire.
 - **Minimisation** : les règles « champs autorisés par démarche et par registre » appartiennent au service consentement (table `ChampsDemarche`, seed dans `backend/consentement/prisma/seed.js`). Identifiants des démarches : `inscription-universite`, `emission-passeport`, `ouverture-compte-bancaire`.
 - **SMS** : simulés, écrits dans les logs (`docker compose logs consentement` pour les demandes de consentement, `docker compose logs espace-usager` pour les codes de mot de passe et les transferts).
 - **Journal** : en ajout seul, aucune entrée n'est modifiée ni supprimée. La passerelle envoie, en plus des identifiants, une photo figée des noms (`administration_nom`, `administration_type`, `demarche_nom`).

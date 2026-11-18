@@ -23,7 +23,7 @@ const demandesService = require('./demandes.service');
 async function getDashboard(iue) {
   const account = await identiteService.getAccount(iue);
   const [identity, pending, stats, unfinished, children] = await Promise.all([
-    identiteService.getIdentity(iue),
+    identiteService.getIdentityOrNull(iue),
     consentementsService.countPending(account),
     journalService.stats(account),
     demandesService.countUnfinished(account),

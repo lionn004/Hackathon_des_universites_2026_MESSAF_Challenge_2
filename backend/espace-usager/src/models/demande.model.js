@@ -34,4 +34,30 @@ function count(where) {
   return prisma.demande.count({ where });
 }
 
-module.exports = { create, findById, findPage, count };
+/**
+ * Demandes à relancer par la reprise automatique : en attente d'un registre (« en_cours »)
+ * ou bloquées au guichet (« fallback_physique »), les plus anciennes d'abord.
+ * @param {number} take Nombre maximal par passage.
+ * @returns {Promise<object[]>}
+ */
+function findToResume(take) {
+  return prisma.demande.findMany({
+    where: { statut: { in: ['en_cours', 'fallback_physique'] } },
+    orderBy: { date_creation: 'asc' },
+    take,
+  });
+}
+
+/**
+ * Met à jour une demande.
+ * @param {string} id
+ * @param {object} data Champs à modifier.
+ * @returns {Promise<object>}
+ */
+function update(id, data) {
+  return prisma.demande.update({ where: { id }, data });
+}
+
+module.exports = {
+  create, findById, findPage, count, findToResume, update,
+};

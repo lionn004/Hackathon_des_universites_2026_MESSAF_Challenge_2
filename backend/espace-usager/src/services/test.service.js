@@ -42,7 +42,8 @@ async function listDemarches() {
 /**
  * POST /test/requete — simule une requête d'administration.
  * @param {object} body { administration_id, iue_citoyen, demarche_id }.
- * @returns {Promise<{httpStatus: number, body: object}>} 200 (publique) ou 202 (privée).
+ * @returns {Promise<{httpStatus: number, body: object}>} 200 (publique), 202 (consentement attendu,
+ *          ou registre hors service : statut en_attente_registre).
  * @throws {AppError} 400 données invalides ; erreurs de la passerelle relayées (403, 404…).
  */
 async function simulateRequest(body) {
@@ -65,10 +66,29 @@ async function simulateRequest(body) {
       },
     };
   }
+  if (result.statut === 'en_attente_registre') {
+    // Registre hors service : la requête est conservée par la passerelle, publique ou privée.
+    const { administrations = [] } = await passerelleClient.listAdministrations();
+    const admin = administrations.find((a) => a.id === body.administration_id);
+    return {
+      httpStatus: 202,
+      body: {
+        type_admin: admin ? admin.type : null,
+        statut: 'en_attente_registre',
+        requete_id: result.requete_id,
+        registres_indisponibles: result.registres_indisponibles || [],
+        message: result.message,
+      },
+    };
+  }
   return {
     httpStatus: 202,
     body: {
-      type_admin: 'privee', requete_id: result.requete_id, consentement_id: result.consentement_id, message: 'Demande de consentement envoyée au citoyen',
+      type_admin: 'privee',
+      statut: 'en_attente_consentement',
+      requete_id: result.requete_id,
+      consentement_id: result.consentement_id,
+      message: 'Demande de consentement envoyée au citoyen',
     },
   };
 }

@@ -2,6 +2,7 @@
  * Model Requete — historique des requêtes des administrations.
  * Ne contient que des requêtes Prisma : aucune règle métier.
  */
+const { Prisma } = require('@prisma/client');
 const prisma = require('./prisma');
 
 /**
@@ -23,16 +24,6 @@ function findById(id) {
 }
 
 /**
- * Met à jour une requête.
- * @param {string} id UUID.
- * @param {object} data Champs à modifier.
- * @returns {Promise<object>} Requête mise à jour.
- */
-function update(id, data) {
-  return prisma.requete.update({ where: { id }, data });
-}
-
-/**
  * Change le statut UNIQUEMENT si la requête est encore dans le statut attendu.
  * La condition est vérifiée par la base : quand deux consultations simultanées
  * voient le consentement accepté, une seule « gagne » et transmet les données
@@ -48,4 +39,18 @@ async function updateIfStatus(id, expectedStatus, data) {
   return count === 1;
 }
 
-module.exports = { create, findById, update, updateIfStatus };
+/**
+ * Vide la colonne donnees de toutes les requêtes qui en contiennent encore.
+ * @returns {Promise<number>} Nombre de requêtes modifiées.
+ */
+async function clearStoredData() {
+  const { count } = await prisma.requete.updateMany({
+    where: { donnees: { not: Prisma.AnyNull } },
+    data: { donnees: Prisma.DbNull },
+  });
+  return count;
+}
+
+module.exports = {
+  create, findById, updateIfStatus, clearStoredData,
+};

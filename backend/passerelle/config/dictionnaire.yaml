@@ -1,0 +1,70 @@
+# Dictionnaire des données de la plateforme (docs/conception-interoperabilite.md, § 4).
+#
+# Langue commune de toute la plateforme : démarches, minimisation, consentement,
+# cloisonnement, journal et espace usager ne parlent que de ces données. Chaque
+# registre, quel que soit son format, est traduit vers elles (catalogue-registres.yaml).
+#
+# Rangement : domaine (famille de données) puis donnée. Pour chaque donnée :
+#   operation    lecture du domaine qui la fournit (ex : fiche, casier) ;
+#   type         texte | date (AAAA-MM-JJ) | booleen | nombre | identifiant (IUE) | liste ;
+#   libelle      texte montré au citoyen dans son journal ;
+#   sensibilite  publique | personnelle | sensible (avis de la CIL) ;
+#   calcul       donnée dérivée, calculée par la passerelle si le registre ne la fournit pas ;
+#   valeurs      valeurs admises, s'il y en a ;
+#   elements     pour une liste d'objets : les champs de chaque élément.
+#
+# Règles intangibles : on ne renomme jamais une donnée (on en ajoute une nouvelle et on
+# marque l'ancienne « obsolete: true ») et on ne change jamais son sens. La passerelle
+# refuse de démarrer si une démarche ou une correspondance cite une donnée absente d'ici.
+version: 1.0.0
+
+domaines:
+  etat-civil:
+    iue:            { operation: fiche, type: identifiant, libelle: "Identifiant unique (IUE)", sensibilite: personnelle }
+    nom:            { operation: fiche, type: texte,       libelle: "Nom", sensibilite: personnelle }
+    prenom:         { operation: fiche, type: texte,       libelle: "Prénom(s)", sensibilite: personnelle }
+    date_naissance: { operation: fiche, type: date,        libelle: "Date de naissance", sensibilite: personnelle }
+    lieu_naissance: { operation: fiche, type: texte,       libelle: "Lieu de naissance", sensibilite: personnelle }
+    sexe:           { operation: fiche, type: texte,       libelle: "Sexe", sensibilite: personnelle, valeurs: [M, F] }
+    nationalite:    { operation: fiche, type: texte,       libelle: "Nationalité", sensibilite: personnelle }
+    pere_iue:       { operation: fiche, type: identifiant, libelle: "Identifiant du père", sensibilite: personnelle }
+    mere_iue:       { operation: fiche, type: identifiant, libelle: "Identifiant de la mère", sensibilite: personnelle }
+    date_deces:     { operation: fiche, type: date,        libelle: "Date de décès", sensibilite: personnelle }
+    est_majeur:
+      operation: fiche
+      type: booleen
+      libelle: "Majeur"
+      sensibilite: personnelle
+      calcul: { regle: age_au_moins, a_partir_de: date_naissance, seuil: 18 }
+
+  justice:
+    casier_vierge:
+      operation: casier
+      type: booleen
+      libelle: "Casier judiciaire vierge"
+      sensibilite: sensible
+      calcul: { regle: liste_vide, a_partir_de: condamnations }
+    condamnations:
+      operation: casier
+      type: liste
+      libelle: "Condamnations"
+      sensibilite: sensible
+      elements:
+        date:     { type: date,  libelle: "Date" }
+        nature:   { type: texte, libelle: "Nature" }
+        tribunal: { type: texte, libelle: "Tribunal" }
+        duree:    { type: texte, libelle: "Peine" }
+    date_delivrance:   { operation: casier,      type: date,    libelle: "Date de délivrance du bulletin", sensibilite: personnelle }
+    est_national:      { operation: nationalite, type: booleen, libelle: "Burkinabè", sensibilite: personnelle }
+    nationalite:       { operation: nationalite, type: texte,   libelle: "Nationalité (certificat)", sensibilite: personnelle }
+    mode_acquisition:  { operation: nationalite, type: texte,   libelle: "Mode d'acquisition de la nationalité", sensibilite: personnelle, valeurs: [naissance, naturalisation, mariage] }
+    date_acquisition:  { operation: nationalite, type: date,    libelle: "Date d'acquisition de la nationalité", sensibilite: personnelle }
+    numero_certificat: { operation: nationalite, type: texte,   libelle: "Numéro du certificat de nationalité", sensibilite: personnelle }
+
+  fiscal:
+    ifu:                  { operation: situation, type: texte,   libelle: "Identifiant fiscal unique (IFU)", sensibilite: personnelle }
+    en_regle:             { operation: situation, type: booleen, libelle: "En règle avec le fisc", sensibilite: personnelle }
+    type_contribuable:    { operation: situation, type: texte,   libelle: "Type de contribuable", sensibilite: personnelle, valeurs: [particulier, entreprise_individuelle, societe] }
+    regime_fiscal:        { operation: situation, type: texte,   libelle: "Régime fiscal", sensibilite: personnelle, valeurs: [rsi, rni, cme, non_assujetti] }
+    derniere_declaration: { operation: situation, type: date,    libelle: "Dernière déclaration", sensibilite: personnelle }
+    montant_impot_du:     { operation: situation, type: nombre,  libelle: "Montant d'impôt dû", sensibilite: personnelle }

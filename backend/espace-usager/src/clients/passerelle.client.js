@@ -102,7 +102,19 @@ async function getRequete(adminToken, id) {
   return expectOk(SERVICE, await request(SERVICE, `${base()}/requetes/${encodeURIComponent(id)}`, { headers: adminHeaders(adminToken) }));
 }
 
+/** GET /registres : état des registres du catalogue (information publique). */
+async function getRegistres() {
+  return expectOk(SERVICE, await request(SERVICE, `${base()}/registres`));
+}
+
+/** GET /dictionnaire : données de la plateforme et leurs libellés. */
+async function getDictionnaire() {
+  return expectOk(SERVICE, await request(SERVICE, `${base()}/dictionnaire`));
+}
+
 module.exports = {
+  getRegistres,
+  getDictionnaire,
   getIdentity,
   resolveCascade,
   getPiece,
