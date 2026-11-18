@@ -203,16 +203,17 @@ Une pièce peut exister sur papier sans être encore dans le registre numérique
 saisi, par exemple l'acte de naissance d'un parent). C'est une **donnée numérique manquante** :
 
 1. La demande passe `fallback_physique` (nom technique conservé ; affiché « donnée à numériser »).
-   La plateforme dit au citoyen quelle pièce manque, pour qui, et quelle administration la détient.
+   La plateforme dit au citoyen quelle pièce manque, pour qui, et la démarche à suivre
+   (`demarche_si_absente` du type de pièce, dans `GET /types-pieces`).
 2. L'administration qui détient l'acte (pour l'état civil : le centre d'état civil) le **numérise
    dans son registre** : la donnée va là où elle doit vivre, jamais dans la plateforme.
 3. La **reprise automatique** relance régulièrement les demandes bloquées : la pièce existe
    désormais, la cascade se résout, la demande devient complète et le citoyen est notifié.
 
-La plateforme ne remplace pas le registre : elle signale ce qui manque et reprend seule dès que la
+La plateforme ne remplace pas le registre et ne recueille aucune information pour orienter le
+citoyen : elle l'informe de ce qui manque et de la démarche à suivre, puis reprend seule dès que la
 donnée existe. Pour la démonstration, un script simule la numérisation des actes des parents d'Ibrahim
-dans notre registre d'état civil (`npm run numeriser-actes`). Adresser directement la demande de
-numérisation à l'administration qui détient l'acte, sans démarche du citoyen, est une perspective.
+dans notre registre d'état civil (`npm run numeriser-actes`).
 
 ## 10. Tenir quand un registre tombe
 
@@ -311,8 +312,6 @@ justice, entrée du journal de démo d'Awa (décideur = titulaire pour un accès
 - **Catalogue en base de données**, API d'administration et page web de branchement (option C).
 - **Assistant de branchement** : proposer les correspondances en rapprochant les noms de champs.
 - **Mode d'identification `correspondance`** (table IUE / identifiant local).
-- **Demande de numérisation adressée directement** à l'administration qui détient l'acte, avec une
-  file de tâches pour ses agents.
 
 ## 15. Répartition
 

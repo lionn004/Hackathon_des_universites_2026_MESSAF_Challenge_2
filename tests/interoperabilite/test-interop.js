@@ -722,6 +722,11 @@ async function donneeManquante() {
   const jeton = await connexion(IBRAHIM);
   const d = await appel('POST', `${BFF}/demandes`, { jeton, corps: { type_piece_id: 'casier-judiciaire' } });
   verifier(d.body?.statut === 'fallback_physique', 'Donnée manquante : la demande de casier d\'Ibrahim attend les actes de ses parents (non numérisés)', JSON.stringify(d.body));
+  // Le citoyen est seulement informé de la démarche à suivre, lue dans le catalogue.
+  const catalogue = await appel('GET', `${BFF}/types-pieces`);
+  const extrait = (catalogue.body?.types_pieces || []).find((t) => t.id === 'extrait-naissance');
+  verifier(/centre d'état civil/.test(extrait?.demarche_si_absente || ''),
+    'Donnée manquante : le catalogue donne la démarche à suivre pour un extrait de naissance', JSON.stringify(extrait));
   const saisie = executer('registre-etat-civil', ['npm', 'run', '-s', 'numeriser-actes']);
   verifier(saisie.code === 0, 'Donnée manquante : le centre d\'état civil numérise les actes des parents dans son registre', saisie.sortie.slice(-300));
   const finie = await attendreCondition(async () => (await appel('GET', `${BFF}/demandes/${d.body?.id}`, { jeton })).body?.statut === 'complete', 30000);

@@ -416,7 +416,7 @@ La passerelle :
 
 Une pièce peut exister sur papier sans être encore dans le registre numérique (acte ancien jamais saisi, par exemple l'acte de naissance des parents d'un citoyen). C'est une **donnée numérique manquante** : la plateforme ne l'invente pas et ne la stocke pas à la place du registre.
 - Le prérequis est marqué `manquant` et la demande passe `fallback_physique` (nom technique conservé dans les contrats ; affiché « donnée à numériser »).
-- Le citoyen apprend quelle pièce manque, pour qui, et quelle administration la détient.
+- Le citoyen apprend quelle pièce manque, pour qui, et la démarche à suivre (`demarche_si_absente` du type de pièce, renvoyée par `GET /types-pieces`). La plateforme se contente d'informer : elle ne recueille aucune information pour orienter le citoyen.
 - L'administration qui détient l'acte (pour l'état civil : le centre d'état civil) le **numérise dans son registre**, jamais dans la plateforme ; démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes`.
 - La chaîne reprend automatiquement : le BFF relance toutes les 10 s les demandes `fallback_physique` et `en_cours` (en attente d'un registre) et notifie le citoyen quand elles se complètent.
 

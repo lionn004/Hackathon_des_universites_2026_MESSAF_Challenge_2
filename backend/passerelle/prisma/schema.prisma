@@ -73,6 +73,9 @@ model TypePiece {
   registre_source String
   // true si la pièce peut changer dans le temps (casier, situation fiscale).
   est_evolutive   Boolean          @default(false)
+  // Démarche à suivre quand la pièce n'est pas encore dans le registre numérique
+  // (donnée numérique manquante) ; le citoyen en est seulement informé.
+  demarche_si_absente String?
   prerequis       PrerequisPiece[] @relation("piece")
   requisPar       PrerequisPiece[] @relation("prerequis")
   demarches       DemarchePiece[]

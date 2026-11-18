@@ -1351,6 +1351,11 @@ components:
         est_evolutive:
           type: boolean
           description: La pièce peut changer dans le temps (casier, situation fiscale)
+        demarche_si_absente:
+          type: string
+          nullable: true
+          description: "Démarche à suivre quand la pièce n'est pas encore dans le registre numérique (statut fallback_physique, nœud manquant). À afficher sous la pièce manquante : la plateforme informe, elle ne recueille rien. Texte neutre, valable aussi pour la pièce d'un parent ; null si aucune n'est connue."
+          example: "Demander au centre d'état civil du lieu de naissance de la personne concernée de numériser son acte de naissance. Si la naissance n'a jamais été déclarée, un jugement supplétif doit d'abord être obtenu auprès du tribunal."
         prerequis:
           type: array
           description: Documents récupérés automatiquement par la plateforme (arbre récursif)

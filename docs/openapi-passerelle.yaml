@@ -707,6 +707,11 @@ components:
           type: boolean
           description: La pièce peut changer dans le temps (casier, situation fiscale)
           example: true
+        demarche_si_absente:
+          type: string
+          nullable: true
+          description: "Démarche à suivre quand la pièce n'est pas encore dans le registre numérique (donnée numérique manquante). Texte neutre, valable aussi pour la pièce d'un parent ; null si aucune n'est connue."
+          example: "S'adresser au greffe du tribunal de grande instance du lieu de naissance de la personne concernée."
 
     IdentiteMinimale:
       type: object

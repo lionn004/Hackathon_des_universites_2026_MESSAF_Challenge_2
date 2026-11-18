@@ -220,9 +220,11 @@ Casier judiciaire (Amadou)
 
 La passerelle détecte les prérequis, trouve les parents par la filiation de l'état civil et vérifie chaque pièce dans son registre. Le citoyen ne fournit rien.
 
-**Donnée numérique manquante.** Une pièce peut exister sur papier sans être encore dans le registre numérique : c'est le cas des actes anciens jamais saisis, par exemple l'acte de naissance d'un parent. La plateforme ne l'invente pas et ne la stocke pas à la place du registre. La demande passe `fallback_physique` (affiché « donnée à numériser ») : le citoyen sait quelle pièce manque, pour qui, et quelle administration la détient. Cette administration (pour l'état civil, le centre d'état civil) **numérise l'acte dans son registre**, là où la donnée doit vivre. La reprise automatique trouve alors la pièce, la demande se complète et le citoyen est prévenu. Une donnée manquante est ainsi numérisée **une fois**, puis circule.
+**Donnée numérique manquante.** Une pièce peut exister sur papier sans être encore dans le registre numérique : c'est le cas des actes anciens jamais saisis, par exemple l'acte de naissance d'un parent. La plateforme ne l'invente pas et ne la stocke pas à la place du registre. La demande passe `fallback_physique` (affiché « donnée à numériser ») : la plateforme informe le citoyen de la pièce qui manque, pour qui, et de la démarche à suivre, décrite pour chaque type de pièce dans le catalogue (par exemple, pour un extrait de naissance : s'adresser au centre d'état civil du lieu de naissance, ou obtenir d'abord un jugement supplétif si la naissance n'a jamais été déclarée). Elle ne recueille aucune information pour l'orienter : son rôle est d'informer. L'administration qui détient l'acte (pour l'état civil, le centre d'état civil) **le numérise dans son registre**, là où la donnée doit vivre. La reprise automatique trouve alors la pièce, la demande se complète et le citoyen est prévenu. Une donnée manquante est ainsi numérisée **une fois**, puis circule.
 
 Démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes` simule la numérisation des actes des parents d'Ibrahim.
+
+**Un outil de pilotage de la numérisation.** Chaque demande en attente d'une donnée numérique manquante dit précisément quelle pièce manque et combien de démarches elle bloque. Agrégées et anonymisées, ces attentes indiquent à l'État où accentuer la numérisation : quels types d'actes, quels registres, avec quel effet sur les démarches des citoyens. Numériser en priorité ce qui bloque le plus de démarches, plutôt que tout numériser dans l'ordre des archives. Les données existent déjà dans la plateforme ; leur restitution sous forme de statistiques est une perspective (§ 17).
 
 ## 11. L'espace usager
 
@@ -310,7 +312,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Catalogue en base de données**, avec une API et une interface d'administration réservées à un rôle « gestionnaire du catalogue » (autorité du référentiel), et l'historique de chaque modification.
 - **Assistant de branchement** qui propose les correspondances en rapprochant les noms de champs d'un registre de ceux du dictionnaire.
 - **Mode d'identification `correspondance`** : une table IUE / identifiant local (numéro d'acte, NIP, IFU), remplie au fil de l'enrôlement.
-- **Demande de numérisation adressée directement** à l'administration qui détient l'acte, avec une file de tâches pour ses agents : le citoyen n'aurait plus aucune démarche à faire.
+- **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, journal chaîné par empreintes pour prouver qu'aucune entrée n'a été modifiée, bases séparées par service, vrai fournisseur de SMS.
 - **Espace usager** : vue d'ensemble de ce que les registres savent du citoyen, documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
 
