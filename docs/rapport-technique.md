@@ -17,7 +17,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
 
-Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct, la numérisation d'une donnée manquante et l'altération directe du journal : **430 vérifications réussies, 0 échec** au 18 novembre 2026.
+Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct, la numérisation d'une donnée manquante et l'altération directe du journal : **441 vérifications réussies, 0 échec** au 18 novembre 2026.
 
 ## 2. L'énoncé et ce que nous en avons retenu
 
@@ -332,7 +332,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Journal chaîné | Chaîne intacte au démarrage ; 5 accès simultanés sans branche ; une entrée modifiée, puis une entrée supprimée directement en base, détectées ; l'altération survit à un redémarrage du service ; remise en état |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
-Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **430 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
+Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **441 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
 
 ## 15. Conformité aux livrables
 
