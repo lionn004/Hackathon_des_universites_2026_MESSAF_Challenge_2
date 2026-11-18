@@ -241,6 +241,18 @@ const testApi = {
   },
 };
 
+// État des registres branchés (GET /registres, route publique relayée de la passerelle)
+
+const registresApi = {
+  /**
+   * Disponibilité de chaque registre, sondée toutes les 5 s par la passerelle.
+   * @returns {Promise<{registres: object[], sources: Object<string, string[]>}>}
+   */
+  async etat() {
+    return apiFetch('/registres');
+  },
+};
+
 // Catalogue des types de pièces (GET /types-pieces), chargé une seule fois par page
 
 let cataloguePieces = [];

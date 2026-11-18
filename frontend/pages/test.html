@@ -17,6 +17,17 @@
       </div>
 
       <div class="card mb-6" style="padding:var(--space-6)">
+        <div class="flex-between" style="margin-bottom:var(--space-2);flex-wrap:wrap;gap:var(--space-3)">
+          <h3>État des registres</h3>
+          <span id="registres-maj" style="font-size:var(--font-size-xs);color:var(--gris-500)" aria-live="polite"></span>
+        </div>
+        <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-4)">
+          La passerelle sonde chaque registre toutes les 5 secondes.
+        </p>
+        <div id="registres-etat"></div>
+      </div>
+
+      <div class="card mb-6" style="padding:var(--space-6)">
         <h3 style="margin-bottom:var(--space-5)">Simuler une requête administrative</h3>
 
         <div class="form-row">
@@ -228,7 +239,7 @@
               ${renderCascade(result.cascade)}` : '') + (result.journal_id ? `
               <div style="margin-top:var(--space-4);font-size:var(--font-size-xs);color:var(--gris-500)">
                 Entrée de journal : <code>${escapeHtml(result.journal_id)}</code>, requête : <code>${escapeHtml(result.requete_id)}</code>
-              </div>` : ''),
+              </div>` : '') + NOTE_REMISE_UNIQUE,
             json: result,
           });
         }
@@ -266,10 +277,22 @@
           complete: ['alert-success', 'Consentement accepté, données transmises à l\'administration'],
           consentement_refuse: ['alert-error', 'Le citoyen a refusé : aucune donnée transmise'],
           expire: ['alert-error', 'Demande expirée (30 jours sans réponse)'],
+          echouee: ['alert-error', 'Requête échouée : aucune donnée transmise'],
         };
-        const [cls, txt] = messages[r.statut] || ['alert-info', r.statut];
+        let [cls, txt] = messages[r.statut] || ['alert-info', r.statut];
+        // Remise unique : après la première consultation, donnees vaut null pour une requête aboutie.
+        const dejaRemises = !r.donnees && ['complete', 'consentement_accepte'].includes(r.statut);
+        if (dejaRemises) {
+          cls = 'alert-info';
+          txt = 'Données déjà remises à l\'administration lors d\'une consultation précédente';
+        }
         out.innerHTML = `<div class="alert ${cls} mb-4"><strong>${escapeHtml(txt)}</strong></div>` +
-          (r.donnees ? renderDonnees(r.donnees) : '');
+          (r.donnees ? renderDonnees(r.donnees) + NOTE_REMISE_UNIQUE : '') +
+          (dejaRemises ? `
+            <p style="font-size:var(--font-size-sm);color:var(--gris-600)">
+              Remise unique : la passerelle transmet les données une seule fois et n'en garde pas de copie.
+              Seule la trace de l'accès reste au journal du citoyen.
+            </p>` : '');
         document.getElementById('resultat-json').textContent = JSON.stringify(r, null, 2);
       } catch (e) {
         out.innerHTML = `<div class="alert alert-error"><strong>${escapeHtml(e.message)}</strong></div>`;
@@ -278,8 +301,67 @@
       }
     }
 
+    const NOTE_REMISE_UNIQUE = `
+      <p style="margin-top:var(--space-4);font-size:var(--font-size-xs);color:var(--gris-500)">
+        Remise unique : ces données ne sont transmises qu'une fois. La passerelle n'en garde pas de copie,
+        une nouvelle consultation de la requête ne les renverra pas.
+      </p>`;
+
+    // Dernier état connu des registres.
+    let etatRegistres = [];
+    const ACTUALISATION_REGISTRES_MS = 5000;
+
+    /** Badge de disponibilité. Un registre suspendu par configuration n'est pas interrogé. */
+    function badgeRegistre(r) {
+      if (r.etat === 'suspendu') return '<span class="badge badge-expire">Suspendu</span>';
+      return r.disponibilite === 'disponible'
+        ? '<span class="badge badge-complete">Disponible</span>'
+        : '<span class="badge badge-echouee">Hors service</span>';
+    }
+
+    /**
+     * GET /registres : disponibilité des registres et sources de secours.
+     * Appelée au chargement, puis toutes les 5 s tant que l'onglet est visible.
+     */
+    async function chargerRegistres() {
+      const container = document.getElementById('registres-etat');
+      try {
+        const data = await registresApi.etat();
+        etatRegistres = data.registres || [];
+        const secours = Object.entries(data.sources || {}).filter(([, ids]) => Array.isArray(ids) && ids.length > 1);
+        container.innerHTML = `
+          <div class="table-container">
+          <table class="table">
+            <thead><tr><th>Registre</th><th>Disponibilité</th><th>Depuis</th><th>Opérations servies</th></tr></thead>
+            <tbody>
+              ${etatRegistres.map(r => `
+                <tr>
+                  <td><strong>${escapeHtml(r.nom || r.id)}</strong>
+                    <div style="font-size:var(--font-size-xs);color:var(--gris-500)">${escapeHtml(r.id)}${r.proprietaire ? `, ${escapeHtml(r.proprietaire)}` : ''}</div></td>
+                  <td>${badgeRegistre(r)}</td>
+                  <td style="font-size:var(--font-size-sm)">${r.depuis ? `${formatDate(r.depuis)}, ${formatTime(r.depuis)}` : VIDE}</td>
+                  <td style="font-size:var(--font-size-xs);color:var(--gris-600)">${escapeHtml((r.operations || []).join(', ')) || VIDE}</td>
+                </tr>`).join('') || emptyRow(4, 'Aucun registre déclaré')}
+            </tbody>
+          </table>
+          </div>
+          ${secours.length ? `
+            <p style="margin-top:var(--space-3);font-size:var(--font-size-xs);color:var(--gris-500)">
+              Sources de secours (la première fait foi) :
+              ${secours.map(([op, ids]) => `${escapeHtml(op)} : ${escapeHtml(ids.join(', '))}`).join(' ; ')}
+            </p>` : ''}`;
+        document.getElementById('registres-maj').textContent = `Mis à jour à ${new Date().toLocaleTimeString('fr-BF')}`;
+      } catch (e) {
+        // Le dernier tableau reste affiché : seul l'en-tête signale l'échec.
+        document.getElementById('registres-maj').textContent = `État des registres indisponible : ${e.message}`;
+      }
+    }
+
     loadSelects();
     renderCatalogue();
+    chargerRegistres();
+    // Actualisation périodique, suspendue quand l'onglet est en arrière-plan.
+    setInterval(() => { if (!document.hidden) chargerRegistres(); }, ACTUALISATION_REGISTRES_MS);
   </script>
 </body>
 </html>
