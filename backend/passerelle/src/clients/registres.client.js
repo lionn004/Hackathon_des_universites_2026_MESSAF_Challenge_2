@@ -275,7 +275,7 @@ async function appeler(id, reg, methode, url) {
 /**
  * Identifie la personne dans un registre (conception § 6).
  * Mode « recherche » : nom, prénom et date de naissance sont lus à l'état civil par l'IUE,
- * puis il faut EXACTEMENT un résultat ; sinon la personne est traitée comme absente (guichet).
+ * puis il faut EXACTEMENT un résultat ; sinon la pièce n'est pas lue (aucun résultat : donnée numérique manquante ; plusieurs : homonymes).
  * @returns {Promise<object|null>} Valeurs des variables de route, ou null si introuvable.
  */
 async function identifier(id, reg, iue) {
@@ -293,7 +293,7 @@ async function identifier(id, reg, iue) {
   const resultats = Array.isArray(liste) ? liste : [];
   if (resultats.length !== 1) {
     if (resultats.length > 1) {
-      console.warn(`[passerelle] registre ${id} : ${resultats.length} personnes correspondent à ${iue}, aucune n'est retenue (vérification au guichet)`);
+      console.warn(`[passerelle] registre ${id} : ${resultats.length} personnes correspondent à ${iue}, aucune n'est retenue (homonymes : identification par correspondance nécessaire)`);
     }
     return null;
   }

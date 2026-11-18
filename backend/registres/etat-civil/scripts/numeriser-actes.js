@@ -1,18 +1,18 @@
 /**
- * Démonstration du guichet (docs/conception-interoperabilite.md, § 9).
+ * Démonstration d'une donnée numérique manquante (docs/conception-interoperabilite.md, § 9).
  *
- * Simule l'agent du centre d'état civil qui, après avoir vérifié les actes papier
- * présentés par Ibrahim OUEDRAOGO, numérise dans CE registre les actes de naissance
- * de ses parents (jamais enregistrés jusque-là). La donnée entre là où elle doit vivre :
- * dans le registre de l'état civil, pas dans la plateforme.
+ * Les actes de naissance des parents d'Ibrahim OUEDRAOGO existent sur papier mais n'ont
+ * jamais été saisis dans le registre numérique. Ce script simule le centre d'état civil qui
+ * les numérise dans CE registre : la donnée entre là où elle doit vivre, dans le registre
+ * de l'état civil, pas dans la plateforme.
  *
  * Effet attendu : la reprise automatique de l'espace usager relance la demande de casier
- * d'Ibrahim, bloquée au guichet (« fallback_physique ») ; la cascade se résout et la
+ * d'Ibrahim, en attente de cette donnée (« fallback_physique ») ; la cascade se résout et la
  * demande devient complète en quelques secondes, avec une notification SMS (simulée).
  *
  * Usage :
- *   docker compose exec registre-etat-civil npm run guichet               saisie des actes
- *   docker compose exec registre-etat-civil npm run guichet -- --annuler  retour à l'état initial
+ *   docker compose exec registre-etat-civil npm run numeriser-actes               numérisation
+ *   docker compose exec registre-etat-civil npm run numeriser-actes -- --annuler  retour à l'état initial
  * Un redémarrage du registre remet aussi la démonstration à zéro (le seed est relancé).
  */
 const { PrismaClient } = require('@prisma/client');
@@ -53,20 +53,20 @@ async function saisir() {
     await prisma.citoyen.upsert({ where: { iue: p.iue }, update: p, create: p });
   }
   await prisma.citoyen.update({ where: { iue: IBRAHIM }, data: { pere_iue: PARENTS[0].iue, mere_iue: PARENTS[1].iue } });
-  console.log('[guichet] actes numérisés : Boukary OUEDRAOGO (père) et Mariam ZONGO (mère) rattachés à Ibrahim OUEDRAOGO.');
-  console.log('[guichet] la reprise automatique complétera ses demandes bloquées dans quelques secondes.');
+  console.log('[numérisation] actes numérisés : Boukary OUEDRAOGO (père) et Mariam ZONGO (mère) rattachés à Ibrahim OUEDRAOGO.');
+  console.log('[numérisation] la reprise automatique complétera ses demandes bloquées dans quelques secondes.');
 }
 
 /** Revient à l'état initial de la démonstration : parents d'Ibrahim inconnus. */
 async function annuler() {
   await prisma.citoyen.update({ where: { iue: IBRAHIM }, data: { pere_iue: null, mere_iue: null } });
   await prisma.citoyen.deleteMany({ where: { iue: { in: PARENTS.map((p) => p.iue) } } });
-  console.log('[guichet] démonstration remise à zéro : les parents d\'Ibrahim ne sont plus enregistrés.');
+  console.log('[numérisation] démonstration remise à zéro : les parents d\'Ibrahim ne sont plus enregistrés.');
 }
 
 (process.argv.includes('--annuler') ? annuler() : saisir())
   .catch((err) => {
-    console.error(`[guichet] échec : ${err.message}`);
+    console.error(`[numérisation] échec : ${err.message}`);
     process.exitCode = 1;
   })
   .finally(() => prisma.$disconnect());

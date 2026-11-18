@@ -15,7 +15,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code.
 
-Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, la panne en direct et le guichet : **363 vérifications réussies, 0 échec** au 18 novembre 2026.
+Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, la panne en direct et la numérisation d'une donnée manquante : **363 vérifications réussies, 0 échec** au 18 novembre 2026.
 
 ## 2. L'énoncé et ce que nous en avons retenu
 
@@ -124,7 +124,7 @@ Toute requête désigne le citoyen par son IUE, sans exception : c'est l'identif
 | `iue` | Le registre accepte l'IUE directement. C'est la cible, et le cas de nos registres. |
 | `recherche` | La passerelle lit nom, prénom et date de naissance à l'état civil (par l'IUE), cherche la personne dans le registre et en tire son identifiant local. Pour les bases anciennes, sans IUE. |
 
-**Règle de sûreté du mode `recherche`** : il faut exactement un résultat. Avec zéro ou plusieurs résultats (homonymes), la plateforme ne devine jamais : la pièce est traitée comme absente et part au guichet pour une vérification humaine.
+**Règle de sûreté du mode `recherche`** : il faut exactement un résultat, la plateforme ne devine jamais. Avec zéro résultat, la personne n'est pas dans le registre numérique : c'est une donnée numérique manquante (§ 10). Avec plusieurs résultats (homonymes), la pièce n'est pas lue : on ne transmet jamais les données d'une autre personne. Lever cette ambiguïté demande le mode `correspondance` (§ 17).
 
 ### 5.4 Brancher un registre en quatre étapes
 
@@ -206,7 +206,7 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 
 **Visibilité.** `GET /api/registres` donne l'état de chaque registre et depuis quand.
 
-## 10. Les cascades et le guichet
+## 10. Les cascades et les données numériques manquantes
 
 Une pièce peut en exiger d'autres. Exemple : Amadou demande un casier judiciaire.
 
@@ -220,9 +220,9 @@ Casier judiciaire (Amadou)
 
 La passerelle détecte les prérequis, trouve les parents par la filiation de l'état civil et vérifie chaque pièce dans son registre. Le citoyen ne fournit rien.
 
-**Quand une pièce manque** (parent jamais enregistré, homonymes en mode `recherche`), la demande passe `fallback_physique` : le citoyen sait quelle pièce manque et se présente au guichet de son centre d'état civil. L'agent vérifie l'acte papier et le **numérise dans le registre de l'état civil**, là où la donnée doit vivre, jamais dans la plateforme. La reprise automatique trouve alors la pièce, la demande se complète et le citoyen est prévenu. Une donnée manquante est ainsi fournie **une fois dans une vie**, puis circule.
+**Donnée numérique manquante.** Une pièce peut exister sur papier sans être encore dans le registre numérique : c'est le cas des actes anciens jamais saisis, par exemple l'acte de naissance d'un parent. La plateforme ne l'invente pas et ne la stocke pas à la place du registre. La demande passe `fallback_physique` (affiché « donnée à numériser ») : le citoyen sait quelle pièce manque, pour qui, et quelle administration la détient. Cette administration (pour l'état civil, le centre d'état civil) **numérise l'acte dans son registre**, là où la donnée doit vivre. La reprise automatique trouve alors la pièce, la demande se complète et le citoyen est prévenu. Une donnée manquante est ainsi numérisée **une fois**, puis circule.
 
-Démonstration : `docker compose exec registre-etat-civil npm run guichet` simule la saisie de l'agent pour les parents d'Ibrahim.
+Démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes` simule la numérisation des actes des parents d'Ibrahim.
 
 ## 11. L'espace usager
 
@@ -230,7 +230,7 @@ L'espace usager sert à une seule chose : **exercer ses droits sur ses données*
 
 | Pilier | Fonctions |
 |--------|-----------|
-| **Savoir** | Journal : qui a consulté quoi, pourquoi, quand, en accès direct ou par consentement. Tableau de bord : consentements en attente, demandes en cours, accès récents. État des registres (en cours d'intégration au frontend). |
+| **Savoir** | Journal : qui a consulté quoi, pourquoi, quand, en accès direct ou par consentement. Tableau de bord : consentements en attente, demandes en cours, accès récents. Pour une demande qui attend un registre : « un registre est momentanément indisponible, votre demande reprendra automatiquement ». |
 | **Décider** | Consentements : accepter ou refuser les demandes des administrations privées. |
 | **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. |
 | **Protéger ses enfants** | Le tuteur gère les consentements et le journal de ses enfants mineurs. À 15 ans, la plateforme recommande de transférer le compte à l'enfant. |
@@ -267,7 +267,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Un registre externe à la place de l'état civil, puis de la justice, du fiscal et des trois | Les mêmes vérifications, avec un registre « d'une autre équipe » au format recommandé |
 | Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` |
 | Panne en direct | Coupure du casier, puis de l'état civil : ce qui n'en dépend pas reste servi, ce qui en dépend attend, rien n'est transmis ni copié, tout se complète au retour, une seule entrée au journal |
-| Guichet | La demande bloquée se complète seule après la saisie de l'agent, et le citoyen est prévenu |
+| Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
 Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **363 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
@@ -288,7 +288,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 
 1. L'université demande l'inscription d'Amadou : elle reçoit « majeur : oui » et la nationalité, rien d'autre.
 2. Amadou ouvre son journal : il voit l'université, la démarche, « Majeur », l'heure.
-3. On coupe le registre du casier (`docker compose stop registre-justice`) : l'université est toujours servie ; la police (passeport) reçoit « en attente du registre » ; `GET /api/registres` montre la justice hors service ; l'espace usager fonctionne.
+3. On coupe le registre du casier (`docker compose stop registre-justice`) : l'université est toujours servie ; la police (passeport) reçoit « en attente du registre » ; l'état des registres (`GET /api/registres`, affiché dans l'interface de test) montre la justice hors service ; l'espace usager fonctionne.
 4. On rallume le registre (`docker compose start registre-justice`) : la police consulte sa requête et reçoit le dossier complet, sans refaire sa demande ; le journal d'Amadou montre l'accès.
 5. On branche un registre d'un autre format par le catalogue, on le teste avec `tester-registre`, et la plateforme le lit.
 
@@ -298,7 +298,8 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 
 - Le catalogue des registres et le dictionnaire sont des fichiers YAML : les modifier demande un accès au serveur et un redémarrage de la passerelle.
 - Les registres doivent répondre en JSON à des lectures `GET`. Un registre en XML ou en SOAP demanderait un adaptateur.
-- Le mode `recherche` compare nom, prénom et date de naissance exactement : une orthographe différente donne « personne absente » et renvoie au guichet, ce qui est sûr mais moins fluide.
+- Le mode `recherche` compare nom, prénom et date de naissance exactement : une orthographe différente donne « personne absente », ce qui est sûr mais moins fluide.
+- Homonymes en mode `recherche` (même nom, prénom et date de naissance) : la pièce n'est pas lue, et la reprise automatique ne peut pas lever l'ambiguïté seule. Il faut le mode `correspondance`.
 - La reprise des demandes interroge les registres à intervalle régulier (10 s) plutôt que d'être prévenue par un événement.
 - Remise unique : une administration qui perd la réponse doit refaire sa demande, qui est alors à nouveau inscrite au journal. C'est voulu (aucune copie), mais cela suppose des administrations fiables.
 - Les SMS sont simulés (écrits dans les journaux des services).
@@ -309,7 +310,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Catalogue en base de données**, avec une API et une interface d'administration réservées à un rôle « gestionnaire du catalogue » (autorité du référentiel), et l'historique de chaque modification.
 - **Assistant de branchement** qui propose les correspondances en rapprochant les noms de champs d'un registre de ceux du dictionnaire.
 - **Mode d'identification `correspondance`** : une table IUE / identifiant local (numéro d'acte, NIP, IFU), remplie au fil de l'enrôlement.
-- **File de tâches et interface des agents de guichet.**
+- **Demande de numérisation adressée directement** à l'administration qui détient l'acte, avec une file de tâches pour ses agents : le citoyen n'aurait plus aucune démarche à faire.
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, journal chaîné par empreintes pour prouver qu'aucune entrée n'a été modifiée, bases séparées par service, vrai fournisseur de SMS.
 - **Espace usager** : vue d'ensemble de ce que les registres savent du citoyen, documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
 
@@ -320,7 +321,7 @@ Mots de passe de démonstration uniquement.
 | Citoyen | IUE | Mot de passe | Rôle dans la démo |
 |---------|-----|--------------|-------------------|
 | Amadou OUEDRAOGO | `784302956148` | `Amadou2026!` | Majeur, citoyen principal |
-| Ibrahim OUEDRAOGO | `291047583620` | `Ibrahim2026!` | Père d'Amadou, tuteur d'Awa et de Moussa ; parents absents de l'état civil (démonstration du guichet) |
+| Ibrahim OUEDRAOGO | `291047583620` | `Ibrahim2026!` | Père d'Amadou, tuteur d'Awa et de Moussa ; actes de ses parents pas encore numérisés (donnée numérique manquante) |
 | Fatimata SAWADOGO | `638501274093` | `Fatimata2026!` | Mère d'Amadou |
 | Awa OUEDRAOGO | `456123789012` | aucun | Mineure (12 ans), compte géré par Ibrahim |
 | Moussa OUEDRAOGO | `527814903361` | aucun | Mineur (16 ans), transfert de compte recommandé |
@@ -338,6 +339,6 @@ Mots de passe de démonstration uniquement.
 | Tester un registre | `docker compose exec passerelle npm run tester-registre -- <registre> <iue>` |
 | État des registres | `curl http://localhost:3000/api/registres` |
 | Simuler une panne | `docker compose stop registre-justice`, puis `docker compose start registre-justice` |
-| Guichet (et remise à zéro) | `docker compose exec registre-etat-civil npm run guichet` (`-- --annuler`) |
+| Numériser les actes manquants (et remise à zéro) | `docker compose exec registre-etat-civil npm run numeriser-actes` (`-- --annuler`) |
 | Test d'interopérabilité complet | `node tests/interoperabilite/test-interop.js` (stack principale arrêtée) |
 | SMS simulés | `docker compose logs consentement espace-usager` |

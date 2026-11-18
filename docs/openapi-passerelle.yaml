@@ -536,7 +536,7 @@ paths:
           description: |
             TYPE_PIECE_INCONNU, ou PIECE_INDISPONIBLE : la pièce ou son titulaire est absent du
             registre (IUE mal formé compris, comme pour /interne/citoyens/{iue}). Le BFF
-            présente ce cas au citoyen comme une pièce à retirer au guichet.
+            présente ce cas au citoyen comme une pièce pas encore disponible en ligne.
           content:
             application/json:
               schema:

@@ -410,15 +410,17 @@ La passerelle :
 2. Détecte que le certificat nécessite 3 extraits de naissance
 3. Cherche les IUE des parents via les liens de filiation
 4. Interroge le registre état-civil pour chaque personne
-5. Si un parent n'est pas dans le système, ce prérequis passe au statut `fallback_physique`
+5. Si un parent n'est pas dans le registre numérique, ce prérequis passe au statut `fallback_physique`
 
-### Fallback physique
+### Donnée numérique manquante
 
-Si les parents d'un citoyen ne sont pas enregistrés dans le système (pas d'IUE) :
-- Le prérequis est marqué `manquant`
-- Le citoyen est invité à se rendre physiquement au guichet avec les documents de ses parents
-- L'agent vérifie les originaux et numérise les actes **dans le registre de l'état civil** (jamais dans la plateforme) ; démonstration : `docker compose exec registre-etat-civil npm run guichet`
-- La chaîne reprend automatiquement : le BFF relance toutes les 10 s les demandes `fallback_physique` et `en_cours` (en attente d'un registre) et notifie le citoyen quand elles se complètent
+Une pièce peut exister sur papier sans être encore dans le registre numérique (acte ancien jamais saisi, par exemple l'acte de naissance des parents d'un citoyen). C'est une **donnée numérique manquante** : la plateforme ne l'invente pas et ne la stocke pas à la place du registre.
+- Le prérequis est marqué `manquant` et la demande passe `fallback_physique` (nom technique conservé dans les contrats ; affiché « donnée à numériser »).
+- Le citoyen apprend quelle pièce manque, pour qui, et quelle administration la détient.
+- L'administration qui détient l'acte (pour l'état civil : le centre d'état civil) le **numérise dans son registre**, jamais dans la plateforme ; démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes`.
+- La chaîne reprend automatiquement : le BFF relance toutes les 10 s les demandes `fallback_physique` et `en_cours` (en attente d'un registre) et notifie le citoyen quand elles se complètent.
+
+Cas distinct : un registre sans IUE où la recherche par nom, prénom et date de naissance trouve **plusieurs** personnes (homonymes). La plateforme ne choisit jamais au hasard et la pièce n'est pas lue ; la levée de l'ambiguïté demande le mode d'identification `correspondance` (table IUE / identifiant local), qui n'est pas encore réalisé.
 
 ### Gestion du catalogue
 

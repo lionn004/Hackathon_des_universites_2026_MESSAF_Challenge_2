@@ -145,7 +145,7 @@ services:
       JOURNAL_URL: http://journal:3006/api
       CORS_ORIGINES: ${CORS_ORIGINES:-*}
       INTERFACE_TEST_ACTIVE: ${INTERFACE_TEST_ACTIVE:-true}
-      # Reprise automatique des demandes en attente d'un registre ou bloquées au guichet.
+      # Reprise automatique des demandes en attente d'un registre ou d'une donnée à numériser.
       REPRISE_INTERVALLE_MS: ${REPRISE_INTERVALLE_MS:-10000}
     ports:
       - "3000:3000"

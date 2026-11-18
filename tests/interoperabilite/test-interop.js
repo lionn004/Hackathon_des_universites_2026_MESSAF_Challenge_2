@@ -10,7 +10,7 @@
  *     (« majeur » calculé, recherche sans IUE, homonyme, source de secours, tester-registre) ;
  *   panne en direct : on coupe le casier puis l'état civil, la plateforme tient, rien ne se
  *     perd, et tout se complète seul au retour du registre ;
- *   guichet : l'agent numérise les actes manquants, la demande bloquée se complète seule ;
+ *   donnée numérique manquante : les actes sont numérisés, la demande bloquée se complète seule ;
  *   pannes et configuration : registre externe arrêté, URL mal saisie.
  *
  * Le branchement se fait comme le fera le jury : variables REGISTRE_*_URL de la
@@ -346,7 +346,7 @@ async function procedurePasseport(remplaces) {
     `Procédure 2 : justice lue dans ${externeJU ? 'le registre externe' : 'notre registre'}`,
     `casier_vierge = ${donnees.justice?.casier_vierge}`,
   );
-  // La mère d'Amadou est inconnue du registre externe : son extrait doit passer au guichet.
+  // La mère d'Amadou est inconnue du registre externe : son extrait est une donnée numérique manquante.
   const mere = cascade.find((p) => p.type_piece === 'extrait-naissance' && p.proprietaire === 'mere');
   const attendu = externeEC ? 'manquant_fallback_physique' : 'resolu';
   verifier(mere?.statut === attendu, `Procédure 2 : cascade, extrait de la mère « ${attendu} »`, `statut = ${mere?.statut}`);
@@ -716,20 +716,20 @@ async function panneEnDirect() {
   verifier(b2.body?.statut === 'en_attente_consentement', 'Retour de l\'état civil : la banque passe en attente du consentement', JSON.stringify(b2.body));
 }
 
-/** Guichet : l'agent numérise les actes des parents d'Ibrahim, la demande se complète seule. */
-async function guichet() {
+/** Donnée numérique manquante : les actes des parents d'Ibrahim sont numérisés, la demande se complète seule. */
+async function donneeManquante() {
   await brancher(new Set());
   const jeton = await connexion(IBRAHIM);
   const d = await appel('POST', `${BFF}/demandes`, { jeton, corps: { type_piece_id: 'casier-judiciaire' } });
-  verifier(d.body?.statut === 'fallback_physique', 'Guichet : la demande de casier d\'Ibrahim est bloquée (parents non enregistrés)', JSON.stringify(d.body));
-  const saisie = executer('registre-etat-civil', ['npm', 'run', '-s', 'guichet']);
-  verifier(saisie.code === 0, 'Guichet : l\'agent numérise les actes des parents dans le registre', saisie.sortie.slice(-300));
+  verifier(d.body?.statut === 'fallback_physique', 'Donnée manquante : la demande de casier d\'Ibrahim attend les actes de ses parents (non numérisés)', JSON.stringify(d.body));
+  const saisie = executer('registre-etat-civil', ['npm', 'run', '-s', 'numeriser-actes']);
+  verifier(saisie.code === 0, 'Donnée manquante : le centre d\'état civil numérise les actes des parents dans son registre', saisie.sortie.slice(-300));
   const finie = await attendreCondition(async () => (await appel('GET', `${BFF}/demandes/${d.body?.id}`, { jeton })).body?.statut === 'complete', 30000);
-  verifier(finie, 'Guichet : la demande se complète seule (reprise automatique)');
+  verifier(finie, 'Donnée manquante : la demande se complète seule (reprise automatique)');
   await pause(1000);
   verifier(/Votre demande « Casier judiciaire » est complète/.test(compose(['logs', '--no-log-prefix', 'espace-usager'], {}, true)),
-    'Guichet : le demandeur est notifié par SMS (simulé)');
-  executer('registre-etat-civil', ['npm', 'run', '-s', 'guichet', '--', '--annuler']);
+    'Donnée manquante : le demandeur est notifié par SMS (simulé)');
+  executer('registre-etat-civil', ['npm', 'run', '-s', 'numeriser-actes', '--', '--annuler']);
 }
 
 // Déroulé
@@ -766,7 +766,7 @@ async function main() {
         await inscriptionDirecte();
       }
     }
-    const speciaux = [['format différent', formatDifferent], ['panne en direct', panneEnDirect], ['guichet', guichet],
+    const speciaux = [['format différent', formatDifferent], ['panne en direct', panneEnDirect], ['donnée manquante', donneeManquante],
       ['pannes et configuration', pannes]];
     for (const [nom, scenario] of speciaux.filter(([n]) => retenu(n))) {
       scenarioCourant = nom;

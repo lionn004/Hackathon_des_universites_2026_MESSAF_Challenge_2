@@ -445,7 +445,7 @@ paths:
           in: query
           description: |
             Filtrer par statut. `fallback_physique` = une pièce de la cascade manque
-            dans les registres : le citoyen doit la présenter au guichet.
+            dans les registres numériques (donnée à numériser par l'administration qui la détient).
           schema:
             type: string
             enum: [en_cours, complete, echouee, fallback_physique]
@@ -717,14 +717,14 @@ paths:
           description: |
             PIECE_INDISPONIBLE : la demande n'est pas `complete` (ex : fallback_physique), ou la
             pièce est absente du registre aujourd'hui (ex : registre remplacé par celui d'une
-            autre équipe). Dans les deux cas, la pièce est à retirer au guichet.
+            autre équipe). Dans les deux cas, la pièce n'est pas lisible en ligne aujourd'hui.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erreur"
               example:
                 code: "PIECE_INDISPONIBLE"
-                message: "Cette pièce n'est pas disponible en ligne : elle est à retirer au guichet"
+                message: "Cette pièce n'est pas encore disponible : sa demande n'est pas terminée, ou elle n'est pas encore numérisée dans son registre"
         "502":
           description: "SERVICE_INDISPONIBLE ou SERVICE_EN_ERREUR : la passerelle ou un registre ne répond pas"
           content:
@@ -1394,8 +1394,8 @@ components:
           enum: [en_cours, complete, echouee, fallback_physique]
           description: |
             en_cours : un registre nécessaire est hors service ; la reprise automatique termine la
-            demande à son retour. fallback_physique : une pièce manque (guichet) ; la reprise
-            automatique la termine dès que la pièce est saisie dans son registre.
+            demande à son retour. fallback_physique : une donnée numérique manque (pièce à numériser) ; la reprise
+            automatique la termine dès que la pièce est numérisée dans son registre.
         pour_enfant:
           type: object
           nullable: true
@@ -1421,7 +1421,7 @@ components:
               statut:
                 type: string
                 enum: [resolu, en_cours, manquant]
-                description: "en_cours : registre hors service, vérification reprise automatiquement ; manquant : à présenter au guichet"
+                description: "en_cours : registre hors service, vérification reprise automatiquement ; manquant : donnée à numériser dans son registre"
               sous_prerequis:
                 type: array
                 items:

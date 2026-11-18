@@ -173,9 +173,10 @@ catalogue dit comment traduire l'IUE en identifiant local.
 | `recherche` | La passerelle lit nom, prénom et date de naissance à l'état civil (par l'IUE), cherche la personne dans le registre et en tire son identifiant local | Bases anciennes, sans lien |
 | `correspondance` | Une table IUE / identifiant local (numéro d'acte, NIP, IFU), tenue par le gestionnaire du registre IUE et remplie au fil de l'enrôlement | Perspective, si le temps le permet |
 
-**Règle de sûreté du mode `recherche`** : il faut exactement un résultat. Avec zéro ou plusieurs
-résultats (homonymes), la plateforme ne devine jamais : la pièce est traitée comme absente et part au
-guichet pour une vérification humaine (§ 9).
+**Règle de sûreté du mode `recherche`** : il faut exactement un résultat, la plateforme ne devine
+jamais. Avec zéro résultat, la personne n'est pas dans le registre numérique : c'est une donnée
+numérique manquante (§ 9). Avec plusieurs résultats (homonymes), la pièce n'est pas lue ; lever
+l'ambiguïté demande le mode `correspondance`, pas encore réalisé.
 
 ## 7. « Majeur : oui » : les données calculées
 
@@ -196,21 +197,22 @@ passerelle. Règles prévues : `age_au_moins` (âge révolu, en UTC) et `liste_v
 7. Données calculées (§ 7), puis minimisation : seules les données de la démarche restent.
 8. Consentement si l'administration est privée, entrée au journal, remise unique.
 
-## 9. Le guichet et la reprise automatique
+## 9. Donnée numérique manquante et reprise automatique
 
-Quand une pièce manque (parent jamais enregistré, homonymes), la demande passe au guichet :
+Une pièce peut exister sur papier sans être encore dans le registre numérique (acte ancien jamais
+saisi, par exemple l'acte de naissance d'un parent). C'est une **donnée numérique manquante** :
 
-1. La plateforme dit au citoyen quelle pièce manque et où se présenter.
-2. Le citoyen présente l'acte papier au guichet de son centre d'état civil.
-3. L'agent vérifie l'original et **numérise l'acte dans le registre de l'état civil** : la donnée va
-   là où elle doit vivre, jamais dans la plateforme.
-4. La **reprise automatique** relance régulièrement les demandes bloquées : la pièce existe
+1. La demande passe `fallback_physique` (nom technique conservé ; affiché « donnée à numériser »).
+   La plateforme dit au citoyen quelle pièce manque, pour qui, et quelle administration la détient.
+2. L'administration qui détient l'acte (pour l'état civil : le centre d'état civil) le **numérise
+   dans son registre** : la donnée va là où elle doit vivre, jamais dans la plateforme.
+3. La **reprise automatique** relance régulièrement les demandes bloquées : la pièce existe
    désormais, la cascade se résout, la demande devient complète et le citoyen est notifié.
 
-Le guichet n'est donc pas un logiciel de plus : c'est le moment où la donnée manquante entre dans son
-registre. Pour la démonstration, un script simule la saisie de l'agent dans notre registre d'état
-civil (actes des parents d'Ibrahim). Une file de tâches avec une interface pour les agents est une
-perspective.
+La plateforme ne remplace pas le registre : elle signale ce qui manque et reprend seule dès que la
+donnée existe. Pour la démonstration, un script simule la numérisation des actes des parents d'Ibrahim
+dans notre registre d'état civil (`npm run numeriser-actes`). Adresser directement la demande de
+numérisation à l'administration qui détient l'acte, sans démarche du citoyen, est une perspective.
 
 ## 10. Tenir quand un registre tombe
 
@@ -280,10 +282,16 @@ L'espace usager sert à une seule chose : **exercer ses droits sur ses données*
 | **Protéger ses enfants** | Tutelle : consentements et journal des enfants ; transfert du compte à 15 ans |
 | Compte | Inscription (rattachement automatique des enfants), connexion, récupération par SMS |
 
-Nouveau, et seulement ceci : les libellés du dictionnaire dans le journal, l'état des registres, le
-statut « en attente d'un registre » pour les demandes. Aucune autre fonctionnalité ni finition n'est
-ajoutée. « Demander une pièce pour la porter au guichet » n'est pas l'objectif : les pièces circulent
-entre administrations ; l'écran « Mes pièces » sert au droit d'accès et à suivre la cascade.
+Nouveau, et seulement ceci : les libellés du dictionnaire dans le journal, et pour une demande qui
+attend un registre le message « un registre est momentanément indisponible, votre demande reprendra
+automatiquement ». Aucune autre fonctionnalité ni finition n'est ajoutée. « Demander une pièce pour la
+porter à une administration » n'est pas l'objectif : les pièces circulent entre administrations ;
+l'écran « Mes pièces » sert au droit d'accès et à suivre la cascade.
+
+Le citoyen n'a pas besoin de l'état de tous les registres en temps réel : il a besoin de comprendre
+pourquoi **sa** demande attend. La page « État des registres » (`GET /registres`) sert à la
+supervision et à la démonstration : elle est placée dans l'interface de test, qui joue le rôle des
+administrations.
 
 ## 13. Changements des contrats
 
@@ -303,14 +311,15 @@ justice, entrée du journal de démo d'Awa (décideur = titulaire pour un accès
 - **Catalogue en base de données**, API d'administration et page web de branchement (option C).
 - **Assistant de branchement** : proposer les correspondances en rapprochant les noms de champs.
 - **Mode d'identification `correspondance`** (table IUE / identifiant local).
-- **File de tâches et interface des agents de guichet.**
+- **Demande de numérisation adressée directement** à l'administration qui détient l'acte, avec une
+  file de tâches pour ses agents.
 
 ## 15. Répartition
 
 | Qui | Travail |
 |-----|---------|
-| Backend (fait) | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue` et `recherche`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script du guichet ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
-| Frontend | Page « État des registres » (lecture seule) ; libellés du dictionnaire dans le journal ; statut « en attente d'un registre » dans Mes pièces et l'interface de test ; vérification et fusion de la PR #18 |
+| Backend (fait) | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue` et `recherche`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script de numérisation ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
+| Frontend (issue #24) | Statut « en attente d'un registre » dans Mes demandes et l'interface de test ; « donnée à numériser » à la place de « guichet » ; libellés du dictionnaire dans le journal et les consentements ; état des registres dans l'interface de test |
 
 ## 16. Démonstration de l'épreuve
 

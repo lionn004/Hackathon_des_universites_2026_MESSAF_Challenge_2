@@ -49,7 +49,7 @@ Arrêter : `docker compose down`. Repartir de zéro (efface la base) : `docker c
 | Citoyen | IUE | Mot de passe | Particularité |
 |---------|-----|--------------|---------------|
 | Amadou OUEDRAOGO | `784302956148` | `Amadou2026!` | Majeur, citoyen principal de la démo |
-| Ibrahim OUEDRAOGO | `291047583620` | `Ibrahim2026!` | Père d'Amadou, tuteur d'Awa et Moussa ; ses parents ne sont pas enregistrés (passage au guichet) |
+| Ibrahim OUEDRAOGO | `291047583620` | `Ibrahim2026!` | Père d'Amadou, tuteur d'Awa et Moussa ; les actes de ses parents ne sont pas encore numérisés (donnée numérique manquante) |
 | Fatimata SAWADOGO | `638501274093` | `Fatimata2026!` | Mère d'Amadou |
 | Awa OUEDRAOGO | `456123789012` | aucun | Mineure (12 ans), compte géré par Ibrahim |
 | Moussa OUEDRAOGO | `527814903361` | aucun | Mineur (16 ans), transfert de compte recommandé |
@@ -100,7 +100,7 @@ curl -X POST http://localhost:3000/api/test/requete \
   -d '{"administration_id":"00000000-0000-4000-8000-000000000002","iue_citoyen":"784302956148","demarche_id":"emission-passeport"}'
 ```
 
-La réponse contient l'état civil complet, les données de justice et la cascade : le casier judiciaire dépend du certificat de nationalité, qui dépend lui-même des extraits de naissance d'Amadou, de son père et de sa mère, tous `resolu`. Avec l'IUE d'Ibrahim (`291047583620`), les extraits de naissance de ses parents apparaissent en `manquant_fallback_physique` : il devra les présenter au guichet.
+La réponse contient l'état civil complet, les données de justice et la cascade : le casier judiciaire dépend du certificat de nationalité, qui dépend lui-même des extraits de naissance d'Amadou, de son père et de sa mère, tous `resolu`. Avec l'IUE d'Ibrahim (`291047583620`), les extraits de naissance de ses parents apparaissent en `manquant_fallback_physique` : ces actes existent sur papier mais ne sont pas encore dans le registre numérique.
 
 ### 3. Ouverture de compte bancaire (administration privée, consentement explicite)
 
@@ -249,16 +249,16 @@ Quand un registre ne fournit qu'une date de naissance, la passerelle calcule ell
 
 Pour le montrer en direct : `docker compose stop registre-justice`, une requête de la police (passeport) passe en attente pendant que l'université reste servie, puis `docker compose start registre-justice` et la police reçoit son dossier à la consultation suivante.
 
-### Le guichet
+### Donnée numérique manquante
 
-Quand une pièce manque (parents d'Ibrahim jamais enregistrés), la demande est bloquée au guichet. L'agent vérifie les actes papier et les numérise **dans le registre de l'état civil** : la reprise automatique complète alors la demande, et le citoyen est notifié. Démonstration :
+Une pièce peut exister sur papier sans être encore dans le registre numérique : les actes de naissance des parents d'Ibrahim n'ont jamais été saisis. La demande attend alors cette donnée (statut `fallback_physique`, affiché « donnée à numériser »). Le centre d'état civil qui détient les actes les numérise **dans le registre de l'état civil**, jamais dans la plateforme : la reprise automatique complète alors la demande, et le citoyen est notifié. Démonstration :
 
 ```bash
-docker compose exec registre-etat-civil npm run guichet              # l'agent saisit les actes des parents d'Ibrahim
-docker compose exec registre-etat-civil npm run guichet -- --annuler # remise à zéro de la démonstration
+docker compose exec registre-etat-civil npm run numeriser-actes              # le centre d'état civil numérise les actes des parents d'Ibrahim
+docker compose exec registre-etat-civil npm run numeriser-actes -- --annuler # remise à zéro de la démonstration
 ```
 
-Un redémarrage du registre de l'état civil remet aussi cette démonstration à zéro (son seed est relancé) : faire le guichet après une coupure de ce registre, pas avant.
+Un redémarrage du registre de l'état civil remet aussi cette démonstration à zéro (son seed est relancé) : faire la numérisation après une coupure de ce registre, pas avant.
 
 ### Test automatique
 
@@ -267,7 +267,7 @@ Un redémarrage du registre de l'état civil remet aussi cette démonstration à
 - branche ce registre à la place de l'état civil, de la justice, du fiscal, puis des trois, et rejoue les 3 procédures, les demandes de pièces et l'inscription ;
 - branche, par le seul catalogue ([tests/interoperabilite/config-format-different/](tests/interoperabilite/config-format-different/)), deux registres d'un autre format : un état civil sans `est_majeur` (la passerelle le calcule), et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi au hasard ; il teste la source de secours et la commande `tester-registre` ;
 - coupe le casier puis l'état civil en direct, vérifie que la plateforme tient, que rien ne se perd et que tout se complète au retour ;
-- joue le guichet et la reprise automatique ;
+- joue la numérisation d'une donnée manquante et la reprise automatique ;
 - vérifie partout qu'aucun champ hors dictionnaire ne sort de la plateforme.
 
 Option `--garder` pour laisser la stack de test en marche à la fin, `--sans-build` pour réutiliser les images.
@@ -362,7 +362,7 @@ Les valeurs par défaut conviennent pour la démonstration. Pour les modifier, c
 | `REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` | registres internes | Adresses de nos registres, lues par le catalogue des registres |
 | `CATALOGUE_DOSSIER` | `/app/config` | Dossier du dictionnaire et du catalogue des registres, dans le conteneur de la passerelle |
 | `SONDE_INTERVALLE_MS` | `5000` | Intervalle de la sonde de disponibilité des registres |
-| `REPRISE_INTERVALLE_MS` | `10000` | Intervalle de la reprise automatique des demandes en attente ou bloquées au guichet |
+| `REPRISE_INTERVALLE_MS` | `10000` | Intervalle de la reprise automatique des demandes en attente d'un registre ou d'une donnée à numériser |
 
 En production, changer `JWT_SECRET` et `CLE_SERVICE_INTERNE`, mettre l'adresse du frontend dans `CORS_ORIGINES`, passer `INTERFACE_TEST_ACTIVE=false` (l'interface de test peut se faire passer pour n'importe quelle administration), et ne publier que les ports de la passerelle et du BFF.
 
