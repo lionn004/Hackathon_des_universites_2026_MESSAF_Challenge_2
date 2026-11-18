@@ -60,7 +60,7 @@ async function stats(account) {
 }
 
 /**
- * GET /journal/verification — intégrité du journal (chaîne des empreintes), relayée telle
+ * GET /journal/verification : intégrité du journal (chaîne des empreintes), relayée telle
  * quelle : le service journal ne renvoie aucune donnée d'un autre citoyen.
  * @param {string} iue Citoyen connecté.
  * @returns {Promise<object>} VerificationJournal.

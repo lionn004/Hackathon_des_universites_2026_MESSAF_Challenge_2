@@ -1,5 +1,5 @@
 /**
- * Service Intégrité — chaînage du journal par empreintes (couche 4, journal de traçabilité).
+ * Service Intégrité : chaînage du journal par empreintes (couche 4, journal de traçabilité).
  *
  * Chaque entrée porte son rang dans la chaîne (1, 2, 3...), l'empreinte de l'entrée
  * précédente et sa propre empreinte : SHA-256 de son contenu, de son rang et de l'empreinte
@@ -83,7 +83,7 @@ function scellerEntreesAnterieures() {
 }
 
 /**
- * GET /journal/verification — recalcule toute la chaîne.
+ * GET /journal/verification : recalcule toute la chaîne.
  * Le résultat ne contient aucune donnée d'un autre citoyen : seulement le rang et la cause
  * de la première rupture, et si elle touche les entrées visibles par le citoyen connecté.
  *

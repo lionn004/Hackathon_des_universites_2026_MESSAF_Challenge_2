@@ -67,7 +67,7 @@ async function listJournal(req, res) {
   res.status(200).json(await journalService.list(req.citoyen.iue, req.query));
 }
 
-/** GET /api/journal/verification — le journal est-il intact (chaîne des empreintes) ? */
+/** GET /api/journal/verification : le journal est-il intact (chaîne des empreintes) ? */
 async function verifyJournal(req, res) {
   res.status(200).json(await journalService.verify(req.citoyen.iue));
 }
