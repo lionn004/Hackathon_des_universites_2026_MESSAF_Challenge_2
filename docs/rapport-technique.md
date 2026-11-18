@@ -17,7 +17,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
 
-Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, la panne en direct et la numérisation d'une donnée manquante : **367 vérifications réussies, 0 échec** au 18 novembre 2026.
+Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct et la numérisation d'une donnée manquante : **383 vérifications réussies, 0 échec** au 18 novembre 2026.
 
 ## 2. L'énoncé et ce que nous en avons retenu
 
@@ -300,7 +300,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
-Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **367 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
+Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **383 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
 
 ## 15. Conformité aux livrables
 
