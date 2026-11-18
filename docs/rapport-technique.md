@@ -1,7 +1,7 @@
 # Rapport technique : DLNUF (Dites-le-nous une fois)
 
 Hackathon des Universités 2026 (MTDPCE, Semaine du Numérique), challenge 02.
-Équipe MESSAF, 18 novembre 2026. Code source sous licence Apache 2.0.
+Équipe MESSAF : SANOU Tolo Thède Axel (backend), OUEDRAOGO Nebwaoga Lionnel (frontend). 18 novembre 2026. Code source sous licence Apache 2.0.
 
 ## 1. Résumé
 
@@ -284,7 +284,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 | 3 procédures de bout en bout | Université, passeport, banque | § 13, `README.md` |
 | Rapport technique | Ce document | `docs/rapport-technique.md` |
 | Vidéo de démonstration de 3 minutes | Déroulé du § 16 | à joindre |
-| Matrice de contribution | Par membre et par couche | à joindre |
+| Matrice de contribution | Par membre et par couche | `docs/matrice-contribution.md` |
 
 ## 16. Démonstration de l'épreuve
 
