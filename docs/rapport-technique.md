@@ -7,6 +7,8 @@ Hackathon des Universités 2026 (MTDPCE, Semaine du Numérique), challenge 02.
 
 DLNUF est un socle d'interopérabilité libre qui fait circuler les pièces entre administrations au lieu de faire circuler les citoyens entre les guichets. Une administration demande une démarche pour un citoyen, désigné par son IUE (identifiant unique électronique). La plateforme lit dans les registres uniquement les données utiles à cette démarche, applique les règles de consentement, inscrit l'accès au journal du citoyen et remet les données une seule fois, sans en garder de copie.
 
+**DLNUF** est ce socle : l'API centrale que les administrations appellent. **e-FASO** est le portail du citoyen, une application construite sur DLNUF ; d'autres (une application mobile, l'outil d'un ministère) peuvent s'y brancher de la même façon.
+
 Trois réponses à l'épreuve en direct structurent la solution :
 
 - **Ne transmettre que l'utile.** Chaque démarche déclare ses données ; tout le reste est filtré. La plateforme calcule elle-même les données dérivées : l'université reçoit « majeur : oui », jamais la date de naissance.
@@ -60,10 +62,10 @@ Administration (API REST, jeton)
 | Couche | Service | Port | Rôle |
 |--------|---------|------|------|
 | 1. Registres | `registre-etat-civil`, `registre-justice`, `registre-fiscal` | 3001 à 3003 | Registres simulés (naissance, filiation, nationalité, casier, situation fiscale), exposés en JSON. Implémentation de référence du format recommandé. |
-| 2. Passerelle | `passerelle` | 3004 | Point d'entrée des administrations. Droits et cloisonnement, résolution des cascades, lecture et traduction des registres, données calculées, consentement, journal, remise unique, tenue en panne. |
+| 2. Passerelle | `passerelle` | 3004 | API centrale de DLNUF, point d'entrée des administrations. Droits et cloisonnement, résolution des cascades, lecture et traduction des registres, données calculées, consentement, journal, remise unique, tenue en panne. |
 | 3. Consentement et minimisation | `consentement` | 3005 | Règles « données autorisées par démarche », demandes de consentement, rappels SMS à 24 h et 72 h, expiration à 30 jours. |
 | 4. Journal | `journal` | 3006 | Traçabilité de chaque accès, en ajout seul. |
-| 5. Espace usager | `espace-usager` (BFF) et `frontend` | 3000 et 3020 | Portail du citoyen : journal, consentements, pièces, enfants, compte. |
+| 5. Espace usager | `espace-usager` (BFF) et `frontend` | 3000 et 3020 | e-FASO, le portail du citoyen : journal, consentements, pièces, enfants, compte. |
 | Documentation | `documentation` (Swagger UI) | 3010 | Les sept contrats OpenAPI, lus directement depuis `docs/`. |
 
 ### 4.2 Choix techniques

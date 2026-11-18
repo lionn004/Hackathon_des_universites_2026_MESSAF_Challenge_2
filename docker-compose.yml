@@ -181,7 +181,7 @@ services:
       URLS: >-
         [
           {"url": "contrats/openapi-espace-usager.yaml", "name": "Espace usager BFF (port 3000)"},
-          {"url": "contrats/openapi-passerelle.yaml", "name": "Passerelle (port 3004)"},
+          {"url": "contrats/openapi-passerelle.yaml", "name": "Passerelle DLNUF (port 3004)"},
           {"url": "contrats/openapi-consentement.yaml", "name": "Consentement & minimisation (port 3005)"},
           {"url": "contrats/openapi-journal.yaml", "name": "Journal (port 3006)"},
           {"url": "contrats/openapi-registre-etat-civil.yaml", "name": "Registre état-civil (port 3001)"},
