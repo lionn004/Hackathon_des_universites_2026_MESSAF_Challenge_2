@@ -51,10 +51,14 @@ model JournalAcces {
   // empreinte de celle-ci (son contenu + son rang + l'empreinte précédente). Modifier ou
   // supprimer une entrée, même directement en base, rompt la chaîne. Facultatifs
   // seulement pour les entrées antérieures au chaînage, scellées au démarrage du service.
-  rang                 Int?    @unique
+  // Index simple, pas de contrainte d'unicité : la mise à jour d'une base existante (prisma
+  // db push) reste sans risque ; l'unicité vient du verrou d'écriture, et la vérification
+  // signale de toute façon un rang en double ou manquant.
+  rang                 Int?
   empreinte_precedente String? @db.Char(64)
   empreinte            String? @db.Char(64)
 
+  @@index([rang])
   @@index([titulaire_iue, date_acces])
   @@index([decideur_iue, date_acces])
 }
