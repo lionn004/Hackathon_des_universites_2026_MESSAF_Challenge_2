@@ -215,6 +215,8 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 
 **Contournement immédiat.** Un registre `hors_service` n'est plus appelé : les requêtes suivantes sont traitées sans attendre de délai. Si une **source de secours** (réplique tenue par la même autorité, § 5.2) est déclarée pour l'opération, elle prend le relais : c'est une bascule, pas une répartition de charge.
 
+**Une panne ne doit pas en cacher une autre.** Le test nous a montré un piège : quand un registre est arrêté, la résolution de son nom met plusieurs secondes à échouer, et Node résout les noms sur un pool de 4 threads par défaut. Quelques sondes vers le registre en panne suffisaient à retarder la résolution des registres sains au-delà de leur délai : l'état civil paraissait en panne pendant la coupure du casier. Le pool de la passerelle est élargi (`UV_THREADPOOL_SIZE`), et le test le vérifie en coupant un registre pendant qu'on lit tous les autres.
+
 **Ce qui ne dépend pas du registre continue.** Si le casier tombe, l'université (qui ne lit que l'état civil) reste servie. L'espace usager reste utilisable : connexion, journal, consentements, tableau de bord.
 
 **Ce qui en dépend attend, sans rien perdre.** La règle est « tout ou rien » : une requête qui a besoin d'un registre en panne ne reçoit pas de dossier partiel. Elle passe `en_attente_registre` (réponse `202`, avec la liste des registres attendus). Rien n'est transmis, rien n'est copié, rien n'est inscrit au journal. Au retour du registre, la consultation suivante de `GET /requetes/{id}` reprend là où la requête s'était arrêtée, sans que l'administration refasse sa demande.
