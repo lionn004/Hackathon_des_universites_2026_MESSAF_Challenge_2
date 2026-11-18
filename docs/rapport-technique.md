@@ -283,7 +283,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 | Spécifications OpenAPI pour chaque couche | 7 contrats OpenAPI 3.0, validés, affichés par Swagger UI | `docs/openapi-*.yaml`, http://localhost:3010 |
 | 3 procédures de bout en bout | Université, passeport, banque | § 13, `README.md` |
 | Rapport technique | Ce document | `docs/rapport-technique.md` |
-| Vidéo de démonstration de 3 minutes | Déroulé du § 16 | à joindre |
+| Vidéo de démonstration de 3 minutes | Réalisée par OUEDRAOGO Nebwaoga Lionnel, sur le script `docs/script-video.md` | à joindre |
 | Matrice de contribution | Par membre et par couche | `docs/matrice-contribution.md` |
 
 ## 16. Démonstration de l'épreuve

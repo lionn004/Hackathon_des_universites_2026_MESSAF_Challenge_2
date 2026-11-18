@@ -5,7 +5,7 @@ DLNUF (Dites-le-nous une fois), Hackathon des Universités 2026, challenge 02. �
 | Membre | Rôle principal |
 |--------|----------------|
 | **SANOU Tolo Thède Axel** | Backend : registres, passerelle, consentement, journal, BFF, déploiement, tests, rapport technique |
-| **OUEDRAOGO Nebwaoga Lionnel** | Frontend : espace usager et interface de test ; premières versions des contrats OpenAPI |
+| **OUEDRAOGO Nebwaoga Lionnel** | Frontend : espace usager et interface de test ; premières versions des contrats OpenAPI ; vidéo de démonstration |
 
 Légende : **R** = responsable (conçoit et réalise), **C** = contribue.
 
@@ -33,7 +33,7 @@ Légende : **R** = responsable (conçoit et réalise), **C** = contribue.
 | Spécifications OpenAPI de chaque couche | **R** (compléments, validation) | **R** (premières versions) |
 | 3 procédures de bout en bout | **R** (traitement côté plateforme) | **R** (parcours dans l'espace usager et l'interface de test) |
 | Rapport technique | **R** | non concerné |
-| Vidéo de démonstration | à compléter | à compléter |
+| Vidéo de démonstration | **C** (script) | **R** (enregistrement et montage) |
 | Matrice de contribution | **R** | non concerné |
 
 ## 3. Indicateur tiré de l'historique git

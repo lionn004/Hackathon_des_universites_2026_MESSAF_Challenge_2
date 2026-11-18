@@ -1,6 +1,7 @@
 # Script de la vidéo de démonstration (3 minutes)
 
 DLNUF (Dites-le-nous une fois), Hackathon des Universités 2026, challenge 02. Équipe MESSAF.
+Réalisation (enregistrement et montage) : OUEDRAOGO Nebwaoga Lionnel. Script : SANOU Tolo Thède Axel.
 
 Fil conducteur : les trois points de l'épreuve en direct (ne transmettre que l'utile, montrer à l'usager qui a consulté ses données, tenir quand un registre tombe), puis le branchement des registres et le bien commun. Environ 380 mots de voix off, soit 2 minutes 40 à un débit posé : le reste laisse le temps des attentes à l'écran (panne et retour du registre).
 
