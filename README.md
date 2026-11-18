@@ -6,6 +6,19 @@ Projet réalisé pour le Hackathon des Universités 2026 (MTDPCE, Semaine du Num
 
 ---
 
+## Pour le jury : évaluer en 10 minutes
+
+1. **Démarrer** : `docker compose up -d --build` (une seule commande), puis ouvrir l'espace usager http://localhost:3020, l'interface de test des administrations http://localhost:3020/pages/test.html et la documentation des API http://localhost:3010.
+2. **Ne transmettre que l'utile (« majeur : oui »)** : dans l'interface de test, choisir « Université Joseph KI-ZERBO », « Inscription universitaire » et l'IUE d'Amadou (`784302956148`). L'université reçoit seulement `est_majeur: true` et la nationalité, jamais la date de naissance.
+3. **Montrer à l'usager qui a consulté ses données** : se connecter avec Amadou (`784302956148` / `Amadou2026!`), ouvrir « Journal d'accès » : administration, démarche, données transmises, date, accès direct ou par consentement. Pour le consentement : même interface de test avec « Banque Atlantique », puis « Consentements » côté Amadou.
+4. **Tenir quand un registre tombe** : `docker compose stop registre-justice`. En quelques secondes, l'état des registres de l'interface de test le montre hors service ; l'université reste servie ; la police (« Émission de passeport ») est mise en attente, sans rien recevoir. `docker compose start registre-justice` : au retour, « Vérifier le statut » de la police donne le dossier complet, sans nouvelle demande.
+5. **Brancher vos registres** : un registre se branche par configuration, sans code. Procédure pas à pas : [docs/brancher-un-registre.md](docs/brancher-un-registre.md).
+6. **Tout rejouer automatiquement** : `node tests/interoperabilite/test-interop.js` (stack principale arrêtée) : procédures, remplacement des registres, registres d'un autre format, panne en direct, donnée numérique manquante.
+
+Livrables : [rapport technique](docs/rapport-technique.md), [matrice de contribution](docs/matrice-contribution.md), [contrats OpenAPI](docs/) (affichés sur http://localhost:3010), licence [Apache 2.0](LICENSE).
+
+---
+
 ## Démarrage rapide
 
 **Prérequis** : [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ou Docker Engine avec Docker Compose v2). Rien d'autre à installer.
@@ -14,7 +27,7 @@ Projet réalisé pour le Hackathon des Universités 2026 (MTDPCE, Semaine du Num
 docker compose up -d --build
 ```
 
-Cette commande unique construit et démarre PostgreSQL et les 8 services. Chaque service crée ses tables et charge ses données de démonstration au démarrage. Le premier lancement prend quelques minutes (téléchargement des dépendances).
+Cette commande unique construit et démarre PostgreSQL et les 9 services (3 registres, passerelle, consentement, journal, espace usager, site web, documentation). Chaque service crée ses tables et charge ses données de démonstration au démarrage. Le premier lancement prend quelques minutes (téléchargement des dépendances).
 
 Vérifier que tout tourne :
 
@@ -217,7 +230,7 @@ La passerelle n'a aucun registre écrit en dur. Elle lit deux fichiers, montés 
 - [backend/passerelle/config/dictionnaire.yaml](backend/passerelle/config/dictionnaire.yaml) : le **dictionnaire des données**, langue commune de la plateforme (nom, type, libellé montré au citoyen, sensibilité, données calculées comme `est_majeur`) ;
 - [backend/passerelle/config/catalogue-registres.yaml](backend/passerelle/config/catalogue-registres.yaml) : le **catalogue des registres** (adresse, routes, identification de la personne, correspondances entre les champs du registre et le dictionnaire, sources de secours).
 
-Pour brancher un registre, par exemple celui du jury :
+Pour brancher un registre, par exemple celui du jury (procédure détaillée, avec les cas particuliers et le retour en arrière : [docs/brancher-un-registre.md](docs/brancher-un-registre.md)) :
 
 1. Le déclarer dans le catalogue : adresse, routes, mode d'identification (`iue`, ou `recherche` par nom, prénom et date de naissance pour une base qui ne connaît pas encore l'IUE), et correspondances de ses champs (conversions de dates `JJ/MM/AAAA`, de booléens `oui/non`, de codes).
 
