@@ -12,6 +12,13 @@
  *
  * Règle de sûreté : AUCUNE donnée ne sort sans entrée au journal. Si le journal
  * est injoignable, la requête échoue (502) et rien n'est transmis.
+ *
+ * Remise unique, aucune copie : la passerelle ne conserve jamais les données
+ * qu'elle transmet. Elles sont lues dans les registres au moment de la remise,
+ * remises une seule fois (réponse 200 du POST pour une administration publique,
+ * premier GET /requetes/{id} après l'acceptation pour une privée), puis seule la
+ * trace reste, au journal. L'administration garde ce qu'elle a reçu ; pour l'obtenir
+ * de nouveau, elle soumet une nouvelle requête (nouveau consentement si elle est privée).
  */
 const { randomUUID } = require('node:crypto');
 const requeteModel = require('../models/requete.model');
@@ -143,13 +150,13 @@ async function submit(administrationId, body) {
     typeAcces: 'direct',
   });
   const now = new Date();
+  // Remise unique : les données partent dans cette réponse et ne sont pas enregistrées.
   await requeteModel.create({
     id: requeteId,
     administration_id: admin.id,
     iue_citoyen: iue,
     demarche_id: demarche.id,
     statut: 'complete',
-    donnees: collected.donnees,
     cascade,
     date_creation: now,
     date_reponse: now,
@@ -182,26 +189,78 @@ async function getOwnRequete(administrationId, id) {
 }
 
 /**
+ * Remise unique des données d'une requête dont le consentement est accepté.
+ *
+ * Ordre imposé :
+ *  1. lecture des registres, limitée aux champs ACCEPTÉS : rien ne sort encore ;
+ *  2. passage atomique de « consentement_accepte » à « complete » : si deux
+ *     consultations arrivent en même temps, une seule gagne et remet les données ;
+ *  3. entrée au journal (décideur = qui a répondu, ex : le tuteur). Si le journal
+ *     échoue, la requête revient à « consentement_accepte » pour un nouvel essai et
+ *     rien n'est remis : aucune donnée ne sort sans trace.
+ * Les données ne sont jamais enregistrées dans la passerelle.
+ *
+ * @param {string} requeteId
+ * @param {object} admin Administration demandeuse.
+ * @param {object} demarche Démarche de la requête.
+ * @param {object} consent Consentement accepté (champs acceptés, décideur).
+ * @returns {Promise<{requete: object, donnees: object|null}>} donnees non nul seulement
+ *          pour la consultation qui effectue la remise.
+ * @throws {AppError} 502 si un registre ou le journal est injoignable.
+ */
+async function deliverOnce(requeteId, admin, demarche, consent) {
+  const current = await requeteModel.findById(requeteId);
+  if (current.statut !== 'consentement_accepte') return { requete: current, donnees: null };
+
+  const { cascade, collected } = await gatherData(demarche, current.iue_citoyen, consent.champs_demandes);
+  const won = await requeteModel.updateIfStatus(requeteId, 'consentement_accepte', { statut: 'complete', cascade });
+  if (!won) return { requete: await requeteModel.findById(requeteId), donnees: null };
+
+  try {
+    await recordAccess({
+      requeteId,
+      iue: current.iue_citoyen,
+      decideurIue: consent.decideur_iue || current.iue_citoyen,
+      admin,
+      demarche,
+      registres: collected.registres_consultes,
+      champs: collected.champs_transmis,
+      typeAcces: 'consentement',
+    });
+  } catch (err) {
+    await requeteModel.updateIfStatus(requeteId, 'complete', { statut: 'consentement_accepte' });
+    throw err;
+  }
+  return { requete: await requeteModel.findById(requeteId), donnees: collected.donnees };
+}
+
+/**
  * Met la requête à jour d'après la réponse du citoyen au consentement.
  *
- *  - en attente → rien ne change ;
- *  - expiré → statut « expire », rien n'est transmis ;
- *  - refusé → statut « consentement_refuse » + entrée de journal (refus tracé, aucun champ) ;
- *  - accepté → collecte limitée aux champs ACCEPTÉS, journal (décideur = qui a
- *    répondu, ex : le tuteur), puis statut « complete » avec les données.
+ *  - en attente : rien ne change ;
+ *  - expiré : statut « expire », rien n'est transmis ;
+ *  - refusé : statut « consentement_refuse » et entrée de journal (refus tracé, aucun champ) ;
+ *  - accepté : statut « consentement_accepte », puis, si `deliver` est vrai,
+ *    remise unique des données (voir deliverOnce).
  *
  * @param {object} requete Requête en attente ou acceptée.
- * @returns {Promise<object>} Requête à jour.
+ * @param {{deliver: boolean}} options deliver : vrai pour remettre les données dans cet
+ *        appel (GET /requetes/{id}) ; faux pour mettre seulement le statut à jour (relance
+ *        par téléphone), sinon la remise unique serait consommée sans que personne la reçoive.
+ * @returns {Promise<{requete: object, donnees: object|null}>} Requête à jour, et les données
+ *          seulement si cet appel les remet.
  */
-async function syncWithConsent(requete) {
+async function syncWithConsent(requete, { deliver }) {
   const consent = await consentementClient.getConsent(requete.consentement_id);
   const answeredAt = consent.date_reponse ? new Date(consent.date_reponse) : new Date();
+  /** Relit la requête, sans remise de données. */
+  const reload = async () => ({ requete: await requeteModel.findById(requete.id), donnees: null });
 
-  if (consent.statut === 'en_attente') return requete;
+  if (consent.statut === 'en_attente') return { requete, donnees: null };
 
   if (consent.statut === 'expire') {
     await requeteModel.updateIfStatus(requete.id, 'en_attente_consentement', { statut: 'expire' });
-    return requeteModel.findById(requete.id);
+    return reload();
   }
 
   const admin = await droitsService.getAdministration(requete.administration_id);
@@ -223,33 +282,26 @@ async function syncWithConsent(requete) {
         typeAcces: 'consentement',
       });
     }
-    return requeteModel.findById(requete.id);
+    return reload();
   }
 
-  // Accepté. Une seule consultation « gagne » le passage en consentement_accepte.
-  // Si une tentative précédente a échoué après ce passage (ex : registre en panne),
-  // la requête est restée en consentement_accepte et on retente la collecte.
-  const won = await requeteModel.updateIfStatus(requete.id, 'en_attente_consentement', {
+  // Accepté. Si une tentative précédente a échoué après ce passage (ex : registre en
+  // panne), la requête est restée en consentement_accepte et deliverOnce retente.
+  await requeteModel.updateIfStatus(requete.id, 'en_attente_consentement', {
     statut: 'consentement_accepte', date_reponse: answeredAt,
   });
-  if (!won && requete.statut !== 'consentement_accepte') return requeteModel.findById(requete.id);
-
-  const { cascade, collected } = await gatherData(demarche, requete.iue_citoyen, consent.champs_demandes);
-  await recordAccess({
-    requeteId: requete.id,
-    iue: requete.iue_citoyen,
-    decideurIue: consent.decideur_iue || requete.iue_citoyen,
-    admin,
-    demarche,
-    registres: collected.registres_consultes,
-    champs: collected.champs_transmis,
-    typeAcces: 'consentement',
-  });
-  return requeteModel.update(requete.id, { statut: 'complete', donnees: collected.donnees, cascade });
+  if (!deliver) return reload();
+  return deliverOnce(requete.id, admin, demarche, consent);
 }
 
 /**
- * GET /requetes/{id} — statut d'une requête (et données si complète).
+ * GET /requetes/{id} : statut d'une requête.
+ *
+ * `donnees` n'est rempli que par la consultation qui remet les données (la première
+ * après l'acceptation du consentement). Ensuite, et pour une requête publique dont les
+ * données sont parties dans la réponse du POST, il vaut null : la passerelle n'en garde
+ * pas de copie.
+ *
  * @param {string} administrationId UUID issu du jeton.
  * @param {string} id UUID de la requête.
  * @returns {Promise<object>} RequeteStatut.
@@ -257,13 +309,14 @@ async function syncWithConsent(requete) {
  */
 async function getStatus(administrationId, id) {
   let requete = await getOwnRequete(administrationId, id);
+  let donnees = null;
   if (['en_attente_consentement', 'consentement_accepte'].includes(requete.statut)) {
-    requete = await syncWithConsent(requete);
+    ({ requete, donnees } = await syncWithConsent(requete, { deliver: true }));
   }
   return {
     requete_id: requete.id,
     statut: requete.statut,
-    donnees: requete.statut === 'complete' ? requete.donnees : null,
+    donnees,
     date_creation: requete.date_creation.toISOString(),
     date_expiration: requete.date_expiration ? requete.date_expiration.toISOString() : null,
     date_reponse: requete.date_reponse ? requete.date_reponse.toISOString() : null,
@@ -282,11 +335,25 @@ async function getStatus(administrationId, id) {
  */
 async function getPhone(administrationId, id) {
   let requete = await getOwnRequete(administrationId, id);
-  if (requete.statut === 'en_attente_consentement') requete = await syncWithConsent(requete);
+  if (requete.statut === 'en_attente_consentement') {
+    ({ requete } = await syncWithConsent(requete, { deliver: false }));
+  }
   if (requete.statut !== 'en_attente_consentement') {
     throw new AppError(400, 'RELANCE_IMPOSSIBLE', `La requête n'est plus en attente de consentement (${requete.statut})`);
   }
   return { telephone: await bffClient.getPhone(requete.iue_citoyen) };
 }
 
-module.exports = { submit, getStatus, getPhone };
+/**
+ * Efface les données que la passerelle conservait avant la remise unique.
+ * Appelée au démarrage : une base créée par une version précédente ne garde ainsi
+ * aucune copie des données transmises.
+ * @returns {Promise<number>} Nombre de requêtes nettoyées.
+ */
+function forgetStoredData() {
+  return requeteModel.clearStoredData();
+}
+
+module.exports = {
+  submit, getStatus, getPhone, forgetStoredData,
+};

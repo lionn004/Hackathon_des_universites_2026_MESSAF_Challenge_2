@@ -176,7 +176,16 @@ paths:
     get:
       tags: [Requêtes]
       summary: Consulter le statut d'une requête
-      description: Permet à l'administration de vérifier si le consentement a été donné.
+      description: |
+        Permet à l'administration de vérifier si le consentement a été donné.
+
+        Remise unique : la passerelle ne garde aucune copie des données transmises.
+        Pour une administration privée, les données sont lues dans les registres et
+        remises par la première consultation qui suit l'acceptation du citoyen ; les
+        consultations suivantes renvoient `statut = complete` avec `donnees = null`.
+        Pour une administration publique, les données ont été remises dans la réponse
+        200 de POST /requetes. L'administration conserve ce qu'elle a reçu ; pour
+        l'obtenir de nouveau, elle soumet une nouvelle requête.
       security:
         - BearerAuth: []
       parameters:
@@ -748,7 +757,7 @@ components:
         donnees:
           type: object
           nullable: true
-          description: Présent uniquement si statut = complete
+          description: "Rempli uniquement dans la réponse qui remet les données (première consultation après l'acceptation) ; null ensuite, la passerelle n'en garde pas de copie"
         date_creation:
           type: string
           format: date-time

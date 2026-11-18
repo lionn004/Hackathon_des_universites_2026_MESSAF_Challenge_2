@@ -906,6 +906,8 @@ paths:
       description: |
         Consulte le statut d'une requête faite via POST /test/requete, au nom de la même
         administration (ex : voir les données arriver après l'acceptation du citoyen).
+        Remise unique (comme GET /requetes/{id} de la passerelle) : les données ne sont
+        renvoyées que par la première consultation après l'acceptation, puis `donnees` vaut null.
       parameters:
         - name: id
           in: path

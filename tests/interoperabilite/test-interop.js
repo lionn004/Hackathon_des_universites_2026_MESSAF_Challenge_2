@@ -26,6 +26,7 @@
  * Code de sortie : 1 s'il y a au moins un ECHEC.
  */
 const { execFileSync } = require('node:child_process');
+const crypto = require('node:crypto');
 const path = require('node:path');
 
 // Docker échoue sous Windows si la lettre de lecteur du dossier courant est en minuscule.
@@ -38,6 +39,7 @@ const SANS_BUILD = process.argv.includes('--sans-build');
 const BFF = 'http://localhost:3000/api';
 const PASSERELLE = 'http://localhost:3004/api';
 const CLE_SERVICE = process.env.CLE_SERVICE_INTERNE || 'dlnuf-cle-interne-a-changer';
+const JWT_SECRET = process.env.JWT_SECRET || 'dlnuf-dev-secret-a-changer';
 
 /** Variable d'environnement de la passerelle pour chaque registre. */
 const VARIABLES = { 'etat-civil': 'REGISTRE_ETAT_CIVIL_URL', justice: 'REGISTRE_JUSTICE_URL', fiscal: 'REGISTRE_FISCAL_URL' };
@@ -259,6 +261,26 @@ function requeteAdmin(administrationId, iue, demarcheId) {
 }
 
 /**
+ * Jeton d'administration HS256 (même format que `npm run jeton:admin` de la passerelle),
+ * pour appeler directement les routes de la passerelle que l'interface de test ne relaie pas.
+ * @param {string} administrationId
+ * @returns {string}
+ */
+function jetonAdmin(administrationId) {
+  const b64 = (objet) => Buffer.from(JSON.stringify(objet)).toString('base64url');
+  const corps = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ administration_id: administrationId, iat: Math.floor(Date.now() / 1000) })}`;
+  return `${corps}.${crypto.createHmac('sha256', JWT_SECRET).update(corps).digest('base64url')}`;
+}
+
+/**
+ * Suivi d'une requête par l'administration, via l'interface de test du BFF.
+ * @returns {Promise<{status: number, body: any}>}
+ */
+function suiviRequete(requeteId, administrationId) {
+  return appel('GET', `${BFF}/test/requetes/${requeteId}?administration_id=${administrationId}`);
+}
+
+/**
  * Connexion d'un citoyen à l'espace usager.
  * @returns {Promise<string|null>} Jeton, ou null si la connexion échoue.
  */
@@ -275,6 +297,14 @@ async function procedureUniversite() {
   if (!verifier(r.status === 200, 'Procédure 1 (université) : accès direct, HTTP 200', resume(r))) return;
   verifierCles(r.body.donnees?.['etat-civil'], ['est_majeur', 'nationalite'], 'Procédure 1 : seuls est_majeur et nationalite sont transmis');
   sansFuite(r.body, 'Procédure 1 : aucun champ hors contrat transmis');
+
+  // Remise unique : les données sont parties dans la réponse du POST, la passerelle n'en garde pas de copie.
+  const relecture = await suiviRequete(r.body.requete_id, ADMIN.universite);
+  verifier(
+    relecture.body?.statut === 'complete' && relecture.body?.donnees === null,
+    'Procédure 1 : aucune copie gardée (relecture : complete, donnees null)',
+    `${resume(relecture)} statut=${relecture.body?.statut} donnees=${JSON.stringify(relecture.body?.donnees)}`,
+  );
 }
 
 /** Procédure 2 : passeport (publique, cascade). */
@@ -315,8 +345,26 @@ async function procedureBanque(remplaces) {
   const decision = await appel('PUT', `${BFF}/consentements/${r.body.consentement_id}`, { jeton, corps: { decision: 'accepte' } });
   if (!verifier(decision.status === 200, 'Procédure 3 : Amadou accepte le consentement', resume(decision))) return;
 
-  const suivi = await appel('GET', `${BFF}/test/requetes/${r.body.requete_id}?administration_id=${ADMIN.banque}`);
+  // La relance par téléphone met le statut à jour sans consommer la remise unique.
+  const relance = await appel('GET', `${PASSERELLE}/requetes/${r.body.requete_id}/telephone`, {
+    jeton: jetonAdmin(ADMIN.banque),
+  });
+  verifier(
+    relance.status === 400 && relance.body?.code === 'RELANCE_IMPOSSIBLE',
+    'Procédure 3 : relance par téléphone refusée une fois le consentement donné',
+    resume(relance),
+  );
+
+  const suivi = await suiviRequete(r.body.requete_id, ADMIN.banque);
   if (!verifier(suivi.body?.statut === 'complete', 'Procédure 3 : requête complète après acceptation', resume(suivi) + ` statut=${suivi.body?.statut}`)) return;
+  verifier(!!suivi.body.donnees, 'Procédure 3 : données remises à la première consultation (après la relance)', JSON.stringify(suivi.body));
+
+  const relecture = await suiviRequete(r.body.requete_id, ADMIN.banque);
+  verifier(
+    relecture.body?.statut === 'complete' && relecture.body?.donnees === null,
+    'Procédure 3 : remise unique, aucune copie gardée (2e consultation : donnees null)',
+    `${resume(relecture)} donnees=${JSON.stringify(relecture.body?.donnees)}`,
+  );
   verifierCles(suivi.body.donnees?.['etat-civil'], ['nom', 'prenom', 'nationalite'], 'Procédure 3 : champs état civil acceptés seulement');
   verifierCles(suivi.body.donnees?.fiscal, ['en_regle'], 'Procédure 3 : champ fiscal accepté seulement');
   sansFuite(suivi.body, 'Procédure 3 : aucun champ hors contrat transmis');
