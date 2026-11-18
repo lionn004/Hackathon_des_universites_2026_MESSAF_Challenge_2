@@ -215,7 +215,7 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 - **Ajout seul.** Le service journal n'a qu'une route d'écriture (`POST /journal/enregistrer`, appelée par la passerelle) : aucune entrée n'est modifiée ni supprimée. Il conserve une photo figée des noms (administration, démarche), pour que le journal reste lisible même si le catalogue change.
 - **Chaîné par empreintes.** L'ajout seul de l'API ne protège pas contre quelqu'un qui accède directement à la base. Chaque entrée porte donc son rang, l'empreinte de l'entrée précédente et la sienne (SHA-256 de son contenu, de son rang et de l'empreinte précédente). Modifier une entrée change son empreinte ; en supprimer une laisse un rang manquant. Les écritures passent sous un verrou PostgreSQL, pour que deux accès simultanés ne forment jamais deux branches. `GET /api/journal/verification` recalcule toute la chaîne et dit si le journal est intact, sinon où se trouve la première rupture et si elle touche les données du citoyen, sans rien révéler des autres. Elle renvoie aussi la dernière empreinte : conservée ailleurs (ancre), elle permet de détecter même une réécriture complète de la fin de la chaîne.
 - **Double traçabilité.** Chaque entrée porte le **titulaire** des données et le **décideur**. Pour un mineur dont le tuteur a répondu au consentement, le titulaire est l'enfant et le décideur le tuteur.
-- **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Chaque entrée porte la base légale de l'accès (§ 7), figée au moment de l'accès et scellée dans l'empreinte. Le journal et les consentements affichent le libellé de chaque donnée, tiré du dictionnaire (`GET /api/dictionnaire`) : « Majeur » plutôt que `est_majeur`.
+- **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Chaque entrée porte la base légale de l'accès (§ 7), figée au moment de l'accès et scellée dans l'empreinte. La page Journal recalcule la chaîne à chaque affichage : badge « Journal intact », ou alerte si une entrée a été modifiée ou supprimée, en précisant si elle concerne ses données. Le journal et les consentements affichent le libellé de chaque donnée, tiré du dictionnaire (`GET /api/dictionnaire`) : « Majeur » plutôt que `est_majeur`.
 - **Pas de trace, pas de données.** Si le journal est indisponible, la passerelle ne transmet rien.
 
 ## 9. Tenir quand un registre tombe
@@ -270,8 +270,8 @@ L'espace usager sert à une seule chose : **exercer ses droits sur ses données*
 | Pilier | Fonctions |
 |--------|-----------|
 | **Savoir** | Journal : qui a consulté quoi, pourquoi, quand, en accès direct ou par consentement. Tableau de bord : consentements en attente, demandes en cours, accès récents. Pour une demande qui attend un registre : « un registre est momentanément indisponible, votre demande reprendra automatiquement ». |
-| **Décider** | Consentements : accepter ou refuser les demandes des administrations privées. |
-| **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. Une pièce est un ensemble de données lues dans le registre, jamais un scan ni un PDF (voir ci-dessous). Mes données dans les registres (`GET /api/profil/registres`) : en un seul appel, tout ce que les registres savent de lui ou d'un enfant sous sa tutelle ; une pièce absente ou un registre en panne est signalé sans bloquer le reste, sans entrée au journal (aucune administration n'y accède). |
+| **Décider** | Consentements : accepter ou refuser les demandes des administrations privées, en voyant la base légale invoquée et la finalité. |
+| **Accéder** | Mes pièces : consulter ses propres pièces, lues dans les registres à chaque consultation, et les imprimer comme document informatif non officiel. Une pièce est un ensemble de données lues dans le registre, jamais un scan ni un PDF (voir ci-dessous). Mes données dans les registres (section de « Mon profil », `GET /api/profil/registres`) : en un seul appel, tout ce que les registres savent de lui ou d'un enfant sous sa tutelle ; une pièce absente ou un registre en panne est signalé sans bloquer le reste, sans entrée au journal (aucune administration n'y accède). |
 | **Protéger ses enfants** | Le tuteur gère les consentements et le journal de ses enfants mineurs. À 15 ans, la plateforme recommande de transférer le compte à l'enfant. |
 | Compte | Inscription par IUE (le nom est lu à l'état civil, pas saisi ; les enfants mineurs sont rattachés automatiquement par la filiation), connexion, récupération du mot de passe par SMS. |
 
@@ -323,7 +323,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 
 | Scénario | Ce qui est vérifié |
 |----------|--------------------|
-| Nos trois registres | Les 3 procédures, l'identité, les demandes de pièces et leur contenu, la vue d'ensemble « Mes données dans les registres » (tutelle comprise) |
+| Nos trois registres | Les 3 procédures, l'identité, les demandes de pièces et leur contenu, la vue d'ensemble « Mes données dans les registres » (tutelle comprise), la base légale de chaque démarche (publiée au catalogue, figée au journal, montrée dans les demandes de consentement) |
 | Un registre externe à la place de l'état civil, puis de la justice, du fiscal et des trois | Les mêmes vérifications, avec un registre « d'une autre équipe » au format recommandé |
 | Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` ; l'assistant `proposer-registre`, qui retrouve les deux déclarations à partir des seuls contrats OpenAPI |
 | Identification par correspondance | Un état civil qui ne connaît que ses numéros d'acte, branché comme pivot par une table : « majeur : oui », passeport avec les parents retraduits en IUE et la cascade résolue, aucun numéro d'acte transmis ; l'homonyme du registre de nationalité levé par la table ; un IUE absent de la table inconnu ; une table incohérente refusée au démarrage ; l'assistant qui propose la table |
@@ -333,6 +333,8 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
 Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **441 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
+
+Les pages de l'espace usager ont en plus été vérifiées en réel sur la stack de démonstration : base légale au journal et dans les consentements, journal intact puis altéré (`simuler-alteration`) puis remis en état, données des registres d'un enfant avec une pièce manquante et la démarche à suivre.
 
 ## 15. Conformité aux livrables
 
