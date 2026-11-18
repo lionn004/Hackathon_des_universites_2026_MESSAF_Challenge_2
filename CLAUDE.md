@@ -68,6 +68,29 @@ Cet acteur n'est pas implémenté dans le MVP : aucun compte, aucun jeton, aucun
 - gestion et supervision des API ;
 - mise à jour des données de référence du système (catalogue des pièces, prérequis, démarches), selon le cadre de la section « Gestion du catalogue (hors MVP) ».
 
+## Évolutions prévues : cycle de vie des documents
+
+Cette fonctionnalité n'est pas dans le périmètre du MVP hackathon. Rien de ce qui suit n'est implémenté.
+
+### Classification des documents par nature
+
+- **Documents statiques (non renouvelables)** : leur contenu ne change jamais après émission. Exemples : extrait de naissance, certificat de nationalité.
+- **Documents évolutifs (renouvelables)** : leur validité est limitée dans le temps et ils doivent être renouvelés périodiquement. Exemples : CNIB (Carte Nationale d'Identité Burkinabè, renouvelable tous les 10 ans, absente du catalogue actuel), attestation fiscale (annuelle).
+
+Le champ `est_evolutive` de `TypePiece` (passerelle) existe déjà, mais il dit seulement que le contenu peut changer dans le temps, ce qui justifie de relire le registre à chaque consultation. Il ne porte pas de durée de validité : le casier judiciaire est `est_evolutive` sans date d'expiration dans le contrat du registre justice. La classification par nature repose donc sur le nouveau champ `duree_validite_jours` (voir le point 4 de la liste suivante).
+
+### Fonctionnalités à implémenter
+
+1. **Filtrage sur l'interface citoyen.** Le MVP n'a pas de page « Mes pièces » : les pièces s'ouvrent depuis « Mes demandes ». Il faudra y distinguer visuellement les deux natures et ajouter un filtre « nature » au panneau de recherche (loupe). Le frontend lira la nature dans le catalogue (`GET /types-pieces`), sans liste codée en dur.
+2. **Suivi des dates d'expiration.** Pour chaque document évolutif, conserver la date d'émission et la date d'expiration, calculée ainsi : `date_emission + duree_validite_jours`. La date d'émission appartient à l'administration qui délivre la pièce, donc au registre. Aujourd'hui, seul le casier (`date_delivrance`) la fournit. Il faudra faire évoluer les contrats des registres, ce qui a un impact sur le test d'interopérabilité du jury. En attendant, la date de complétion de la demande (`date_completion`) peut servir de repli.
+3. **Alertes de renouvellement**, envoyées automatiquement :
+   - **Côté citoyen** : le document arrive à expiration et doit être renouvelé. Ces alertes rejoignent les `alertes` du tableau de bord (nouveau type `renouvellement` à ajouter au contrat du BFF), avec un SMS comme pour les consentements. Pour un mineur, l'alerte va au tuteur. Les seuils (par exemple 30 jours avant l'échéance, puis à l'échéance) restent à fixer.
+   - **Côté administration** : le document d'un citoyen de son périmètre est expiré ou proche de l'expiration, ce qui déclenche le processus de renouvellement. Aucun canal ne va aujourd'hui de la plateforme vers les administrations (ce sont elles qui appellent la passerelle). Il faudra le définir, par exemple une route de consultation ou un webhook. L'alerte respecte le cloisonnement par mission et, pour une administration privée, le consentement. Elle ne contient que le type de pièce et la date d'expiration, jamais le contenu, et elle est tracée dans le journal.
+4. **Impact sur le modèle de données.**
+   - **Sur `TypePiece` :** ajouter `duree_validite_jours` (entier, `null` pour un document statique). Il sera renseigné par la gestion du catalogue (voir « Gestion du catalogue (hors MVP) »).
+   - **Pour les dates :** le MVP ne stocke aucune pièce émise, puisque le contenu est relu dans le registre à chaque consultation. Il faudra donc une nouvelle table des pièces émises (titulaire, type de pièce, `date_emission`, `date_expiration`), de préférence dans la passerelle, qui possède le catalogue.
+   - **Contrats :** reporter ces changements dans `docs/openapi-passerelle.yaml` et `docs/openapi-espace-usager.yaml`, en prévenant l'équipe frontend.
+
 ---
 
 ## Architecture imposée — 5 couches
