@@ -487,6 +487,27 @@ paths:
                           calculee:
                             type: boolean
 
+  /statistiques/numerisation:
+    get:
+      tags: [Demandes]
+      summary: Pilotage de la numérisation (statistiques publiques et anonymes)
+      description: |
+        Où une donnée numérique manquante bloque des démarches : pour chaque pièce à numériser
+        (type de pièce et à qui elle appartient par rapport au titulaire : citoyen, pere, mere),
+        le nombre de demandes qu'elle bloque, et le total par registre. Seules les pièces
+        réellement manquantes sont comptées (si l'extrait du père manque, le certificat de
+        nationalité qui en dépend n'est pas compté). Chaque demande compte une fois par pièce.
+
+        Route publique, comme des données ouvertes : uniquement des nombres agrégés, aucun IUE,
+        aucun nom, aucune date propre à une personne. Recalculé à chaque appel, rien n'est stocké.
+      responses:
+        "200":
+          description: Statistiques de numérisation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatistiquesNumerisation"
+
   /demandes:
     get:
       tags: [Demandes]
@@ -1572,6 +1593,76 @@ components:
           type: string
           format: date-time
           description: Moment de la lecture dans le registre
+
+    StatistiquesNumerisation:
+      type: object
+      description: Statistiques agrégées et anonymes des demandes bloquées par une donnée numérique manquante
+      properties:
+        demandes:
+          type: object
+          description: Toutes les demandes de pièces, par statut
+          properties:
+            total:
+              type: integer
+              example: 120
+            complete:
+              type: integer
+              example: 104
+            en_attente_numerisation:
+              type: integer
+              description: Statut fallback_physique (donnée à numériser)
+              example: 9
+            en_attente_registre:
+              type: integer
+              description: Statut en_cours (registre momentanément hors service)
+              example: 2
+            echouee:
+              type: integer
+              example: 5
+        titulaires_concernes:
+          type: integer
+          description: Nombre de personnes distinctes dont une demande attend une numérisation
+          example: 7
+        pieces_a_numeriser:
+          type: array
+          description: Du plus bloquant au moins bloquant
+          items:
+            type: object
+            properties:
+              type_piece:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "extrait-naissance"
+                  nom:
+                    type: string
+                    example: "Extrait de naissance"
+                  registre_source:
+                    type: string
+                    nullable: true
+                    example: "etat-civil"
+              proprietaire:
+                type: string
+                enum: [citoyen, pere, mere]
+                description: À qui appartient la pièce manquante, par rapport au titulaire de la demande
+              demandes_bloquees:
+                type: integer
+                example: 6
+        par_registre:
+          type: array
+          items:
+            type: object
+            properties:
+              registre_source:
+                type: string
+                example: "etat-civil"
+              demandes_bloquees:
+                type: integer
+                example: 8
+        date_calcul:
+          type: string
+          format: date-time
 
     VueRegistres:
       type: object

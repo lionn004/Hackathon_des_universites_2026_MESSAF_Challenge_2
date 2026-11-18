@@ -110,6 +110,11 @@ services:
       SONDE_INTERVALLE_MS: ${SONDE_INTERVALLE_MS:-5000}
       # Dossier du dictionnaire et du catalogue des registres (défaut : celui monté ci-dessous).
       CATALOGUE_DOSSIER: ${CATALOGUE_DOSSIER:-/app/config}
+      # Une panne ne doit pas en cacher une autre : le nom d'un registre arrêté met plusieurs
+      # secondes à ne pas se résoudre, et Node résout les noms sur un pool de 4 threads par
+      # défaut. Quelques sondes vers le registre en panne suffisaient à retarder la résolution
+      # des registres sains au-delà de leur délai : ils paraissaient en panne à tort.
+      UV_THREADPOOL_SIZE: 64
     # Dictionnaire et catalogue des registres : modifiables sans reconstruire l'image
     # (docker compose restart passerelle après modification).
     volumes:

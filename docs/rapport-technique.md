@@ -17,7 +17,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
 
-Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct, la numérisation d'une donnée manquante et l'altération directe du journal : **427 vérifications réussies, 0 échec** au 18 novembre 2026.
+Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, des registres sans IUE branchés par table de correspondance, la panne en direct, la numérisation d'une donnée manquante et l'altération directe du journal : **430 vérifications réussies, 0 échec** au 18 novembre 2026.
 
 ## 2. L'énoncé et ce que nous en avons retenu
 
@@ -215,6 +215,8 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 
 **Contournement immédiat.** Un registre `hors_service` n'est plus appelé : les requêtes suivantes sont traitées sans attendre de délai. Si une **source de secours** (réplique tenue par la même autorité, § 5.2) est déclarée pour l'opération, elle prend le relais : c'est une bascule, pas une répartition de charge.
 
+**Une panne ne doit pas en cacher une autre.** Le test nous a montré un piège : quand un registre est arrêté, la résolution de son nom met plusieurs secondes à échouer, et Node résout les noms sur un pool de 4 threads par défaut. Quelques sondes vers le registre en panne suffisaient à retarder la résolution des registres sains au-delà de leur délai : l'état civil paraissait en panne pendant la coupure du casier. Le pool de la passerelle est élargi (`UV_THREADPOOL_SIZE`), et le test le vérifie en coupant un registre pendant qu'on lit tous les autres.
+
 **Ce qui ne dépend pas du registre continue.** Si le casier tombe, l'université (qui ne lit que l'état civil) reste servie. L'espace usager reste utilisable : connexion, journal, consentements, tableau de bord.
 
 **Ce qui en dépend attend, sans rien perdre.** La règle est « tout ou rien » : une requête qui a besoin d'un registre en panne ne reçoit pas de dossier partiel. Elle passe `en_attente_registre` (réponse `202`, avec la liste des registres attendus). Rien n'est transmis, rien n'est copié, rien n'est inscrit au journal. Au retour du registre, la consultation suivante de `GET /requetes/{id}` reprend là où la requête s'était arrêtée, sans que l'administration refasse sa demande.
@@ -250,7 +252,7 @@ La passerelle détecte les prérequis, trouve les parents par la filiation de l'
 
 Démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes` simule la numérisation des actes des parents d'Ibrahim.
 
-**Un outil de pilotage de la numérisation.** Chaque demande en attente d'une donnée numérique manquante dit précisément quelle pièce manque et combien de démarches elle bloque. Agrégées et anonymisées, ces attentes indiquent à l'État où accentuer la numérisation : quels types d'actes, quels registres, avec quel effet sur les démarches des citoyens. Numériser en priorité ce qui bloque le plus de démarches, plutôt que tout numériser dans l'ordre des archives. Les données existent déjà dans la plateforme ; leur restitution sous forme de statistiques est une perspective (§ 17).
+**Un outil de pilotage de la numérisation.** Chaque demande en attente d'une donnée numérique manquante dit précisément quelle pièce manque et combien de démarches elle bloque. Agrégées et anonymisées, ces attentes indiquent à l'État où accentuer la numérisation : quels types d'actes, quels registres, avec quel effet sur les démarches des citoyens. Numériser en priorité ce qui bloque le plus de démarches, plutôt que tout numériser dans l'ordre des archives. Ces statistiques sont publiées, agrégées et anonymes, comme des données ouvertes : `GET /api/statistiques/numerisation` donne, pour chaque pièce à numériser (type de pièce, et à qui elle appartient : le citoyen, son père ou sa mère), le nombre de demandes qu'elle bloque, et le total par registre. Seule la cause est comptée : si l'extrait du père manque, le certificat de nationalité qui en dépend ne l'est pas. Aucun IUE, aucun nom ; tout est recalculé à chaque appel, rien n'est stocké. Sur la démonstration, la demande de casier d'Ibrahim fait apparaître les actes de naissance de ses deux parents, puis disparaît des statistiques dès qu'ils sont numérisés.
 
 ## 11. L'espace usager
 
@@ -299,11 +301,11 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` ; l'assistant `proposer-registre`, qui retrouve les deux déclarations à partir des seuls contrats OpenAPI |
 | Identification par correspondance | Un état civil qui ne connaît que ses numéros d'acte, branché comme pivot par une table : « majeur : oui », passeport avec les parents retraduits en IUE et la cascade résolue, aucun numéro d'acte transmis ; l'homonyme du registre de nationalité levé par la table ; un IUE absent de la table inconnu ; une table incohérente refusée au démarrage ; l'assistant qui propose la table |
 | Panne en direct | Coupure du casier, puis de l'état civil : ce qui n'en dépend pas reste servi, ce qui en dépend attend, rien n'est transmis ni copié, tout se complète au retour, une seule entrée au journal |
-| Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
+| Donnée numérique manquante | La demande bloquée apparaît dans les statistiques de numérisation (actes des parents, anonymes), se complète seule après la numérisation des actes, le citoyen est prévenu, et elle sort des statistiques |
 | Journal chaîné | Chaîne intacte au démarrage ; 5 accès simultanés sans branche ; une entrée modifiée, puis une entrée supprimée directement en base, détectées ; l'altération survit à un redémarrage du service ; remise en état |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
-Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **427 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
+Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **430 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
 
 ## 15. Conformité aux livrables
 
@@ -346,7 +348,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Assistant de branchement plus fin** : enrichir les synonymes au fil des registres branchés, et comparer les exemples du contrat OpenAPI aux formats attendus (dates, codes).
 - **Table de correspondance alimentée par l'enrôlement** : le mode `correspondance` est fait, avec une table en fichier. En production, le lien entre l'IUE et les autres identifiants (numéro d'acte, NIP, IFU) naît à l'enrôlement et appartient à l'autorité de l'IUE. La passerelle le consulterait donc par API auprès de cette autorité, au lieu d'un fichier, avec les mêmes règles qu'aujourd'hui. Les ajouts seraient pris en compte sans redémarrage, chaque modification serait tracée, et les rapprochements douteux seraient validés par un agent, avec une voie de contestation pour le citoyen. La table est elle-même une donnée personnelle, à accès restreint. À terme, les registres adoptent l'IUE (mode `iue`) : la correspondance, comme la recherche, est un mécanisme de transition.
 - **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.
-- **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
+- **Statistiques de numérisation plus fines** : les statistiques par type de pièce et par registre sont faites (§ 10). Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen) ; un registre qui le fournirait (lieu de l'acte) le permettrait.
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, publication régulière de la dernière empreinte du journal auprès d'un tiers (ancre), bases séparées par service, vrai fournisseur de SMS.
 - **Espace usager** : documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
 
@@ -375,6 +377,7 @@ Mots de passe de démonstration uniquement.
 | Proposer une déclaration depuis un contrat OpenAPI | `docker compose exec passerelle npm run proposer-registre -- <contrat> <identifiant>` |
 | Tester un registre | `docker compose exec passerelle npm run tester-registre -- <registre> <iue>` |
 | État des registres | `curl http://localhost:3000/api/registres` |
+| Statistiques de numérisation (publiques, anonymes) | `curl http://localhost:3000/api/statistiques/numerisation` |
 | Simuler une panne | `docker compose stop registre-justice`, puis `docker compose start registre-justice` |
 | Numériser les actes manquants (et remise à zéro) | `docker compose exec registre-etat-civil npm run numeriser-actes` (`-- --annuler`) |
 | Simuler une altération du journal (et remise en état) | `docker compose exec journal npm run simuler-alteration` (`-- --supprimer`, `-- --annuler`), puis `GET /api/journal/verification` |

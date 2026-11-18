@@ -464,6 +464,7 @@ Une pièce peut exister sur papier sans être encore dans le registre numérique
 - Le citoyen apprend quelle pièce manque, pour qui, et la démarche à suivre (`demarche_si_absente` du type de pièce, renvoyée par `GET /types-pieces`). La plateforme se contente d'informer : elle ne recueille aucune information pour orienter le citoyen.
 - L'administration qui détient l'acte (pour l'état civil : le centre d'état civil) le **numérise dans son registre**, jamais dans la plateforme ; démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes`.
 - La chaîne reprend automatiquement : le BFF relance toutes les 10 s les demandes `fallback_physique` et `en_cours` (en attente d'un registre) et notifie le citoyen quand elles se complètent.
+- Pilotage de la numérisation : `GET /api/statistiques/numerisation` (BFF, public, `services/statistiques.service.js`) agrège les demandes `fallback_physique` : pour chaque pièce à numériser (feuille `manquant` de la cascade, avec son `proprietaire` : citoyen, pere, mere), le nombre de demandes bloquées, et le total par registre. Uniquement des nombres, aucun IUE ni nom ; recalculé à chaque appel.
 
 Cas distinct : un registre sans IUE où la recherche par nom, prénom et date de naissance trouve **plusieurs** personnes (homonymes). La plateforme ne choisit jamais au hasard et la pièce n'est pas lue ; la levée de l'ambiguïté passe par le mode d'identification `correspondance` (table IUE / identifiant local).
 

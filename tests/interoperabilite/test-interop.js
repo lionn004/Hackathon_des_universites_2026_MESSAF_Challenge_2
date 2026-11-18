@@ -853,6 +853,18 @@ async function donneeManquante() {
   const jeton = await connexion(IBRAHIM);
   const d = await appel('POST', `${BFF}/demandes`, { jeton, corps: { type_piece_id: 'casier-judiciaire' } });
   verifier(d.body?.statut === 'fallback_physique', 'Donnée manquante : la demande de casier d\'Ibrahim attend les actes de ses parents (non numérisés)', JSON.stringify(d.body));
+
+  // Pilotage de la numérisation : statistiques publiques et anonymes des demandes bloquées.
+  const statistiques = async () => (await appel('GET', `${BFF}/statistiques/numerisation`)).body || {};
+  const bloquees = (s, piece, proprietaire) => (s.pieces_a_numeriser || [])
+    .find((p) => p.type_piece.id === piece && p.proprietaire === proprietaire)?.demandes_bloquees || 0;
+  const s1 = await statistiques();
+  verifier(bloquees(s1, 'extrait-naissance', 'pere') >= 1 && bloquees(s1, 'extrait-naissance', 'mere') >= 1
+    && !(s1.pieces_a_numeriser || []).some((p) => p.type_piece.id === 'certificat-nationalite')
+    && (s1.par_registre || []).some((r) => r.registre_source === 'etat-civil' && r.demandes_bloquees >= 1),
+  'Statistiques de numérisation : les actes des parents d\'Ibrahim à numériser, pas le certificat qui en dépend', JSON.stringify(s1));
+  verifier(!/\d{12}/.test(JSON.stringify(s1)) && !/OUEDRAOGO|Ibrahim/i.test(JSON.stringify(s1)),
+    'Statistiques de numérisation : anonymes (aucun IUE, aucun nom)', JSON.stringify(s1));
   // Le citoyen est seulement informé de la démarche à suivre, lue dans le catalogue.
   const catalogue = await appel('GET', `${BFF}/types-pieces`);
   const extrait = (catalogue.body?.types_pieces || []).find((t) => t.id === 'extrait-naissance');
@@ -862,6 +874,9 @@ async function donneeManquante() {
   verifier(saisie.code === 0, 'Donnée manquante : le centre d\'état civil numérise les actes des parents dans son registre', saisie.sortie.slice(-300));
   const finie = await attendreCondition(async () => (await appel('GET', `${BFF}/demandes/${d.body?.id}`, { jeton })).body?.statut === 'complete', 30000);
   verifier(finie, 'Donnée manquante : la demande se complète seule (reprise automatique)');
+  const s2 = await statistiques();
+  verifier(bloquees(s2, 'extrait-naissance', 'pere') === bloquees(s1, 'extrait-naissance', 'pere') - 1,
+    'Statistiques de numérisation : une fois les actes numérisés, la demande d\'Ibrahim n\'est plus comptée', JSON.stringify(s2));
   await pause(1000);
   verifier(/Votre demande « Casier judiciaire » est complète/.test(compose(['logs', '--no-log-prefix', 'espace-usager'], {}, true)),
     'Donnée manquante : le demandeur est notifié par SMS (simulé)');
