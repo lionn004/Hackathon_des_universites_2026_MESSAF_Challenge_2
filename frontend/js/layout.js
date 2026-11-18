@@ -18,7 +18,6 @@ function getNav() {
     { href: '/pages/demandes.html', label: 'Mes demandes', id: 'demandes' },
     { href: '/pages/journal.html', label: "Journal d'accès", id: 'journal' },
     { href: '/pages/enfants.html', label: 'Mes enfants', id: 'enfants' },
-    { href: '/pages/profil.html', label: 'Mon profil', id: 'profil' },
     { href: '/pages/test.html', label: 'Interface de test', id: 'test' },
   ];
 
@@ -65,6 +64,7 @@ function injectLayout() {
   `;
 
   // Page courante, pour signaler le lien Mon profil de la barre du haut comme actif.
+  // C'est le seul accès à Mon profil : la page n'est pas dans le menu latéral.
   const page = window.location.pathname.split('/').pop();
 
   const topbar = document.createElement('div');
