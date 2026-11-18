@@ -8,6 +8,8 @@
  * puis :
  *   format différent : registres d'un autre format branchés par le seul catalogue
  *     (« majeur » calculé, recherche sans IUE, homonyme, source de secours, tester-registre) ;
+ *   identification par correspondance : registres sans IUE (état civil pivot à numéros
+ *     d'acte, nationalité avec homonyme) branchés par une table IUE / identifiant local ;
  *   panne en direct : on coupe le casier puis l'état civil, la plateforme tient, rien ne se
  *     perd, et tout se complète seul au retour du registre ;
  *   donnée numérique manquante : les actes sont numérisés, la demande bloquée se complète seule ;
@@ -82,6 +84,7 @@ const IBRAHIM = { iue: '291047583620', mot_de_passe: 'Ibrahim2026!' };
 const FATIMATA = { iue: '638501274093', mot_de_passe: 'Fatimata2026!' };
 // Connue du seul registre externe, avec son fils mineur Issa.
 const AWA_IUE = '456123789012';
+const SALIF_IUE = '316580942751';
 const RASMATA = { iue: '102938475610', mot_de_passe: 'Rasmata2026!', telephone: '+22670000310' };
 const ISSA_IUE = '564738291056';
 
@@ -666,6 +669,80 @@ async function formatDifferent() {
   await brancher(new Set());
 }
 
+/**
+ * Registres qui ne connaissent pas l'IUE, branchés par des tables de correspondance
+ * (config-correspondance) : un état civil pivot à numéros d'acte, et le registre de
+ * nationalité où Awa a un homonyme.
+ */
+async function correspondance() {
+  const dossier = path.join(RACINE, 'tests', 'interoperabilite', 'config-correspondance');
+  fs.copyFileSync(path.join(RACINE, 'backend', 'passerelle', 'config', 'dictionnaire.yaml'), path.join(dossier, 'dictionnaire.yaml'));
+
+  // Une table qui désignerait deux personnes par le même acte est refusée au démarrage.
+  const invalide = path.join(dossier, 'invalide');
+  fs.mkdirSync(path.join(invalide, 'correspondances'), { recursive: true });
+  for (const f of ['dictionnaire.yaml', 'catalogue-registres.yaml', 'correspondances/nationalite-externe.csv']) {
+    fs.copyFileSync(path.join(dossier, f), path.join(invalide, f));
+  }
+  fs.writeFileSync(path.join(invalide, 'correspondances', 'etat-civil-local.csv'),
+    'iue;numero_acte\n784302956148;BF-EC-1998-0042\n291047583620;BF-EC-1998-0042\n');
+  const refus = executer('passerelle', ['env', 'CATALOGUE_DOSSIER=/app/config-correspondance/invalide', 'node', '-e', "require('./src/config/catalogue')"]);
+  fs.rmSync(invalide, { recursive: true, force: true });
+  verifier(refus.code !== 0 && refus.sortie.includes('déjà attribué à l\'IUE 784302956148'),
+    'Correspondance : une table qui donne le même acte à deux IUE est refusée au démarrage', refus.sortie.slice(-400));
+
+  await brancher(new Set(), {}, '/app/config-correspondance');
+  const chargee = await attendreLog(/registre etat-civil-local : identification par correspondance, 6 personne/);
+  verifier(chargee !== null, 'Correspondance : la passerelle charge la table de l\'état civil (6 personnes)', 'aucune ligne dans les logs');
+  const etat = await appel('GET', `${BFF}/registres`);
+  const modes = Object.fromEntries(((etat.body || {}).registres || []).map((x) => [x.id, x.identification]));
+  verifier(modes['etat-civil-local'] === 'correspondance' && modes['nationalite-externe'] === 'correspondance',
+    'Correspondance : GET /registres indique le mode d\'identification', JSON.stringify(modes));
+  verifier(!JSON.stringify(etat.body).includes('BF-EC-'), 'Correspondance : la table n\'est jamais exposée (GET /registres)');
+
+  // L'état civil (pivot) ne connaît que ses numéros d'acte : la plateforme le lit quand même par l'IUE.
+  const u = await requeteAdmin(ADMIN.universite, AMADOU.iue, 'inscription-universite');
+  verifier(u.status === 200 && JSON.stringify(u.body.donnees) === JSON.stringify({ 'etat-civil': { est_majeur: true, nationalite: 'Burkinabè' } }),
+    'Correspondance : état civil sans IUE lu par l\'IUE, « majeur : oui » calculé, rien d\'autre', `${resume(u)} ${JSON.stringify(u.body?.donnees)}`);
+  const p = await requeteAdmin(ADMIN.police, AMADOU.iue, 'emission-passeport');
+  const ec = p.body?.donnees?.['etat-civil'] || {};
+  verifier(p.status === 200 && ec.pere_iue === IBRAHIM.iue && ec.mere_iue === FATIMATA.iue,
+    'Correspondance : les parents, désignés par numéro d\'acte, sont transmis par leur IUE', `${resume(p)} ${JSON.stringify(ec)}`);
+  verifier(!JSON.stringify(p.body).includes('BF-EC-'), 'Correspondance : aucun identifiant local ne sort de la plateforme', JSON.stringify(p.body).slice(0, 300));
+  verifier((p.body?.cascade || []).length === 5 && p.body.cascade.every((c) => c.statut === 'resolu'),
+    'Correspondance : cascade résolue par la filiation en numéros d\'acte', JSON.stringify(p.body?.cascade));
+  verifier(p.body?.donnees?.justice?.numero_certificat === 'NAT-N-0001',
+    'Correspondance : nationalité lue par la table (dossier N-0001, sans recherche)', JSON.stringify(p.body?.donnees?.justice));
+  sansFuite(p.body, 'Correspondance : aucun champ hors dictionnaire transmis');
+
+  // Homonymes : la recherche refusait de choisir entre les deux dossiers d'Awa ; la table désigne le sien.
+  const awa = executer('passerelle', ['npm', 'run', '-s', 'tester-registre', '--', 'nationalite-externe', AWA_IUE]);
+  verifier(awa.code === 0 && awa.sortie.includes('identifiant local N-0010') && awa.sortie.includes('NAT-N-0010'),
+    'Correspondance : l\'homonyme est levé, la table désigne le dossier d\'Awa (N-0010)', awa.sortie.slice(-400));
+
+  // Un IUE absent de la table est inconnu de ce registre : jamais deviné.
+  const salif = await appel('GET', `${PASSERELLE}/interne/citoyens/${SALIF_IUE}`, { entetes: { 'X-Cle-Service': CLE_SERVICE } });
+  verifier(salif.status === 404, 'Correspondance : un IUE absent de la table est inconnu de l\'état civil (404)', resume(salif));
+  const t1 = executer('passerelle', ['npm', 'run', '-s', 'tester-registre', '--', 'etat-civil-local', SALIF_IUE]);
+  verifier(t1.code !== 0 && t1.sortie.includes('absent de la table'), 'tester-registre : IUE absent de la table signalé', t1.sortie.slice(-300));
+  const t2 = executer('passerelle', ['npm', 'run', '-s', 'tester-registre', '--', 'etat-civil-local', AMADOU.iue]);
+  verifier(t2.code === 0 && t2.sortie.includes('identifiant local BF-EC-1998-0042') && t2.sortie.includes(`pere_iue = ${IBRAHIM.iue}`)
+    && t2.sortie.includes('est_majeur = true'),
+    'tester-registre etat-civil-local : acte trouvé par la table, parents traduits en IUE, « majeur » calculé', t2.sortie.slice(-500));
+
+  const jeton = await connexion(AMADOU);
+  const profil = await appel('GET', `${BFF}/profil`, { jeton });
+  verifier(profil.body?.prenom === 'Amadou', 'Correspondance : l\'espace usager lit l\'identité par la table', JSON.stringify(profil.body));
+
+  // Assistant : un état civil sans IUE est le pivot, il propose une table de correspondance.
+  const pr = executer('passerelle', ['npm', 'run', '-s', 'proposer-registre', '--', '/app/config-correspondance/openapi-etat-civil-local.yaml', 'etat-civil-local']);
+  const attendus = ['mode: correspondance', 'table: correspondances/etat-civil-local.csv', 'route: "GET /actes/{identifiant_local}"', 'pere_iue: { champ: acte_pere }'];
+  verifier(pr.code === 0 && attendus.every((a) => pr.sortie.includes(a)),
+    'proposer-registre etat-civil-local : état civil sans IUE, table de correspondance proposée',
+    attendus.filter((a) => !pr.sortie.includes(a)).join(' | ') || pr.sortie.slice(-400));
+  await brancher(new Set());
+}
+
 /** Panne en direct d'un registre (casier, puis état civil) avec nos registres, puis reprise. */
 async function panneEnDirect() {
   await brancher(new Set());
@@ -786,8 +863,8 @@ async function main() {
         await inscriptionDirecte();
       }
     }
-    const speciaux = [['format différent', formatDifferent], ['panne en direct', panneEnDirect], ['donnée manquante', donneeManquante],
-      ['pannes et configuration', pannes]];
+    const speciaux = [['format différent', formatDifferent], ['identification par correspondance', correspondance],
+      ['panne en direct', panneEnDirect], ['donnée manquante', donneeManquante], ['pannes et configuration', pannes]];
     for (const [nom, scenario] of speciaux.filter(([n]) => retenu(n))) {
       scenarioCourant = nom;
       console.log(`\n== Scénario : ${nom}`);

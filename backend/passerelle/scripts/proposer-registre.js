@@ -9,7 +9,8 @@
  * vérifié sur de vraies réponses avec `npm run tester-registre` avant d'être activé.
  *
  * Ce que le contrat OpenAPI permet de proposer : adresse, routes de lecture, identification
- * de la personne (IUE dans la route, ou route de recherche), emplacement de la fiche dans la
+ * de la personne (IUE dans la route, route de recherche, ou à défaut table de correspondance
+ * IUE / identifiant local, toujours pour un état civil sans IUE), emplacement de la fiche dans la
  * réponse, correspondances par rapprochement des noms et des types, tables de valeurs.
  *
  * Usage :
@@ -29,8 +30,10 @@ const SYNONYMES = {
   lieu_naissance: ['lieunaiss', 'birthplace', 'placeofbirth', 'lieudenaissance'],
   sexe: ['genre', 'gender', 'sex'],
   nationalite: ['nationality'],
-  pere_iue: ['iuepere', 'idpere', 'pereidentifiant', 'parentspereidentifiant', 'parentspereiue'],
-  mere_iue: ['iuemere', 'idmere', 'mereidentifiant', 'parentsmereidentifiant', 'parentsmereiue'],
+  // Un registre sans IUE désigne les parents par son propre identifiant (numéro d'acte...) :
+  // la table de correspondance le traduit en IUE (mode correspondance).
+  pere_iue: ['iuepere', 'idpere', 'pereidentifiant', 'parentspereidentifiant', 'parentspereiue', 'actepere', 'numeroactepere'],
+  mere_iue: ['iuemere', 'idmere', 'mereidentifiant', 'parentsmereidentifiant', 'parentsmereiue', 'actemere', 'numeroactemere'],
   date_deces: ['deces', 'datedudeces', 'deathdate'],
   est_national: ['estburkinabe', 'burkinabe', 'national', 'estnational'],
   mode_acquisition: ['modeobtention', 'modeacquisition', 'acquisition'],
@@ -273,16 +276,21 @@ function analyser(contrat) {
     if (!deja || p.r.total > deja.r.total) parOperation.set(p.operation, p);
   }
 
-  // Identification : IUE dans la route, sinon recherche par nom, prénom et date de naissance.
+  // Identification : IUE dans la route ; sinon recherche par nom, prénom et date de naissance ;
+  // sinon (pas de route de recherche, ou registre d'état civil, pivot des recherches) table de
+  // correspondance IUE / identifiant local, que l'autorité du registre remplit.
   let identification = { mode: 'iue' };
   const sansIue = [...parOperation.values()].filter((p) => !p.parIue);
   if (sansIue.length) {
     const local = sansIue[0].param;
+    const pivot = [...parOperation.keys()].some((op) => op.startsWith('etat-civil.'));
     const recherche = routes.find((r) => !r.dansChemin.length && r.dansRequete.length >= 2
       && Object.values(r.schema.properties || {}).some((s) => typeDe(resoudre(contrat, s)) === 'array'));
-    if (!recherche) {
-      remarques.push(`aucune route de recherche trouvée : la personne est désignée par « ${local} », qui n'est pas l'IUE`);
-      identification = { mode: 'recherche', route: 'À RENSEIGNER', liste: 'À RENSEIGNER', identifiant_local: local };
+    if (pivot || !recherche) {
+      remarques.push(pivot
+        ? `registre d'état civil sans IUE (personne désignée par « ${local} ») : pivot des recherches, il ne peut pas être identifié par recherche ; table de correspondance IUE / ${local} à remplir`
+        : `aucune route de recherche : la personne est désignée par « ${local} », qui n'est pas l'IUE ; table de correspondance IUE / ${local} à remplir`);
+      identification = { mode: 'correspondance', identifiant_local: local };
     } else {
       const variables = { nom: 'nom', prenom: 'prenom', date_naissance: 'date_naissance' };
       const morceaux = recherche.dansRequete.map((p) => {
@@ -303,6 +311,7 @@ function analyser(contrat) {
       };
       if (morceaux.length < 3) remarques.push('route de recherche : nom, prénom et date de naissance ne sont pas tous reconnus');
       if (!morceaux.some((m) => m.includes('|'))) remarques.push('route de recherche : vérifier le format de date attendu (ex : {date_naissance|jj/mm/aaaa})');
+      remarques.push('si des homonymes existent dans ce registre, préférer une table de correspondance (mode correspondance) : la recherche ne lit jamais une personne ambiguë');
     }
   }
   return { sonde, filtre, operations: parOperation, identification, remarques };
@@ -345,6 +354,10 @@ function ecrire(id, contrat, source, a) {
   if (a.filtre) o.push(`    parametre_champs: ${q(a.filtre.name)}`);
   if (a.identification.mode === 'iue') {
     o.push('    identification: { mode: iue }');
+  } else if (a.identification.mode === 'correspondance') {
+    o.push('    identification:');
+    o.push('      mode: correspondance');
+    o.push(`      table: correspondances/${id}.csv   # à créer : une ligne « iue;${a.identification.identifiant_local} » par personne`);
   } else {
     o.push('    identification:');
     o.push('      mode: recherche');

@@ -462,7 +462,15 @@ Une pièce peut exister sur papier sans être encore dans le registre numérique
 - L'administration qui détient l'acte (pour l'état civil : le centre d'état civil) le **numérise dans son registre**, jamais dans la plateforme ; démonstration : `docker compose exec registre-etat-civil npm run numeriser-actes`.
 - La chaîne reprend automatiquement : le BFF relance toutes les 10 s les demandes `fallback_physique` et `en_cours` (en attente d'un registre) et notifie le citoyen quand elles se complètent.
 
-Cas distinct : un registre sans IUE où la recherche par nom, prénom et date de naissance trouve **plusieurs** personnes (homonymes). La plateforme ne choisit jamais au hasard et la pièce n'est pas lue ; la levée de l'ambiguïté demande le mode d'identification `correspondance` (table IUE / identifiant local), qui n'est pas encore réalisé.
+Cas distinct : un registre sans IUE où la recherche par nom, prénom et date de naissance trouve **plusieurs** personnes (homonymes). La plateforme ne choisit jamais au hasard et la pièce n'est pas lue ; la levée de l'ambiguïté passe par le mode d'identification `correspondance` (table IUE / identifiant local).
+
+### Identification par correspondance
+
+Un registre qui a ses propres identifiants (numéro d'acte, de dossier) se branche avec `identification: { mode: correspondance, table: correspondances/<registre>.csv }` : la table (fichier du dossier `config/` de la passerelle, une ligne `iue;identifiant` par personne) donne son identifiant, utilisé comme `{identifiant_local}` dans les routes.
+- Possible pour l'état civil, qui sert de pivot (il doit être en mode `iue` ou `correspondance`, jamais `recherche`).
+- Bijection vérifiée au démarrage : un IUE ou un identifiant en double, ou un IUE mal formé, empêche la passerelle de démarrer.
+- Un IUE absent de la table est inconnu de ce registre. Les personnes citées par le registre (données de type `identifiant` : `pere_iue`, `mere_iue`, filiation) sont retraduites en IUE, `null` si absentes de la table : un identifiant local ne sort jamais, la table n'est jamais exposée.
+- Test : scénario « identification par correspondance » de `tests/interoperabilite/test-interop.js` (config `tests/interoperabilite/config-correspondance/`).
 
 ### Gestion du catalogue
 

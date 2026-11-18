@@ -47,6 +47,10 @@ async function logRegistriesStatus() {
   for (const r of results) {
     if (r.status === 'conforme') {
       console.log(`[passerelle] registre ${r.registre} : ${r.url} (conforme)`);
+      const ident = catalogue.registres[r.registre].identification;
+      if (ident.mode === 'correspondance') {
+        console.log(`[passerelle] registre ${r.registre} : identification par correspondance, ${ident.parIue.size} personne(s) dans ${ident.table}`);
+      }
     } else if (r.status === 'injoignable') {
       console.warn(`[passerelle] ATTENTION registre ${r.registre} injoignable : ${r.url}. Vérifier ${r.modele} et que le registre est démarré.`);
     } else {

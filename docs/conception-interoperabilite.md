@@ -171,12 +171,29 @@ catalogue dit comment traduire l'IUE en identifiant local.
 |------|----------------|--------|
 | `iue` | Le registre accepte l'IUE directement (`{iue}` dans la route) | Cible ; nos registres |
 | `recherche` | La passerelle lit nom, prénom et date de naissance à l'état civil (par l'IUE), cherche la personne dans le registre et en tire son identifiant local | Bases anciennes, sans lien |
-| `correspondance` | Une table IUE / identifiant local (numéro d'acte, NIP, IFU), tenue par le gestionnaire du registre IUE et remplie au fil de l'enrôlement | Perspective, si le temps le permet |
+| `correspondance` | Une table IUE / identifiant local (numéro d'acte, de dossier, NIP, IFU), tenue par l'autorité du registre et remplie au fil de l'enrôlement (`{ mode: correspondance, table: correspondances/<registre>.csv }`, une ligne `iue;identifiant` par personne) | Registres sans IUE, état civil compris ; homonymes |
+
+**L'état civil est le pivot** : le mode `recherche` y lit nom, prénom et date de naissance. Il doit
+donc trouver une personne sans recherche, par l'IUE ou par sa table de correspondance ; la passerelle
+refuse un état civil en mode `recherche`.
 
 **Règle de sûreté du mode `recherche`** : il faut exactement un résultat, la plateforme ne devine
 jamais. Avec zéro résultat, la personne n'est pas dans le registre numérique : c'est une donnée
-numérique manquante (§ 9). Avec plusieurs résultats (homonymes), la pièce n'est pas lue ; lever
-l'ambiguïté demande le mode `correspondance`, pas encore réalisé.
+numérique manquante (§ 9). Avec plusieurs résultats (homonymes), la pièce n'est pas lue ; c'est le
+mode `correspondance` qui lève l'ambiguïté, en désignant explicitement le bon dossier.
+
+**Règles du mode `correspondance`** :
+
+- La table est une bijection, vérifiée au démarrage : un IUE n'a qu'un identifiant local, un
+  identifiant local qu'un IUE. Une ligne en double, ou un IUE mal formé, empêche la passerelle de
+  démarrer : jamais de choix au hasard.
+- La personne est trouvée sans appel au registre. Un IUE absent de la table est une personne
+  inconnue de ce registre (comme une réponse 404).
+- Les personnes que le registre cite par son identifiant (`pere_iue`, `mere_iue`, parents et
+  enfants de la filiation, toute donnée de type `identifiant`) sont retraduites en IUE ; une personne
+  absente de la table devient `null`. Un identifiant local ne sort jamais de la plateforme.
+- La table n'est jamais exposée (`GET /registres` ne donne que le mode). Elle se modifie comme le
+  catalogue : fichier, puis `docker compose restart passerelle`.
 
 ## 7. « Majeur : oui » : les données calculées
 
@@ -307,7 +324,7 @@ administrations.
 
 | Contrat | Changement |
 |---------|------------|
-| Passerelle | `GET /registres` (état), `GET /dictionnaire` (données et libellés) ; statuts `en_attente_registre` et `echouee` pour les requêtes ; réponse 202 avec `registres_indisponibles` ; nœud de cascade `en_attente_registre` |
+| Passerelle | `GET /registres` (état, mode d'identification `iue`, `recherche` ou `correspondance`), `GET /dictionnaire` (données et libellés) ; statuts `en_attente_registre` et `echouee` pour les requêtes ; réponse 202 avec `registres_indisponibles` ; nœud de cascade `en_attente_registre` |
 | Espace usager (BFF) | `GET /registres` et `GET /dictionnaire` (relais publics) ; une demande `en_cours` peut attendre un registre (nœud `en_cours`) |
 | Registres | Inchangés : ils deviennent le format recommandé |
 | Consentement, journal | Inchangés |
@@ -322,13 +339,15 @@ justice, entrée du journal de démo d'Awa (décideur = titulaire pour un accès
 - **Assistant de branchement plus fin** (la première version, `npm run proposer-registre`, est
   faite) : enrichir les synonymes au fil des registres branchés, comparer les exemples du contrat aux
   formats attendus.
-- **Mode d'identification `correspondance`** (table IUE / identifiant local).
+- **Table de correspondance alimentée par l'enrôlement** : le mode `correspondance` est fait (§ 6) ;
+  sa table est aujourd'hui un fichier. En production, elle serait remplie et tenue par l'autorité
+  du registre IUE, au fil de l'enrôlement, avec l'historique de chaque modification.
 
 ## 15. Répartition
 
 | Qui | Travail |
 |-----|---------|
-| Backend (fait) | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue` et `recherche`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script de numérisation ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
+| Backend (fait) | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue`, `recherche` et `correspondance`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script de numérisation ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
 | Frontend (issue #24, fait) | Statut « en attente d'un registre » dans Mes demandes et l'interface de test ; « donnée à numériser » à la place de « guichet » ; libellés du dictionnaire dans le journal et les consentements ; état des registres dans l'interface de test |
 
 ## 16. Démonstration de l'épreuve

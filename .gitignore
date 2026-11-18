@@ -3,3 +3,6 @@ node_modules/
 
 # Copie du dictionnaire faite par le test d'interopérabilité (source : backend/passerelle/config)
 tests/interoperabilite/config-format-different/dictionnaire.yaml
+
+# Copie du dictionnaire faite par le test d'interopérabilité (scénario correspondance)
+tests/interoperabilite/config-correspondance/dictionnaire.yaml

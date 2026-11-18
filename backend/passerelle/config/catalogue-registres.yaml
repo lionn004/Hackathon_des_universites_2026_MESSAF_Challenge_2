@@ -15,6 +15,12 @@
 #   entetes             en-têtes à envoyer (ex : Authorization: "Bearer ${JETON_REGISTRE}") ;
 #   identification      comment désigner la personne :
 #                         { mode: iue }  le registre accepte l'IUE ({iue} dans les routes) ;
+#                         { mode: correspondance, table }
+#                           le registre a ses propres identifiants (numéro d'acte, de dossier...) :
+#                           la table (fichier de ce dossier, une ligne « iue;identifiant » par
+#                           personne) donne le sien ({identifiant_local} dans les routes). Les
+#                           personnes qu'il cite (parents, enfants) sont retraduites en IUE.
+#                           Possible pour l'état civil (pivot), et lève les homonymes ;
 #                         { mode: recherche, route, liste, identifiant_local }
 #                           la passerelle lit nom, prénom et date de naissance à l'état civil,
 #                           cherche la personne et exige EXACTEMENT un résultat ;
@@ -91,6 +97,33 @@ registres:
   #         nationalite:       { champ: nationalite }
   #         date_acquisition:  { champ: dateObtention, conversion: date }
   #         numero_certificat: { champ: numCertificat }
+
+  # Exemple : état civil qui ne connaît PAS l'IUE (chaque personne y a un numéro d'acte).
+  # Il peut servir de pivot grâce à sa table de correspondance, à créer dans ce dossier :
+  # correspondances/etat-civil-jury.csv, une ligne « iue;numero_acte » par personne.
+  # Pour l'activer : décommenter, définir REGISTRE_ETAT_CIVIL_JURY_URL, le placer à la place
+  # de « etat-civil » dans les sources, tester-registre, puis redémarrer la passerelle.
+  #
+  # etat-civil-jury:
+  #   nom: Registre de l'état civil (jury)
+  #   proprietaire: Ministère de l'Administration territoriale
+  #   etat: actif
+  #   adresse: ${REGISTRE_ETAT_CIVIL_JURY_URL}
+  #   delai_ms: 2000
+  #   identification:
+  #     mode: correspondance
+  #     table: correspondances/etat-civil-jury.csv
+  #   operations:
+  #     etat-civil.fiche:
+  #       route: "GET /actes/{identifiant_local}"
+  #       correspondances:
+  #         nom:            { champ: nom }
+  #         prenom:         { champ: prenom }
+  #         date_naissance: { champ: date_naissance }
+  #         sexe:           { champ: sexe }
+  #         nationalite:    { champ: nationalite }
+  #         pere_iue:       { champ: acte_pere }   # numéro d'acte, retraduit en IUE par la table
+  #         mere_iue:       { champ: acte_mere }
 
 # Pour chaque opération : les registres qui la servent, dans l'ordre. Le premier fait foi ;
 # les suivants sont des sources de secours, utilisées seulement s'il est hors service (bascule).
