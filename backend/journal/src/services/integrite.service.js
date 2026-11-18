@@ -45,6 +45,11 @@ function empreinteDe(e) {
     e.type_acces,
     new Date(e.date_acces).toISOString(),
   ];
+  // Base légale : ajoutée seulement si elle est présente. Les entrées scellées avant son
+  // introduction gardent ainsi exactement la même empreinte (la chaîne reste valide).
+  if (e.base_fondement != null) {
+    contenu.push(e.base_fondement, e.base_finalite ?? null, e.base_texte ?? null, e.base_reference_cil ?? null);
+  }
   return crypto.createHash('sha256').update(JSON.stringify(contenu)).digest('hex');
 }
 

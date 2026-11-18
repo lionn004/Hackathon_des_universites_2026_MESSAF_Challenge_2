@@ -12,7 +12,7 @@ DLNUF est un socle d'interopérabilité libre qui fait circuler les pièces entr
 Trois réponses à l'épreuve en direct structurent la solution :
 
 - **Ne transmettre que l'utile.** Chaque démarche déclare ses données ; tout le reste est filtré. La plateforme calcule elle-même les données dérivées : l'université reçoit « majeur : oui », jamais la date de naissance.
-- **Montrer à l'usager qui a consulté ses données.** Chaque accès est inscrit dans un journal en ajout seul, chaîné par empreintes (une trace modifiée ou effacée, même directement en base, se voit), que le citoyen consulte depuis son espace, y compris pour ses enfants mineurs.
+- **Montrer à l'usager qui a consulté ses données.** Chaque accès est inscrit dans un journal en ajout seul, chaîné par empreintes (une trace modifiée ou effacée, même directement en base, se voit), que le citoyen consulte depuis son espace, y compris pour ses enfants mineurs. Chaque accès y porte sa base légale : le citoyen voit qui, quoi, pourquoi et en vertu de quoi.
 - **Tenir quand un registre tombe.** Un registre en panne est détecté et contourné ; ce qui n'en dépend pas continue ; ce qui en dépend est mis en attente sans rien perdre, puis se complète seul à son retour.
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
@@ -182,12 +182,21 @@ Résultat sur nos contrats : nos trois registres sont reconnus au format recomma
 
 **Remise unique.** Les données partent dans une seule réponse : celle du `POST /requetes` pour une administration publique, la première consultation de `GET /requetes/{id}` après l'accord du citoyen pour une privée. Ensuite, la requête ne contient plus que son statut. La plateforme n'est pas un entrepôt de données.
 
-## 7. Consentement
+## 7. Base légale et consentement
 
-| Type d'administration | Accès | Information du citoyen |
-|-----------------------|-------|------------------------|
-| Publique | Direct, dans les limites de sa mission | Notification après coup, et entrée au journal |
-| Privée | Sur autorisation explicite | Demande de consentement avant toute transmission |
+**Une démarche est une finalité déclarée.** Aucune administration n'accède à des données sans démarche : c'est elle qui dit pourquoi les données sont nécessaires, et c'est d'elle que découlent la minimisation (§ 6), le cloisonnement par mission et l'entrée au journal. Une démarche peut être à l'initiative du citoyen (inscription, passeport, compte) ou de l'administration (contrôle, enquête) : le modèle est le même.
+
+**Chaque démarche déclare sa base légale** : un fondement, choisi dans une liste fermée (mission de service public, obligation légale, exécution d'un contrat demandé par la personne, consentement), une finalité, le texte qui l'autorise et la référence de la formalité auprès de la CIL. La passerelle refuse de démarrer si une démarche n'a pas de base légale, si son fondement est inconnu ou sans finalité, ou si une entité privée invoque une mission de service public. La base légale est publiée dans le catalogue des démarches, montrée au citoyen dans ses demandes de consentement, et figée dans chaque entrée de son journal : il voit en vertu de quoi on a consulté ses données.
+
+| Démarche | Fondement | Accès |
+|----------|-----------|-------|
+| Inscription universitaire (université, publique) | Mission de service public | Direct, dans les limites de la mission ; notification après coup et entrée au journal |
+| Émission de passeport (police, publique) | Obligation légale | Direct, idem |
+| Ouverture de compte bancaire (banque, privée) | Obligation légale (vigilance contre le blanchiment) | Accord du citoyen avant toute transmission |
+
+**Base légale et accord du citoyen sont deux choses distinctes.** La base légale fonde le traitement des données par l'organisme. L'accord du citoyen autorise le **partage** des données de l'État avec une entité privée : il reste exigé même quand l'entité a une obligation légale, car son obligation l'oblige à vérifier une identité, pas à puiser dans les registres de l'État sans que le citoyen le sache ; il peut toujours apporter ses pièces lui-même. Présenter le consentement comme la base légale de la banque serait d'ailleurs fragile : un consentement n'est valable que s'il est libre, et refuser reviendrait à ne pas ouvrir de compte.
+
+Dans la démonstration, la qualification de chaque démarche est la nôtre ; le texte et la référence CIL sont marqués « à préciser par l'administration » (aucun numéro n'est inventé). En production, l'administration déclare la base légale de sa démarche et le gestionnaire du catalogue la valide, avec l'avis de la CIL ; la qualification doit être validée par un juriste.
 
 Pour une administration privée :
 
@@ -206,7 +215,7 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 - **Ajout seul.** Le service journal n'a qu'une route d'écriture (`POST /journal/enregistrer`, appelée par la passerelle) : aucune entrée n'est modifiée ni supprimée. Il conserve une photo figée des noms (administration, démarche), pour que le journal reste lisible même si le catalogue change.
 - **Chaîné par empreintes.** L'ajout seul de l'API ne protège pas contre quelqu'un qui accède directement à la base. Chaque entrée porte donc son rang, l'empreinte de l'entrée précédente et la sienne (SHA-256 de son contenu, de son rang et de l'empreinte précédente). Modifier une entrée change son empreinte ; en supprimer une laisse un rang manquant. Les écritures passent sous un verrou PostgreSQL, pour que deux accès simultanés ne forment jamais deux branches. `GET /api/journal/verification` recalcule toute la chaîne et dit si le journal est intact, sinon où se trouve la première rupture et si elle touche les données du citoyen, sans rien révéler des autres. Elle renvoie aussi la dernière empreinte : conservée ailleurs (ancre), elle permet de détecter même une réécriture complète de la fin de la chaîne.
 - **Double traçabilité.** Chaque entrée porte le **titulaire** des données et le **décideur**. Pour un mineur dont le tuteur a répondu au consentement, le titulaire est l'enfant et le décideur le tuteur.
-- **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Le journal et les consentements affichent le libellé de chaque donnée, tiré du dictionnaire (`GET /api/dictionnaire`) : « Majeur » plutôt que `est_majeur`.
+- **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Chaque entrée porte la base légale de l'accès (§ 7), figée au moment de l'accès et scellée dans l'empreinte. Le journal et les consentements affichent le libellé de chaque donnée, tiré du dictionnaire (`GET /api/dictionnaire`) : « Majeur » plutôt que `est_majeur`.
 - **Pas de trace, pas de données.** Si le journal est indisponible, la passerelle ne transmet rien.
 
 ## 9. Tenir quand un registre tombe
@@ -363,6 +372,8 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 **Perspectives**
 
 - **Catalogue en base de données**, avec une API et une interface d'administration réservées à un rôle « gestionnaire du catalogue » (autorité du référentiel), et l'historique de chaque modification.
+- **Base légale gouvernée** : circuit de déclaration par l'administration et de validation par le gestionnaire du catalogue et la CIL ; pas de démarche active sans formalité CIL enregistrée. Démarche publique fondée sur le consentement (un service facultatif) : accord du citoyen exigé, ce qui demande d'étendre le service consentement aux administrations publiques.
+- **Accès à l'initiative de l'administration** (contrôle, enquête) : information du citoyen différée ou restreinte quand la loi le prévoit (une enquête ne doit pas être compromise), toujours avec une trace au journal ; traitements en masse (statistiques, listes électorales), que le modèle actuel, citoyen par citoyen, ne couvre pas.
 - **Assistant de branchement plus fin** : enrichir les synonymes au fil des registres branchés, et comparer les exemples du contrat OpenAPI aux formats attendus (dates, codes).
 - **Table de correspondance alimentée par l'enrôlement** : le mode `correspondance` est fait, avec une table en fichier. En production, le lien entre l'IUE et les autres identifiants (numéro d'acte, NIP, IFU) naît à l'enrôlement et appartient à l'autorité de l'IUE. La passerelle le consulterait donc par API auprès de cette autorité, au lieu d'un fichier, avec les mêmes règles qu'aujourd'hui. Les ajouts seraient pris en compte sans redémarrage, chaque modification serait tracée, et les rapprochements douteux seraient validés par un agent, avec une voie de contestation pour le citoyen. La table est elle-même une donnée personnelle, à accès restreint. À terme, les registres adoptent l'IUE (mode `iue`) : la correspondance, comme la recherche, est un mécanisme de transition.
 - **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.

@@ -220,6 +220,18 @@ curl -X POST http://localhost:3000/api/test/requete \
 # réponse 403 {"code":"HORS_MISSION","message":"Accès refusé : hors du domaine de mission « education » (...)"}
 ```
 
+### Base légale de chaque démarche
+
+Chaque démarche déclare sa base légale : fondement (mission de service public, obligation légale, exécution d'un contrat, consentement), finalité, texte et référence de la formalité auprès de la CIL (à préciser par l'administration). La passerelle refuse de démarrer sans elle. Elle est publiée dans le catalogue, montrée dans les demandes de consentement, et figée dans chaque entrée du journal :
+
+```bash
+curl http://localhost:3004/api/demarches
+# {"demarches":[{"id":"inscription-universite",...,"base_legale":{"fondement":"mission_service_public",
+#   "libelle":"Mission de service public","finalite":"Vérifier les conditions d'inscription...",...}}, ...]}
+```
+
+Pour une entité privée, l'accord du citoyen reste exigé avant toute transmission, en plus de sa base légale : la banque a une obligation légale de vérifier l'identité de ses clients, mais c'est le citoyen qui autorise le partage des données de l'État.
+
 ---
 
 ## Appeler la passerelle comme une vraie administration

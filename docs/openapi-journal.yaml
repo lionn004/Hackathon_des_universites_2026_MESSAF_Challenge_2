@@ -233,6 +233,8 @@ components:
           description: |
             direct = admin publique (accès sans consentement explicite)
             consentement = admin privée (consentement explicite du citoyen)
+        base_legale:
+          $ref: "#/components/schemas/BaseLegale"
         date_acces:
           type: string
           format: date-time
@@ -271,6 +273,8 @@ components:
         type_acces:
           type: string
           enum: [direct, consentement]
+        base_legale:
+          $ref: "#/components/schemas/BaseLegale"
         administration_nom:
           type: string
           description: |
@@ -330,6 +334,32 @@ components:
         date_verification:
           type: string
           format: date-time
+
+    BaseLegale:
+      type: object
+      nullable: true
+      description: "Base légale de la démarche : en vertu de quoi les données sont traitées. Qualification à valider par un juriste ou la CIL ; texte et référence CIL fournis par l'administration. Null pour une entrée antérieure à son introduction."
+      properties:
+        fondement:
+          type: string
+          enum: [mission_service_public, obligation_legale, execution_contrat, consentement]
+        libelle:
+          type: string
+          description: "Libellé du fondement (ignoré en entrée)"
+          example: "Mission de service public"
+        finalite:
+          type: string
+          example: "Vérifier les conditions d'inscription dans l'enseignement supérieur (majorité, nationalité)"
+        texte:
+          type: string
+          nullable: true
+          description: Texte qui autorise la démarche
+          example: "À préciser par l'administration"
+        reference_cil:
+          type: string
+          nullable: true
+          description: Référence de la formalité auprès de la CIL
+          example: "À renseigner (formalité auprès de la CIL)"
 
     Erreur:
       type: object

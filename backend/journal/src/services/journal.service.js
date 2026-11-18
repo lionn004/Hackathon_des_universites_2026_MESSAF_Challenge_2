@@ -26,6 +26,13 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const REGISTRES = ['etat-civil', 'justice', 'fiscal'];
 const TYPES_ACCES = ['direct', 'consentement'];
 const TYPES_ADMINISTRATION = ['publique', 'privee'];
+/** Fondements de la base légale et leur libellé (mêmes valeurs que prisma/reference.js de la passerelle). */
+const FONDEMENTS = {
+  mission_service_public: 'Mission de service public',
+  obligation_legale: 'Obligation légale',
+  execution_contrat: 'Exécution d\'un contrat demandé par la personne',
+  consentement: 'Consentement',
+};
 
 const DEFAULT_PAGE_SIZE = 20;
 /** Plafond de la taille de page : évite qu'un client demande tout le journal d'un coup. */
@@ -82,6 +89,34 @@ function validateNewAccess(body) {
   for (const field of ['administration_nom', 'demarche_nom']) {
     if (b[field] != null && typeof b[field] !== 'string') invalid(`${field} doit être une chaîne`);
   }
+
+  // Base légale (facultative dans le contrat, envoyée par la passerelle pour chaque accès).
+  if (b.base_legale != null) {
+    const bl = b.base_legale;
+    if (typeof bl !== 'object' || !Object.hasOwn(FONDEMENTS, bl.fondement)) {
+      invalid(`base_legale.fondement doit valoir : ${Object.keys(FONDEMENTS).join(', ')}`);
+    }
+    if (typeof bl.finalite !== 'string' || bl.finalite.trim() === '') invalid('base_legale.finalite est requise');
+    for (const field of ['texte', 'reference_cil']) {
+      if (bl[field] != null && typeof bl[field] !== 'string') invalid(`base_legale.${field} doit être une chaîne`);
+    }
+  }
+}
+
+/**
+ * Base légale d'une entrée, au format du contrat, ou null pour une entrée antérieure.
+ * @param {object} entry
+ * @returns {object|null}
+ */
+function baseLegale(entry) {
+  if (!entry.base_fondement) return null;
+  return {
+    fondement: entry.base_fondement,
+    libelle: FONDEMENTS[entry.base_fondement] || entry.base_fondement,
+    finalite: entry.base_finalite,
+    texte: entry.base_texte,
+    reference_cil: entry.base_reference_cil,
+  };
 }
 
 /**
@@ -106,6 +141,7 @@ function toContract(entry) {
     registres_consultes: entry.registres_consultes,
     champs_transmis: entry.champs_transmis,
     type_acces: entry.type_acces,
+    base_legale: baseLegale(entry),
     date_acces: entry.date_acces.toISOString(),
   };
 }
@@ -178,6 +214,12 @@ async function recordAccess(body) {
     registres_consultes: body.registres_consultes,
     champs_transmis: body.champs_transmis,
     type_acces: body.type_acces,
+    ...(body.base_legale && {
+      base_fondement: body.base_legale.fondement,
+      base_finalite: body.base_legale.finalite,
+      base_texte: body.base_legale.texte ?? null,
+      base_reference_cil: body.base_legale.reference_cil ?? null,
+    }),
   });
   return toContract(entry);
 }

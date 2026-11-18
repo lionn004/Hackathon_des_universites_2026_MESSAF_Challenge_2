@@ -36,7 +36,11 @@ async function listAdministrations() {
 async function listDemarches() {
   ensureEnabled();
   const { demarches } = await passerelleClient.listDemarches();
-  return { demarches: demarches.map((d) => ({ id: d.id, nom: d.nom, administration_cible: d.administration_cible })) };
+  return {
+    demarches: demarches.map((d) => ({
+      id: d.id, nom: d.nom, administration_cible: d.administration_cible, base_legale: d.base_legale ?? null,
+    })),
+  };
 }
 
 /**
