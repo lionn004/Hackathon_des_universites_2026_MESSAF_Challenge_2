@@ -1,8 +1,8 @@
-# DLNUF — Dites-le-nous une fois
+# DLNUF (Dites-le-nous une fois)
 
-Plateforme d'interopérabilité qui permet aux administrations du Burkina Faso d'échanger les données des citoyens entre elles, au lieu de demander aux citoyens de transporter des documents d'un guichet à l'autre. Le citoyen fournit ses informations **une seule fois** ; chaque échange est **filtré** (seuls les champs utiles à la démarche passent), **autorisé** (consentement explicite pour les entités privées) et **tracé** (le citoyen voit qui a consulté quoi, et pourquoi).
+Plateforme d'interopérabilité qui permet aux administrations du Burkina Faso d'échanger les données des citoyens entre elles, au lieu de demander aux citoyens de transporter des documents d'un guichet à l'autre. Le citoyen fournit ses informations une seule fois. Chaque échange ne laisse passer que les champs utiles à la démarche, exige le consentement explicite du citoyen quand le demandeur est une entité privée, et reste visible du citoyen, qui sait qui a consulté quoi et pourquoi.
 
-Projet réalisé pour le **Hackathon des Universités 2026** (MTDPCE, Semaine du Numérique) — Challenge 02 « Dites-le-nous une fois ».
+Projet réalisé pour le Hackathon des Universités 2026 (MTDPCE, Semaine du Numérique), challenge 02 « Dites-le-nous une fois ».
 
 ---
 
@@ -51,10 +51,10 @@ Arrêter : `docker compose down`. Repartir de zéro (efface la base) : `docker c
 | Amadou OUEDRAOGO | `784302956148` | `Amadou2026!` | Majeur, citoyen principal de la démo |
 | Ibrahim OUEDRAOGO | `291047583620` | `Ibrahim2026!` | Père d'Amadou, tuteur d'Awa et Moussa ; ses parents ne sont pas enregistrés (passage au guichet) |
 | Fatimata SAWADOGO | `638501274093` | `Fatimata2026!` | Mère d'Amadou |
-| Awa OUEDRAOGO | `456123789012` | — | Mineure (12 ans), compte géré par Ibrahim |
-| Moussa OUEDRAOGO | `527814903361` | — | Mineur (16 ans), transfert de compte recommandé |
-| Salif OUEDRAOGO | `316580942751` | *pas de compte* | Majeur, connu de l'état civil mais **pas encore inscrit** : sert à l'inscription en direct |
-| Aïcha OUEDRAOGO | `873045129604` | — | Fille de Salif (5 ans), rattachée automatiquement à son père quand il s'inscrit |
+| Awa OUEDRAOGO | `456123789012` | aucun | Mineure (12 ans), compte géré par Ibrahim |
+| Moussa OUEDRAOGO | `527814903361` | aucun | Mineur (16 ans), transfert de compte recommandé |
+| Salif OUEDRAOGO | `316580942751` | pas de compte | Majeur, connu de l'état civil mais pas encore inscrit : sert à l'inscription en direct |
+| Aïcha OUEDRAOGO | `873045129604` | aucun | Fille de Salif (5 ans), rattachée automatiquement à son père quand il s'inscrit |
 
 Ces mots de passe sont uniquement des mots de passe de démonstration.
 
@@ -80,9 +80,9 @@ Ces mots de passe sont uniquement des mots de passe de démonstration.
 
 ## Démonstration des 3 procédures
 
-Les exemples utilisent `curl` dans un terminal bash (Git Bash sous Windows). L'**interface de test** du BFF (`/api/test/*`) permet de jouer le rôle d'une administration sans gérer de jeton.
+Les exemples utilisent `curl` dans un terminal bash (Git Bash sous Windows). L'interface de test du BFF (`/api/test/*`) permet de jouer le rôle d'une administration sans gérer de jeton.
 
-### 1. Inscription universitaire — administration publique, accès direct
+### 1. Inscription universitaire (administration publique, accès direct)
 
 ```bash
 curl -X POST http://localhost:3000/api/test/requete \
@@ -90,9 +90,9 @@ curl -X POST http://localhost:3000/api/test/requete \
   -d '{"administration_id":"00000000-0000-4000-8000-000000000001","iue_citoyen":"784302956148","demarche_id":"inscription-universite"}'
 ```
 
-L'université reçoit **uniquement** `{"etat-civil":{"est_majeur":true,"nationalite":"Burkinabè"}}`, et l'accès est inscrit au journal d'Amadou.
+L'université reçoit uniquement `{"etat-civil":{"est_majeur":true,"nationalite":"Burkinabè"}}`, et l'accès est inscrit au journal d'Amadou.
 
-### 2. Émission de passeport — administration publique, résolution en cascade
+### 2. Émission de passeport (administration publique, résolution en cascade)
 
 ```bash
 curl -X POST http://localhost:3000/api/test/requete \
@@ -100,22 +100,22 @@ curl -X POST http://localhost:3000/api/test/requete \
   -d '{"administration_id":"00000000-0000-4000-8000-000000000002","iue_citoyen":"784302956148","demarche_id":"emission-passeport"}'
 ```
 
-La réponse contient l'état civil complet, les données de justice et la **cascade** : casier judiciaire → certificat de nationalité → extraits de naissance d'Amadou, de son père et de sa mère, tous `resolu`. Avec l'IUE d'Ibrahim (`291047583620`), les extraits de naissance de ses parents apparaissent en `manquant_fallback_physique` : il devra les présenter au guichet.
+La réponse contient l'état civil complet, les données de justice et la cascade : le casier judiciaire dépend du certificat de nationalité, qui dépend lui-même des extraits de naissance d'Amadou, de son père et de sa mère, tous `resolu`. Avec l'IUE d'Ibrahim (`291047583620`), les extraits de naissance de ses parents apparaissent en `manquant_fallback_physique` : il devra les présenter au guichet.
 
-### 3. Ouverture de compte bancaire — administration privée, consentement explicite
+### 3. Ouverture de compte bancaire (administration privée, consentement explicite)
 
-**a. La banque fait sa demande** — rien n'est transmis, une demande de consentement est créée :
+**a. La banque fait sa demande.** Rien n'est transmis, une demande de consentement est créée :
 
 ```bash
 curl -X POST http://localhost:3000/api/test/requete \
   -H "Content-Type: application/json" \
   -d '{"administration_id":"00000000-0000-4000-8000-000000000004","iue_citoyen":"784302956148","demarche_id":"ouverture-compte-bancaire"}'
-# → 202 {"type_admin":"privee","requete_id":"<REQUETE_ID>","consentement_id":"<CONSENTEMENT_ID>",...}
+# réponse 202 {"type_admin":"privee","requete_id":"<REQUETE_ID>","consentement_id":"<CONSENTEMENT_ID>",...}
 ```
 
 Le SMS simulé envoyé au citoyen est visible avec `docker compose logs consentement`.
 
-**b. Amadou se connecte et accepte** :
+**b. Amadou se connecte et accepte.**
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/connexion \
@@ -129,14 +129,14 @@ curl -X PUT http://localhost:3000/api/consentements/<CONSENTEMENT_ID> \
   -d '{"decision":"accepte"}'
 ```
 
-**c. La banque consulte sa requête** et reçoit uniquement les 4 champs acceptés :
+**c. La banque consulte sa requête.** Elle reçoit uniquement les 4 champs acceptés :
 
 ```bash
 curl "http://localhost:3000/api/test/requetes/<REQUETE_ID>?administration_id=00000000-0000-4000-8000-000000000004"
-# → {"statut":"complete","donnees":{"etat-civil":{"nom":"OUEDRAOGO","prenom":"Amadou","nationalite":"Burkinabè"},"fiscal":{"en_regle":true}},...}
+# réponse {"statut":"complete","donnees":{"etat-civil":{"nom":"OUEDRAOGO","prenom":"Amadou","nationalite":"Burkinabè"},"fiscal":{"en_regle":true}},...}
 ```
 
-**d. Amadou voit l'accès dans son journal** :
+**d. Amadou voit l'accès dans son journal.**
 
 ```bash
 curl http://localhost:3000/api/journal -H "Authorization: Bearer $TOKEN"
@@ -150,19 +150,19 @@ Salif OUEDRAOGO est connu de l'état civil mais n'a pas encore de compte. Il s'i
 curl -X POST http://localhost:3000/api/auth/inscription \
   -H "Content-Type: application/json" \
   -d '{"iue":"316580942751","mot_de_passe":"Salif2026!","telephone":"+22670998877"}'
-# → 201 {"token":"...","citoyen":{"iue":"316580942751","nom":"OUEDRAOGO","prenom":"Salif",...}}
+# réponse 201 {"token":"...","citoyen":{"iue":"316580942751","nom":"OUEDRAOGO","prenom":"Salif",...}}
 ```
 
-Son nom n'a été saisi nulle part : la plateforme l'a lu à l'état civil. Sa fille mineure Aïcha a été **détectée et rattachée automatiquement** à son compte :
+Son nom n'a été saisi nulle part : la plateforme l'a lu à l'état civil. Sa fille mineure Aïcha a été détectée et rattachée automatiquement à son compte :
 
 ```bash
 curl http://localhost:3000/api/enfants -H "Authorization: Bearer <TOKEN_DE_SALIF>"
-# → {"enfants":[{"iue":"873045129604","prenom":"Aïcha","age":5,"transfert_recommande":false,...}]}
+# réponse {"enfants":[{"iue":"873045129604","prenom":"Aïcha","age":5,"transfert_recommande":false,...}]}
 ```
 
 La même inscription peut se faire depuis la documentation Swagger (http://localhost:3010, `POST /auth/inscription`, « Try it out ») : l'exemple pré-rempli est celui de Salif.
 
-**Rejouer la démonstration** (supprime uniquement les comptes de Salif et d'Aïcha) :
+Pour rejouer la démonstration (supprime uniquement les comptes de Salif et d'Aïcha) :
 
 ```bash
 docker compose exec espace-usager node scripts/reinitialiser-inscription-demo.js
@@ -176,7 +176,7 @@ Une administration ne peut obtenir que les données liées à sa mission. L'univ
 curl -X POST http://localhost:3000/api/test/requete \
   -H "Content-Type: application/json" \
   -d '{"administration_id":"00000000-0000-4000-8000-000000000001","iue_citoyen":"784302956148","demarche_id":"emission-passeport"}'
-# → 403 {"code":"HORS_MISSION","message":"Accès refusé : hors du domaine de mission « education » (...)"}
+# réponse 403 {"code":"HORS_MISSION","message":"Accès refusé : hors du domaine de mission « education » (...)"}
 ```
 
 ---
@@ -208,7 +208,7 @@ curl -X POST http://localhost:3004/api/requetes \
 
 ## Test d'interopérabilité : brancher le registre d'une autre équipe
 
-Les contrats des registres (`docs/openapi-registre-*.yaml`) sont standardisés. La passerelle n'utilise **que** les routes de ces contrats ; n'importe quel registre conforme peut remplacer le nôtre, **sans modifier le code**.
+Les contrats des registres (`docs/openapi-registre-*.yaml`) sont standardisés. La passerelle n'utilise que les routes de ces contrats : n'importe quel registre conforme peut remplacer le nôtre sans modifier le code.
 
 1. Démarrer le registre de l'autre équipe et noter son adresse. Depuis un conteneur Docker, la machine hôte s'appelle `host.docker.internal`.
 2. Créer un fichier `.env` à la racine du dépôt :
@@ -267,7 +267,7 @@ Réponses : `200` avec les champs du contrat, `404` si le citoyen est inconnu, e
               interroge les registres        └──────────┘
 ```
 
-Les administrations appellent directement la **passerelle** (:3004) ; les citoyens passent par l'**espace usager** (:3000).
+Les administrations appellent directement la passerelle (:3004) ; les citoyens passent par l'espace usager (:3000).
 
 Le frontend citoyen est d'abord une application web en HTML / CSS / JavaScript. Une application mobile pourra suivre : elle utilisera le même contrat (`openapi-espace-usager.yaml`), sans aucune modification du backend, car l'authentification passe par un jeton dans l'en-tête `Authorization` et non par des cookies.
 
@@ -275,16 +275,16 @@ Le frontend citoyen est d'abord une application web en HTML / CSS / JavaScript. 
 
 1. **Droits** : l'administration doit exister, et tous les champs requis par la démarche doivent appartenir à son domaine de mission. Sinon : refus (403), rien n'est transmis.
 2. **Administration publique** :
-   - la passerelle résout la **cascade** des pièces prérequises (via la filiation à l'état civil) ;
-   - elle interroge les registres en ne demandant **que** les champs requis ;
-   - le service de **minimisation** retire tout champ non autorisé pour la démarche ;
-   - l'accès est inscrit au **journal** — si le journal est indisponible, rien n'est transmis ;
+   - la passerelle résout la cascade des pièces prérequises (via la filiation à l'état civil) ;
+   - elle interroge les registres en ne demandant que les champs requis ;
+   - le service de minimisation retire tout champ non autorisé pour la démarche ;
+   - l'accès est inscrit au journal (si le journal est indisponible, rien n'est transmis) ;
    - le citoyen est notifié et les données sont renvoyées.
-3. **Administration privée** : une demande de consentement est créée et le citoyen est prévenu par SMS (rappels à 24 h et 72 h, expiration à 30 jours). Quand l'administration consulte sa requête, la passerelle vérifie la réponse du citoyen : en cas d'acceptation, **seuls les champs acceptés** sont transmis et l'accès est tracé ; un refus est également tracé.
+3. **Administration privée** : une demande de consentement est créée et le citoyen est prévenu par SMS (rappels à 24 h et 72 h, expiration à 30 jours). Quand l'administration consulte sa requête, la passerelle vérifie la réponse du citoyen : en cas d'acceptation, seuls les champs acceptés sont transmis et l'accès est tracé ; un refus est également tracé.
 
 ### Mineurs
 
-Le compte d'un mineur est géré par son tuteur, qui voit ses demandes de consentement, y répond et consulte son journal. Le journal distingue le **titulaire** des données (l'enfant) et le **décideur** (le tuteur). À 15 ans, le tuteur peut transférer le compte à l'enfant.
+Le compte d'un mineur est géré par son tuteur, qui voit ses demandes de consentement, y répond et consulte son journal. Le journal distingue le titulaire des données (l'enfant) et le décideur (le tuteur). À 15 ans, le tuteur peut transférer le compte à l'enfant.
 
 ---
 
@@ -292,11 +292,11 @@ Le compte d'un mineur est géré par son tuteur, qui voit ses demandes de consen
 
 Les spécifications OpenAPI 3.0 sont dans `docs/` et font foi.
 
-**Documentation interactive** : http://localhost:3010 (Swagger UI, démarré avec le reste de la plateforme). Le menu en haut à droite permet de passer d'un contrat à l'autre. La page lit directement les fichiers de `docs/` : elle est toujours à jour. Le bouton « Try it out » permet d'appeler l'espace usager (:3000) depuis la page ; pour les autres services, utiliser `curl` (voir les exemples ci-dessus).
+Documentation interactive : http://localhost:3010 (Swagger UI, démarré avec le reste de la plateforme). Le menu en haut à droite permet de passer d'un contrat à l'autre. La page lit directement les fichiers de `docs/` : elle est toujours à jour. Le bouton « Try it out » permet d'appeler l'espace usager (:3000) depuis la page ; pour les autres services, utiliser `curl` (voir les exemples ci-dessus).
 
 | Fichier | Port | Consommé par |
 |---------|------|-------------|
-| `openapi-espace-usager.yaml` | :3000 | **Frontend** (seul contrat nécessaire pour le frontend) |
+| `openapi-espace-usager.yaml` | :3000 | Frontend (seul contrat nécessaire pour le frontend) |
 | `openapi-passerelle.yaml` | :3004 | Administrations, BFF, interface de test |
 | `openapi-consentement.yaml` | :3005 | Passerelle, BFF |
 | `openapi-journal.yaml` | :3006 | Passerelle, BFF |
@@ -327,9 +327,9 @@ Les valeurs par défaut conviennent pour la démonstration. Pour les modifier, c
 | `INTERFACE_TEST_ACTIVE` | `true` | Active l'interface de test `/api/test/*` |
 | `REGISTRE_ETAT_CIVIL_URL`, `REGISTRE_JUSTICE_URL`, `REGISTRE_FISCAL_URL` | registres internes | Registres utilisés par la passerelle (interopérabilité) |
 
-**En production** : changer `JWT_SECRET` et `CLE_SERVICE_INTERNE`, mettre l'adresse du frontend dans `CORS_ORIGINES`, passer `INTERFACE_TEST_ACTIVE=false` (l'interface de test peut se faire passer pour n'importe quelle administration), et ne publier que les ports de la passerelle et du BFF.
+En production, changer `JWT_SECRET` et `CLE_SERVICE_INTERNE`, mettre l'adresse du frontend dans `CORS_ORIGINES`, passer `INTERFACE_TEST_ACTIVE=false` (l'interface de test peut se faire passer pour n'importe quelle administration), et ne publier que les ports de la passerelle et du BFF.
 
-**SMS** : ils sont simulés et écrits dans les logs : `docker compose logs consentement` (demandes de consentement, rappels) et `docker compose logs espace-usager` (codes de mot de passe, transferts de compte).
+Les SMS sont simulés et écrits dans les logs : `docker compose logs consentement` (demandes de consentement, rappels) et `docker compose logs espace-usager` (codes de mot de passe, transferts de compte).
 
 ---
 
@@ -342,8 +342,8 @@ Node.js 22 + Express, PostgreSQL 16, Prisma 6, JWT + bcrypt, Docker Compose.
 ### Organisation du dépôt
 
 ```
-docker-compose.yml        ← toute la plateforme en une commande
-docs/                     ← contrats OpenAPI (source de vérité), affichés sur http://localhost:3010
+docker-compose.yml        toute la plateforme en une commande
+docs/                     contrats OpenAPI (source de vérité), affichés sur http://localhost:3010
 backend/
 ├── registres/
 │   ├── etat-civil/       :3001
@@ -353,14 +353,14 @@ backend/
 ├── consentement/         :3005
 ├── journal/              :3006
 └── espace-usager/        :3000 (BFF)
-frontend/                 ← espace usager (équipe frontend)
+frontend/                 espace usager (équipe frontend)
 ```
 
 Chaque service est autonome (son `package.json`, son `Dockerfile`, son schéma Prisma et son schéma PostgreSQL) et suit la même architecture en couches :
 
 ```
-src/routes/        URL → controller (+ authentification)
-src/controllers/   requête HTTP → service → réponse, sans logique métier
+src/routes/        associe chaque URL à un controller (et à l'authentification)
+src/controllers/   lit la requête, appelle un service et renvoie la réponse, sans logique métier
 src/services/      logique métier
 src/models/        accès à la base (Prisma)
 src/clients/       appels HTTP vers les autres services
@@ -381,10 +381,10 @@ Consulter les logs d'un service : `docker compose logs -f passerelle`.
 
 ### Développement parallèle
 
-- **Équipe frontend** : travaille uniquement avec `openapi-espace-usager.yaml` (port 3000). Tous les endpoints sont préfixés `/api/`.
-- **Équipe backend** : implémente les services dans `backend/` en respectant les contrats.
-- **Contrats** : ils sont l'interface entre les deux équipes ; prévenir l'autre équipe avant d'en modifier un.
-- **Git** : une branche courte par fonctionnalité (`backend/...`, `frontend/...`), fusionnée dans `main` par Pull Request. Messages de commit : `Prénom: description`.
+- Équipe frontend : travaille uniquement avec `openapi-espace-usager.yaml` (port 3000). Tous les endpoints sont préfixés `/api/`.
+- Équipe backend : implémente les services dans `backend/` en respectant les contrats.
+- Contrats : ils sont l'interface entre les deux équipes ; prévenir l'autre équipe avant d'en modifier un.
+- Git : une branche courte par fonctionnalité (`backend/...`, `frontend/...`), fusionnée dans `main` par Pull Request. Messages de commit : `Prénom: description`.
 
 ---
 
@@ -392,4 +392,4 @@ Consulter les logs d'un service : `docker compose logs -f passerelle`.
 
 Copyright 2026 Équipe MESSAF.
 
-DLNUF est un logiciel libre publié sous la **licence Apache, version 2.0** : chacun peut l'utiliser, le modifier et le redistribuer, y compris à des fins commerciales, à condition de conserver la mention de copyright et le texte de la licence. Voir les fichiers [LICENSE](LICENSE) et [NOTICE](NOTICE).
+DLNUF est un logiciel libre publié sous la licence Apache, version 2.0 : chacun peut l'utiliser, le modifier et le redistribuer, y compris à des fins commerciales, à condition de conserver la mention de copyright et le texte de la licence. Voir les fichiers [LICENSE](LICENSE) et [NOTICE](NOTICE).

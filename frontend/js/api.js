@@ -1,7 +1,6 @@
 /**
- * e-FASO — Module API
- * Client HTTP pour le BFF (Backend For Frontend) sur port 3000.
- * Contrat : docs/openapi-espace-usager.yaml (source de vérité des noms de champs).
+ * Couche 5, espace usager : client HTTP du BFF (port 3000) et fonctions d'affichage
+ * communes à toutes les pages. Les noms de champs suivent docs/openapi-espace-usager.yaml.
  */
 
 const API_BASE = 'http://localhost:3000/api';
@@ -9,10 +8,12 @@ const API_BASE = 'http://localhost:3000/api';
 const TOKEN_KEY = 'efaso_token';
 const CITOYEN_KEY = 'efaso_citoyen';
 
+/** Valeur affichée quand une donnée est absente. */
+const VIDE = '-';
+
 /**
- * Construit une query string en ignorant les valeurs vides.
- * @param {object} params
- * @returns {string} '' ou '?a=1&b=2'
+ * @param {object} params Paramètres de requête ; les valeurs vides sont ignorées.
+ * @returns {string} Chaîne vide ou « ?a=1&b=2 ».
  */
 function toQuery(params = {}) {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '');
@@ -20,8 +21,11 @@ function toQuery(params = {}) {
 }
 
 /**
- * Fetch wrapper avec gestion automatique du token JWT.
- * Les erreurs sont levées au format du contrat : { status, code, message }.
+ * Appel au BFF avec le jeton JWT de la session.
+ * @param {string} endpoint Chemin après /api, par exemple « /demandes ».
+ * @param {object} [options] Options de fetch (method, body…).
+ * @returns {Promise<object|null>} Corps JSON de la réponse.
+ * @throws {{status: number, code: string, message: string}} Erreur au format du contrat.
  */
 async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -42,19 +46,19 @@ async function apiFetch(endpoint, options = {}) {
     throw { code: 'NETWORK_ERROR', message: 'Impossible de contacter le serveur. Vérifiez votre connexion.' };
   }
 
-  // Un 401 sur une route authentifiée = session expirée → retour au login.
-  // Sur /auth/* (mauvais mot de passe, code SMS invalide…), on laisse l'erreur remonter.
+  // Un 401 sur une route authentifiée signifie que la session a expiré. Sur /auth/*
+  // (mauvais mot de passe, code SMS invalide), l'erreur doit au contraire être affichée.
   if (response.status === 401 && token && !endpoint.startsWith('/auth/')) {
     clearSession();
     window.location.href = '/pages/login.html';
-    return new Promise(() => {}); // la page se recharge : ne jamais résoudre
+    return new Promise(() => {}); // la page se recharge, la promesse ne doit pas se résoudre
   }
 
   let data = null;
   try {
     data = await response.json();
   } catch (_) {
-    data = null; // réponse vide ou non JSON
+    data = null;
   }
 
   if (!response.ok) {
@@ -65,7 +69,7 @@ async function apiFetch(endpoint, options = {}) {
     };
   }
 
-  // Le code HTTP est utile à l'interface de test (200 publique / 202 privée).
+  // L'interface de test a besoin du code HTTP (200 pour une administration publique, 202 pour une privée).
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     Object.defineProperty(data, '_status', { value: response.status, enumerable: false });
   }
@@ -84,9 +88,7 @@ function clearSession() {
   localStorage.removeItem(CITOYEN_KEY);
 }
 
-// ═══════════════════════════════════════
-// AUTHENTIFICATION
-// ═══════════════════════════════════════
+// Authentification
 
 const authApi = {
   async inscription(iue, mot_de_passe, telephone) {
@@ -107,7 +109,7 @@ const authApi = {
     return data;
   },
 
-  /** Étape 1 : envoie un code SMS. Renvoie { message, token_temporaire }. */
+  /** Envoie un code par SMS. Réponse : { message, token_temporaire }. */
   async motDePasseOublie(iue, telephone) {
     return apiFetch('/auth/mot-de-passe-oublie', {
       method: 'POST',
@@ -115,7 +117,6 @@ const authApi = {
     });
   },
 
-  /** Étape 2 : nouveau mot de passe avec le code reçu par SMS. */
   async reinitialiserMotDePasse(token_temporaire, code_sms, nouveau_mot_de_passe) {
     return apiFetch('/auth/reinitialiser-mot-de-passe', {
       method: 'POST',
@@ -141,23 +142,15 @@ const authApi = {
   },
 };
 
-// ═══════════════════════════════════════
-// PROFIL
-// ═══════════════════════════════════════
+// Profil et enfants
 
 const profilApi = {
-  /** ProfilCitoyen : { iue, nom, prenom, telephone, date_inscription, est_tuteur, nombre_enfants } */
   async get() {
     return apiFetch('/profil');
   },
 };
 
-// ═══════════════════════════════════════
-// ENFANTS
-// ═══════════════════════════════════════
-
 const enfantsApi = {
-  /** { enfants: [{ iue, nom, prenom, date_naissance, age, transfert_recommande }] } */
   async list() {
     return apiFetch('/enfants');
   },
@@ -167,18 +160,20 @@ const enfantsApi = {
   },
 };
 
-// ═══════════════════════════════════════
-// DEMANDES
-// ═══════════════════════════════════════
+// Demandes de pièces
 
 const demandesApi = {
-  /** params : { statut, page, limite } → { demandes, pagination } */
   async list(params = {}) {
     return apiFetch(`/demandes${toQuery(params)}`);
   },
 
   async get(id) {
     return apiFetch(`/demandes/${encodeURIComponent(id)}`);
+  },
+
+  /** Contenu de la pièce. Route décrite dans CLAUDE.md (consultation des pièces du citoyen). */
+  async contenu(id) {
+    return apiFetch(`/demandes/${encodeURIComponent(id)}/contenu`);
   },
 
   async create(type_piece_id, pour_enfant_iue = null) {
@@ -191,12 +186,9 @@ const demandesApi = {
   },
 };
 
-// ═══════════════════════════════════════
-// CONSENTEMENTS
-// ═══════════════════════════════════════
+// Consentements, journal, tableau de bord
 
 const consentsApi = {
-  /** params : { statut, page, limite } → { consentements, pagination } */
   async list(params = {}) {
     return apiFetch(`/consentements${toQuery(params)}`);
   },
@@ -205,7 +197,7 @@ const consentsApi = {
     return apiFetch(`/consentements/${encodeURIComponent(id)}`);
   },
 
-  /** decision : 'accepte' | 'refuse' */
+  /** decision : 'accepte' ou 'refuse' */
   async decide(id, decision) {
     return apiFetch(`/consentements/${encodeURIComponent(id)}`, {
       method: 'PUT',
@@ -214,31 +206,19 @@ const consentsApi = {
   },
 };
 
-// ═══════════════════════════════════════
-// JOURNAL
-// ═══════════════════════════════════════
-
 const journalApi = {
-  /** params : { date_debut, date_fin, page, limite } → { entrees, pagination } */
   async list(params = {}) {
     return apiFetch(`/journal${toQuery(params)}`);
   },
 };
 
-// ═══════════════════════════════════════
-// TABLEAU DE BORD
-// ═══════════════════════════════════════
-
 const dashboardApi = {
-  /** { citoyen: {nom, prenom}, consentements_en_attente, demandes_en_cours, acces_recents, enfants, alertes } */
   async get() {
     return apiFetch('/tableau-de-bord');
   },
 };
 
-// ═══════════════════════════════════════
-// TEST (simulation admin)
-// ═══════════════════════════════════════
+// Interface de test (simulation d'une administration)
 
 const testApi = {
   async getAdministrations() {
@@ -249,8 +229,6 @@ const testApi = {
     return apiFetch('/test/demarches');
   },
 
-  /** 200 (publique) : { type_admin, donnees, cascade, journal_id, requete_id }
-   *  202 (privée)   : { type_admin, consentement_id, requete_id, message } */
   async simulerRequete(administration_id, demarche_id, iue_citoyen) {
     return apiFetch('/test/requete', {
       method: 'POST',
@@ -258,50 +236,43 @@ const testApi = {
     });
   },
 
-  /** { requete_id, statut, donnees } — suivi d'une requête (ex : après consentement). */
   async getRequete(id, administration_id) {
     return apiFetch(`/test/requetes/${encodeURIComponent(id)}${toQuery({ administration_id })}`);
   },
 };
 
-// ═══════════════════════════════════════
-// RÉFÉRENTIEL DES PIÈCES
-// ═══════════════════════════════════════
+// Catalogue des types de pièces (GET /types-pieces), chargé une seule fois par page
 
-/**
- * Catalogue des types de pièces et de leurs prérequis.
- * Le contrat du BFF n'expose pas de route pour ce catalogue : la liste reprend
- * les données de référence de la plateforme (CLAUDE.md, « Types de pièces et prérequis »).
- */
-const CATALOGUE_PIECES = [
-  { id: 'extrait-naissance', nom: 'Extrait de naissance', registre_source: 'etat-civil', est_evolutive: false, prerequis: [] },
-  {
-    id: 'certificat-nationalite', nom: 'Certificat de nationalité', registre_source: 'justice', est_evolutive: false,
-    prerequis: [
-      { prerequis_id: 'extrait-naissance', proprietaire: 'citoyen' },
-      { prerequis_id: 'extrait-naissance', proprietaire: 'pere' },
-      { prerequis_id: 'extrait-naissance', proprietaire: 'mere' },
-    ],
-  },
-  {
-    id: 'casier-judiciaire', nom: 'Casier judiciaire', registre_source: 'justice', est_evolutive: true,
-    prerequis: [{ prerequis_id: 'certificat-nationalite', proprietaire: 'citoyen' }],
-  },
-  { id: 'attestation-fiscale', nom: 'Attestation de situation fiscale', registre_source: 'fiscal', est_evolutive: true, prerequis: [] },
-];
+let cataloguePieces = [];
+let cataloguePromise = null;
 
-/** Nom lisible d'un type de pièce à partir de son identifiant. */
+const catalogueApi = {
+  async list() {
+    if (!cataloguePromise) {
+      cataloguePromise = apiFetch('/types-pieces')
+        .then(data => {
+          cataloguePieces = data.types_pieces || [];
+          return cataloguePieces;
+        })
+        .catch(e => {
+          cataloguePromise = null; // permet un nouvel essai au prochain appel
+          throw e;
+        });
+    }
+    return cataloguePromise;
+  },
+};
+
+/** @returns {string} Nom de la pièce d'après le catalogue chargé, ou son identifiant. */
 function nomPiece(id) {
-  return CATALOGUE_PIECES.find(p => p.id === id)?.nom || id;
+  return cataloguePieces.find(p => p.id === id)?.nom || id;
 }
 
 const PROPRIETAIRES = { citoyen: 'vous', pere: 'père', mere: 'mère' };
 
-// ═══════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════
+// Affichage
 
-/** Échappe une valeur avant insertion dans du HTML (données venant des registres). */
+/** À appliquer à toute donnée insérée en HTML : elle peut venir du registre d'une autre équipe. */
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -313,7 +284,9 @@ function escapeHtml(value) {
 }
 
 /**
- * Afficher un toast de notification
+ * Message temporaire en haut à droite de l'écran.
+ * @param {string} message
+ * @param {'success'|'error'|'warning'} [type]
  */
 function showToast(message, type = 'success') {
   let container = document.querySelector('.toast-container');
@@ -325,10 +298,8 @@ function showToast(message, type = 'success') {
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `
-    <span>${type === 'success' ? '✓' : type === 'error' ? '✗' : '⚠'}</span>
-    <span>${escapeHtml(message)}</span>
-  `;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.textContent = message;
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -338,13 +309,11 @@ function showToast(message, type = 'success') {
   }, 4000);
 }
 
-/**
- * Formater une date ISO en format lisible
- */
+/** @returns {string} Date ISO au format « 17 novembre 2026 », ou VIDE. */
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return VIDE;
   const d = new Date(isoString);
-  if (isNaN(d)) return '—';
+  if (isNaN(d)) return VIDE;
   return d.toLocaleDateString('fr-BF', {
     day: 'numeric',
     month: 'long',
@@ -352,16 +321,14 @@ function formatDate(isoString) {
   });
 }
 
-/** Heure (HH:MM) d'une date ISO. */
+/** @returns {string} Heure au format « 18:05 », ou chaîne vide. */
 function formatTime(isoString) {
   if (!isoString) return '';
   const d = new Date(isoString);
   return isNaN(d) ? '' : d.toLocaleTimeString('fr-BF', { hour: '2-digit', minute: '2-digit' });
 }
 
-/**
- * Formater une date relative ("il y a 2 heures")
- */
+/** @returns {string} Durée écoulée : « À l'instant », « Il y a 5 min », « Il y a 2h », « Il y a 3j ». */
 function formatRelative(isoString) {
   if (!isoString) return '';
   const diff = Date.now() - new Date(isoString).getTime();
@@ -374,9 +341,7 @@ function formatRelative(isoString) {
   return `Il y a ${days}j`;
 }
 
-/**
- * Protection de page — redirige vers login si non authentifié
- */
+/** Renvoie vers la page de connexion si aucune session n'est ouverte. */
 function requireAuth() {
   if (!authApi.isAuthenticated()) {
     window.location.href = '/pages/login.html';
@@ -385,18 +350,14 @@ function requireAuth() {
   return true;
 }
 
-/**
- * Rediriger vers dashboard si déjà connecté
- */
+/** Renvoie vers le tableau de bord si une session est déjà ouverte. */
 function redirectIfAuth() {
   if (authApi.isAuthenticated()) {
     window.location.href = '/pages/dashboard.html';
   }
 }
 
-/**
- * Convertit un lien du BFF (ex : « /consentements ») en page du frontend.
- */
+/** Convertit un lien renvoyé par le BFF (par exemple « /consentements ») en page du frontend. */
 function frontRoute(lien) {
   const pages = ['dashboard', 'consentements', 'demandes', 'journal', 'enfants', 'test'];
   const nom = String(lien || '').replace(/^\/+/, '').split(/[/?#]/)[0];
@@ -404,7 +365,8 @@ function frontRoute(lien) {
 }
 
 /**
- * Traduire un statut en badge HTML
+ * @param {string} statut Statut du contrat (en_attente, complete, fallback_physique…).
+ * @returns {string} Badge HTML avec le libellé français du statut.
  */
 function statusBadge(statut) {
   const labels = {
@@ -426,31 +388,37 @@ function statusBadge(statut) {
     direct: 'Direct',
     consentement: 'Consentement',
   };
+  // Les classes CSS utilisent des tirets : en_attente devient badge-en-attente.
   const cls = String(statut || '').replace(/_/g, '-');
-  return `<span class="badge badge-${escapeHtml(cls)}">${escapeHtml(labels[statut] || statut || '—')}</span>`;
+  return `<span class="badge badge-${escapeHtml(cls)}">${escapeHtml(labels[statut] || statut || VIDE)}</span>`;
 }
 
 /**
- * Rendu récursif de l'arbre de cascade (Demande.cascade ou réponse passerelle).
- * Nœud : { type_piece, proprietaire, statut, sous_prerequis }
+ * Arbre de pièces. Accepte les deux formes du contrat : la cascade d'une demande
+ * (nœuds avec statut et sous_prerequis) et les prérequis du catalogue (nœuds avec nom et prerequis).
  */
 function renderCascade(nodes) {
   if (!Array.isArray(nodes) || nodes.length === 0) return '';
   return `<ul class="cascade">${nodes.map(n => `
     <li>
       <span class="cascade-node">
-        <span>${escapeHtml(nomPiece(n.type_piece))}</span>
-        <span class="cascade-owner">(${escapeHtml(PROPRIETAIRES[n.proprietaire] || n.proprietaire || '—')})</span>
+        <span>${escapeHtml(n.nom || nomPiece(n.type_piece))}</span>
+        <span class="cascade-owner">(${escapeHtml(PROPRIETAIRES[n.proprietaire] || n.proprietaire || VIDE)})</span>
         ${n.statut ? statusBadge(n.statut) : ''}
       </span>
-      ${renderCascade(n.sous_prerequis)}
+      ${renderCascade(n.sous_prerequis || n.prerequis)}
     </li>`).join('')}</ul>`;
 }
 
-/**
- * Ajoute un bouton « afficher / masquer » à chaque champ mot de passe de la page.
- * Remplace le bouton natif d'Edge, qui disparaît dès que le champ perd le focus.
- */
+/** @returns {string} Ligne de tableau occupant toute la largeur, pour un état vide ou une erreur. */
+function emptyRow(colspan, message, isError = false) {
+  const color = isError ? 'var(--rouge)' : 'var(--gris-400)';
+  return `<tr><td colspan="${colspan}" class="text-center" style="padding:var(--space-6);color:${color}">${escapeHtml(message)}</td></tr>`;
+}
+
+// Bouton afficher ou masquer le mot de passe. Il remplace le bouton natif d'Edge,
+// qui disparaît dès que le champ perd le focus.
+
 const ICON_EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const ICON_EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>';
 
@@ -464,7 +432,7 @@ function initPasswordToggles() {
     wrapper.appendChild(input);
 
     const btn = document.createElement('button');
-    btn.type = 'button'; // ne soumet pas le formulaire
+    btn.type = 'button';
     btn.className = 'password-toggle';
     const update = () => {
       const visible = input.type === 'text';
@@ -473,7 +441,7 @@ function initPasswordToggles() {
       btn.setAttribute('aria-pressed', String(visible));
       btn.title = btn.getAttribute('aria-label');
     };
-    // Garder le focus (et le curseur) dans le champ quand on clique sur le bouton
+    // Sans cela, le clic retire le focus du champ et le curseur est perdu.
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', () => {
       input.type = input.type === 'password' ? 'text' : 'password';
@@ -490,8 +458,82 @@ if (document.readyState === 'loading') {
   initPasswordToggles();
 }
 
-/** Ligne de tableau « vide » ou « erreur ». */
-function emptyRow(colspan, message, isError = false) {
-  const color = isError ? 'var(--rouge)' : 'var(--gris-400)';
-  return `<tr><td colspan="${colspan}" class="text-center" style="padding:var(--space-6);color:${color}">${escapeHtml(message)}</td></tr>`;
+// Recherche et filtres dans le navigateur
+
+/** Minuscules, sans accents : « Étienne » devient « etienne ». */
+function normaliser(texte) {
+  return String(texte ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Vrai si chaque mot recherché apparaît dans l'une des valeurs. Ainsi « banque nom »
+ * trouve un consentement de Banque Atlantique qui demande le nom. Une recherche vide
+ * correspond à tout.
+ */
+function correspond(recherche, ...valeurs) {
+  const mots = normaliser(recherche).split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return true;
+  const texte = normaliser(valeurs.flat(Infinity).filter(v => v !== null && v !== undefined).join(' '));
+  return mots.every(mot => texte.includes(mot));
+}
+
+/** @returns {Function} fn, appelée seulement quand la saisie s'arrête pendant `delai` ms. */
+function debounce(fn, delai = 250) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delai);
+  };
+}
+
+const ICON_LOUPE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+
+/**
+ * Bouton loupe qui ouvre et ferme le panneau des options de recherche. La pastille du
+ * bouton indique le nombre de filtres actifs, pour qu'ils restent visibles panneau fermé.
+ * @param {string} boutonId Bouton <button class="search-toggle">.
+ * @param {string} panneauId Panneau des options de recherche.
+ * @returns {{ouvrir: Function, fermer: Function, majBadge: (n: number) => void}}
+ */
+function initPanneauRecherche(boutonId, panneauId) {
+  const bouton = document.getElementById(boutonId);
+  const panneau = document.getElementById(panneauId);
+  bouton.innerHTML = ICON_LOUPE + '<span class="search-toggle-badge hidden" aria-hidden="true"></span>';
+  bouton.setAttribute('aria-controls', panneauId);
+  bouton.setAttribute('aria-expanded', 'false');
+  bouton.setAttribute('aria-label', 'Rechercher et filtrer');
+  bouton.title = 'Rechercher et filtrer';
+  const badge = bouton.querySelector('.search-toggle-badge');
+
+  function ouvrir() {
+    panneau.classList.remove('hidden');
+    bouton.setAttribute('aria-expanded', 'true');
+    panneau.querySelector('input, select')?.focus();
+  }
+  function fermer() {
+    panneau.classList.add('hidden');
+    bouton.setAttribute('aria-expanded', 'false');
+  }
+
+  bouton.addEventListener('click', () => (panneau.classList.contains('hidden') ? ouvrir() : fermer()));
+  panneau.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      fermer();
+      bouton.focus();
+    }
+  });
+
+  return {
+    ouvrir,
+    fermer,
+    majBadge(n) {
+      badge.textContent = n;
+      badge.classList.toggle('hidden', !n);
+      bouton.setAttribute('aria-label', n ? `Rechercher et filtrer (${n} filtre${n > 1 ? 's' : ''} actif${n > 1 ? 's' : ''})` : 'Rechercher et filtrer');
+    },
+  };
 }

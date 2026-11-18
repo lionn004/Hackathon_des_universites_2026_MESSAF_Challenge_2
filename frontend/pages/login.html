@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connexion — e-FASO</title>
+  <title>Connexion | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
     .auth-page {
@@ -11,7 +11,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, var(--vert-clair) 0%, var(--gris-50) 50%, var(--or-clair) 100%);
+      background: var(--gris-50);
       padding: var(--space-4);
     }
     .auth-card {
@@ -89,7 +89,7 @@
       <div class="flag-banner"></div>
       <div class="auth-logo">
         <h1>e<span class="star">★</span>FASO</h1>
-        <p>Portail National Citoyen — Burkina Faso</p>
+        <p>Portail national du citoyen, Burkina Faso</p>
       </div>
 
       <div id="alert" class="alert"></div>
@@ -97,10 +97,7 @@
       <form id="loginForm">
         <div class="form-group">
           <label class="form-label" for="iue">Identifiant Unique Électronique (IUE)</label>
-          <div class="form-input-icon">
-            <span class="icon-left">🆔</span>
-            <input type="text" id="iue" class="form-input" placeholder="784302956148" maxlength="12" pattern="\d{12}" required>
-          </div>
+          <input type="text" id="iue" class="form-input" placeholder="784302956148" maxlength="12" pattern="\d{12}" required>
         </div>
 
         <div class="form-group">
@@ -108,10 +105,7 @@
             Mot de passe
             <a href="/pages/mot-de-passe.html" class="form-hint">Mot de passe oublié ?</a>
           </label>
-          <div class="form-input-icon">
-            <span class="icon-left">🔒</span>
-            <input type="password" id="password" class="form-input" placeholder="Votre mot de passe" required>
-          </div>
+          <input type="password" id="password" class="form-input" placeholder="Votre mot de passe" required>
         </div>
 
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="submitBtn">
@@ -134,7 +128,6 @@
 
   <script src="/js/api.js"></script>
   <script>
-    // Rediriger si déjà connecté
     if (localStorage.getItem('efaso_token')) {
       window.location.href = '/pages/dashboard.html';
     }

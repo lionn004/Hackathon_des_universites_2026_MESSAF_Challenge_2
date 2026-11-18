@@ -3,22 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interface de test — e-FASO</title>
+  <title>Interface de test | e-FASO</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <div class="main-content">
     <div class="page-content">
-      <h1 class="page-title">🧪 Interface de test</h1>
-      <p class="page-subtitle">Simulation de requêtes administratives vers la passerelle d'échange — destiné au jury du hackathon</p>
+      <h1 class="page-title">Interface de test</h1>
+      <p class="page-subtitle">Simulation de requêtes administratives vers la passerelle d'échange, destinée au jury du hackathon</p>
 
       <div class="alert alert-warning mb-6">
-        <span><strong>⚠ Mode démonstration</strong> — Cette interface simule une administration qui requête les données d'un citoyen via la passerelle. Elle montre le fonctionnement du consentement, de la minimisation et de la traçabilité.</span>
+        <span><strong>Mode démonstration.</strong> Cette interface simule une administration qui demande les données d'un citoyen à la passerelle. Elle montre le fonctionnement du consentement, de la minimisation et de la traçabilité.</span>
       </div>
 
-      <!-- Formulaire de requête -->
       <div class="card mb-6" style="padding:var(--space-6)">
-        <h3 style="margin-bottom:var(--space-5)">📡 Simuler une requête administrative</h3>
+        <h3 style="margin-bottom:var(--space-5)">Simuler une requête administrative</h3>
 
         <div class="form-row">
           <div class="form-group">
@@ -51,34 +50,26 @@
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-requete" onclick="envoyerRequete()">
-          🚀 Envoyer la requête
-        </button>
+        <button class="btn btn-primary" id="btn-requete" onclick="envoyerRequete()">Envoyer la requête</button>
       </div>
 
-      <!-- Résultat -->
       <div id="resultat-section" class="hidden">
-        <h3 class="section-title mb-4">📋 Résultat de la requête</h3>
+        <h3 class="section-title mb-4">Résultat de la requête</h3>
 
-        <!-- Infos résumé -->
-        <div class="stat-cards mb-4" id="resultat-stats"></div>
-
-        <!-- Détail réponse -->
         <div class="card mb-4" id="resultat-card" style="padding:var(--space-6)">
-          <div id="resultat-header" style="margin-bottom:var(--space-4)"></div>
+          <div id="resultat-header" style="margin-bottom:var(--space-3)"></div>
+          <p id="resultat-resume" style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-4)"></p>
           <div id="resultat-body"></div>
         </div>
 
-        <!-- JSON brut -->
         <details class="card" style="padding:var(--space-4)">
-          <summary style="cursor:pointer;font-weight:600;font-size:var(--font-size-sm)">🔍 Réponse JSON brute</summary>
+          <summary style="cursor:pointer;font-weight:600;font-size:var(--font-size-sm)">Réponse JSON brute</summary>
           <pre id="resultat-json" style="margin-top:var(--space-4);font-size:var(--font-size-xs);background:var(--gris-100);padding:var(--space-4);border-radius:var(--radius-md);overflow-x:auto;max-height:500px"></pre>
         </details>
       </div>
 
-      <!-- Types de pièces et prérequis -->
       <div class="card mt-6" style="padding:var(--space-6)">
-        <h3 style="margin-bottom:var(--space-4)">📚 Catalogue des types de pièces</h3>
+        <h3 style="margin-bottom:var(--space-4)">Catalogue des types de pièces</h3>
         <div id="types-pieces-list"></div>
       </div>
     </div>
@@ -99,11 +90,11 @@
         ]);
 
         const adminList = admins.administrations || [];
-        document.getElementById('select-admin').innerHTML = '<option value="">— Choisir une administration —</option>' +
-          adminList.map(a => `<option value="${escapeHtml(a.id)}" data-nom="${escapeHtml(a.nom)}">${escapeHtml(a.nom)} (${a.type === 'privee' ? 'privée' : 'publique'} · ${escapeHtml(a.domaine_mission)})</option>`).join('');
+        document.getElementById('select-admin').innerHTML = '<option value="">Choisir une administration</option>' +
+          adminList.map(a => `<option value="${escapeHtml(a.id)}" data-nom="${escapeHtml(a.nom)}">${escapeHtml(a.nom)} (${a.type === 'privee' ? 'privée' : 'publique'}, ${escapeHtml(a.domaine_mission)})</option>`).join('');
 
         demarcheList = demarches.demarches || [];
-        document.getElementById('select-demarche').innerHTML = '<option value="">— Choisir une démarche —</option>' +
+        document.getElementById('select-demarche').innerHTML = '<option value="">Choisir une démarche</option>' +
           demarcheList.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.nom)}</option>`).join('');
       } catch (e) {
         showToast(`Erreur chargement des listes : ${e.message}`, 'error');
@@ -119,43 +110,37 @@
       if (opt) select.value = opt.value;
     }
 
-    function renderCatalogue() {
-      document.getElementById('types-pieces-list').innerHTML = `
-        <div class="table-container">
-        <table class="table">
-          <thead>
-            <tr><th>Pièce</th><th>Registre source</th><th>Type</th><th>Prérequis</th></tr>
-          </thead>
-          <tbody>
-            ${CATALOGUE_PIECES.map(t => `
-              <tr>
-                <td><strong>${escapeHtml(t.nom)}</strong></td>
-                <td><span class="badge badge-info">${escapeHtml(t.registre_source)}</span></td>
-                <td style="font-size:var(--font-size-xs);color:var(--gris-500)">${t.est_evolutive ? '🔄 Évolutive' : '📋 Fixe'}</td>
-                <td>${t.prerequis.length
-                  ? t.prerequis.map(p => {
-                      const prop = p.proprietaire !== 'citoyen' ? ` (${PROPRIETAIRES[p.proprietaire]})` : '';
-                      return `<span class="badge badge-warning">${escapeHtml(nomPiece(p.prerequis_id))}${prop}</span>`;
-                    }).join(' ')
-                  : '<span style="color:var(--gris-400)">Aucun</span>'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        </div>`;
+    /** Catalogue des pièces (GET /types-pieces) avec l'arbre complet des prérequis. */
+    async function renderCatalogue() {
+      const container = document.getElementById('types-pieces-list');
+      container.innerHTML = '<div class="text-center" style="color:var(--gris-400)">Chargement…</div>';
+      try {
+        const types = await catalogueApi.list();
+        container.innerHTML = `
+          <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr><th>Pièce</th><th>Registre source</th><th>Type</th><th>Prérequis (cascade)</th></tr>
+            </thead>
+            <tbody>
+              ${types.map(t => `
+                <tr>
+                  <td><strong>${escapeHtml(t.nom)}</strong></td>
+                  <td><span class="badge badge-info">${escapeHtml(t.registre_source)}</span></td>
+                  <td style="font-size:var(--font-size-xs);color:var(--gris-500)">${t.est_evolutive ? 'Évolutive' : 'Fixe'}</td>
+                  <td>${t.prerequis?.length
+                    ? renderCascade(t.prerequis)
+                    : '<span style="color:var(--gris-400)">Aucun</span>'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+          </div>`;
+      } catch (e) {
+        container.innerHTML = `<p style="color:var(--rouge)">Erreur de chargement du catalogue : ${escapeHtml(e.message)}</p>`;
+      }
     }
 
-    function statCard(s) {
-      return `
-        <div class="stat-card">
-          <div class="stat-icon" style="background:${s.bg};color:${s.color}">${s.icon}</div>
-          <div class="stat-info">
-            <div class="stat-value">${escapeHtml(s.value)}</div>
-            <div class="stat-label">${escapeHtml(s.label)}</div>
-          </div>
-        </div>`;
-    }
-
-    /** Tableau des données minimisées, regroupées par registre : { "etat-civil": { champ: valeur } } */
+    /** Les données arrivent regroupées par registre : { "etat-civil": { champ: valeur } }. */
     function renderDonnees(donnees) {
       const rows = Object.entries(donnees || {}).map(([registre, fields]) => {
         if (fields && typeof fields === 'object' && !Array.isArray(fields)) {
@@ -184,11 +169,11 @@
         n + (reg && typeof reg === 'object' ? Object.keys(reg).length : 1), 0);
     }
 
-    function showResult({ alertClass, icon, text, stats = [], body = '', json }) {
+    function showResult({ alertClass, text, resume = '', body = '', json }) {
       document.getElementById('resultat-section').classList.remove('hidden');
       document.getElementById('resultat-header').innerHTML =
-        `<div class="alert ${alertClass}"><strong>${icon} ${escapeHtml(text)}</strong></div>`;
-      document.getElementById('resultat-stats').innerHTML = stats.map(statCard).join('');
+        `<div class="alert ${alertClass}"><strong>${escapeHtml(text)}</strong></div>`;
+      document.getElementById('resultat-resume').textContent = resume;
       document.getElementById('resultat-body').innerHTML = body;
       document.getElementById('resultat-json').textContent = JSON.stringify(json, null, 2);
     }
@@ -205,54 +190,44 @@
 
       const btn = document.getElementById('btn-requete');
       btn.disabled = true;
-      btn.textContent = '⏳ Requête en cours…';
+      btn.textContent = 'Requête en cours…';
 
       try {
         const result = await testApi.simulerRequete(administration_id, demarche_id, iue_citoyen);
 
         if (result.type_admin === 'privee') {
-          // 202 — administration privée : consentement explicite requis
+          // 202 : administration privée, le consentement explicite du citoyen est requis.
           requeteSuivie = { requete_id: result.requete_id, administration_id };
           showResult({
             alertClass: 'alert-warning',
-            icon: '🔐',
             text: result.message || 'Demande de consentement envoyée au citoyen',
-            stats: [
-              { icon: '⏳', value: 'En attente', label: 'Consentement du citoyen', bg: 'var(--or-clair)', color: 'var(--or-fonce)' },
-              { icon: '📱', value: 'SMS', label: 'Citoyen notifié', bg: '#E8F4FD', color: '#1976D2' },
-            ],
+            resume: 'Consentement du citoyen en attente. Le citoyen a été notifié par SMS.',
             body: `
               <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-4)">
                 Aucune donnée n'est transmise tant que le citoyen n'a pas accepté. Connectez-vous avec son compte
                 (page <a href="/pages/consentements.html">Consentements</a>), acceptez ou refusez, puis revenez vérifier le statut.
               </p>
               <div style="font-size:var(--font-size-xs);color:var(--gris-500);margin-bottom:var(--space-4)">
-                Requête : <code>${escapeHtml(result.requete_id)}</code> · Consentement : <code>${escapeHtml(result.consentement_id)}</code>
+                Requête : <code>${escapeHtml(result.requete_id)}</code>, consentement : <code>${escapeHtml(result.consentement_id)}</code>
               </div>
-              <button class="btn btn-outline btn-sm" id="btn-suivi" onclick="suivreRequete()">🔄 Vérifier le statut de la requête</button>
+              <button class="btn btn-outline btn-sm" id="btn-suivi" onclick="suivreRequete()">Vérifier le statut de la requête</button>
               <div id="suivi-resultat" class="mt-4"></div>`,
             json: result,
           });
         } else {
-          // 200 — administration publique : accès direct, citoyen notifié après coup
+          // 200 : administration publique, accès direct ; le citoyen est notifié après coup.
           requeteSuivie = null;
-          const stats = [
-            { icon: '📊', value: countChamps(result.donnees), label: 'Champs transmis (minimisés)', bg: 'var(--vert-clair)', color: 'var(--vert-fonce)' },
-            { icon: '⚡', value: 'Direct', label: 'Admin publique', bg: '#E8F4FD', color: '#1976D2' },
-          ];
-          if (result.journal_id) {
-            stats.push({ icon: '📖', value: '✓', label: 'Journalisé', bg: 'var(--or-clair)', color: 'var(--or-fonce)' });
-          }
+          const nbChamps = countChamps(result.donnees);
           showResult({
             alertClass: 'alert-success',
-            icon: '✓',
-            text: 'Accès direct (administration publique) — données transmises après minimisation, citoyen notifié',
-            stats,
+            text: 'Accès direct (administration publique) : données transmises après minimisation, citoyen notifié',
+            resume: `${nbChamps} champ${nbChamps > 1 ? 's' : ''} transmis après minimisation.`
+              + (result.journal_id ? ' Accès inscrit au journal de traçabilité.' : ''),
             body: renderDonnees(result.donnees) + (Array.isArray(result.cascade) && result.cascade.length ? `
               <h4 style="margin:var(--space-5) 0 var(--space-2)">Cascade de prérequis résolue :</h4>
               ${renderCascade(result.cascade)}` : '') + (result.journal_id ? `
               <div style="margin-top:var(--space-4);font-size:var(--font-size-xs);color:var(--gris-500)">
-                Entrée de journal : <code>${escapeHtml(result.journal_id)}</code> · Requête : <code>${escapeHtml(result.requete_id)}</code>
+                Entrée de journal : <code>${escapeHtml(result.journal_id)}</code>, requête : <code>${escapeHtml(result.requete_id)}</code>
               </div>` : ''),
             json: result,
           });
@@ -262,9 +237,8 @@
         const horsMission = e.status === 403;
         showResult({
           alertClass: horsMission ? 'alert-warning' : 'alert-error',
-          icon: horsMission ? '🚫' : '✗',
           text: horsMission
-            ? `Accès refusé par la passerelle (${e.code}) : ${e.message}`
+            ? `Refus de la passerelle (${e.code}). ${e.message}`
             : `Erreur : ${e.message || 'Erreur inconnue'}`,
           body: horsMission ? `
             <p style="font-size:var(--font-size-sm);color:var(--gris-600)">
@@ -274,11 +248,11 @@
         });
       } finally {
         btn.disabled = false;
-        btn.textContent = '🚀 Envoyer la requête';
+        btn.textContent = 'Envoyer la requête';
       }
     }
 
-    /** GET /test/requetes/{id} — voir les données arriver après la décision du citoyen. */
+    /** GET /test/requetes/{id} : montre les données arriver après la décision du citoyen. */
     async function suivreRequete() {
       if (!requeteSuivie) return;
       const btn = document.getElementById('btn-suivi');
@@ -287,18 +261,18 @@
       try {
         const r = await testApi.getRequete(requeteSuivie.requete_id, requeteSuivie.administration_id);
         const messages = {
-          en_attente_consentement: ['alert-warning', '⏳ Toujours en attente de la réponse du citoyen'],
-          consentement_accepte: ['alert-success', '✓ Consentement accepté'],
-          complete: ['alert-success', '✓ Consentement accepté — données transmises à l\'administration'],
-          consentement_refuse: ['alert-error', '✗ Le citoyen a refusé : aucune donnée transmise'],
-          expire: ['alert-error', '⌛ Demande expirée (30 jours sans réponse)'],
+          en_attente_consentement: ['alert-warning', 'Toujours en attente de la réponse du citoyen'],
+          consentement_accepte: ['alert-success', 'Consentement accepté'],
+          complete: ['alert-success', 'Consentement accepté, données transmises à l\'administration'],
+          consentement_refuse: ['alert-error', 'Le citoyen a refusé : aucune donnée transmise'],
+          expire: ['alert-error', 'Demande expirée (30 jours sans réponse)'],
         };
         const [cls, txt] = messages[r.statut] || ['alert-info', r.statut];
         out.innerHTML = `<div class="alert ${cls} mb-4"><strong>${escapeHtml(txt)}</strong></div>` +
           (r.donnees ? renderDonnees(r.donnees) : '');
         document.getElementById('resultat-json').textContent = JSON.stringify(r, null, 2);
       } catch (e) {
-        out.innerHTML = `<div class="alert alert-error"><strong>✗ ${escapeHtml(e.message)}</strong></div>`;
+        out.innerHTML = `<div class="alert alert-error"><strong>${escapeHtml(e.message)}</strong></div>`;
       } finally {
         btn.disabled = false;
       }
