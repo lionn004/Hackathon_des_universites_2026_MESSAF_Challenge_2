@@ -24,6 +24,50 @@ Le citoyen fournit ses informations **une seule fois**. Les administrations s'é
 
 Le jury remplacera un registre d'une équipe par celui d'une autre équipe pour vérifier que les contrats API standardisés sont respectés. Les contrats des registres doivent donc être strictement suivis.
 
+## Acteurs du système
+
+### Acteurs actuels (MVP hackathon)
+
+**Citoyens** (comptes de démo, détail dans « Données de seed »)
+
+| Citoyen | IUE | Rôle dans la démo | Mot de passe |
+|---------|-----|-------------------|--------------|
+| OUEDRAOGO Amadou | 784302956148 | majeur, fils d'Ibrahim et de Fatimata | `Amadou2026!` |
+| OUEDRAOGO Ibrahim | 291047583620 | père d'Amadou, Awa et Moussa, tuteur d'Awa et de Moussa | `Ibrahim2026!` |
+| SAWADOGO Fatimata | 638501274093 | mère d'Amadou, Awa et Moussa | `Fatimata2026!` |
+| OUEDRAOGO Awa | 456123789012 | mineure (née en 2014), sous tutelle d'Ibrahim | aucun, compte géré par le tuteur |
+| OUEDRAOGO Moussa | 527814903361 | mineur (né en 2010), sous tutelle d'Ibrahim, transfert de compte recommandé | aucun, compte géré par le tuteur |
+| OUEDRAOGO Salif | 316580942751 | majeur, présent dans les registres, sans compte (démo de l'inscription) | aucun |
+| OUEDRAOGO Aïcha | 873045129604 | fille de Salif (née en 2021), rattachée à Salif à son inscription | aucun |
+
+Mots de passe de démonstration uniquement.
+
+**Administrations**
+
+| Administration | Type | Domaine |
+|----------------|------|---------|
+| Université Joseph KI-ZERBO | publique | éducation |
+| Direction de la police nationale | publique | sécurité |
+| Tribunal de Grande Instance de Ouagadougou | publique | justice |
+| Banque Atlantique | privée | finance |
+| Orange Money Burkina | privée | télécoms |
+
+Règle : une administration publique accède aux données avec simple notification au citoyen ; une administration privée a besoin de son consentement explicite (voir « Couche 3 »).
+
+**Interface de test** (`frontend/pages/test.html`)
+
+Simule le rôle d'une administration pour la démo et le jury. Il n'y a pas d'authentification d'administration : les routes `/api/test/*` du BFF fabriquent elles-mêmes le jeton de l'administration choisie. C'est une simulation, à désactiver en production (`INTERFACE_TEST_ACTIVE=false`).
+
+### Acteurs prévus (version finale, après le hackathon)
+
+**Administrateur système**
+
+Cet acteur n'est pas implémenté dans le MVP : aucun compte, aucun jeton, aucune route ni interface ne lui correspond aujourd'hui. Il est prévu pour la version de production. Responsabilités envisagées :
+- gestion des comptes citoyens ;
+- gestion des comptes des administrations connectées à l'API ;
+- gestion et supervision des API ;
+- mise à jour des données de référence du système (catalogue des pièces, prérequis, démarches), selon le cadre de la section « Gestion du catalogue (hors MVP) ».
+
 ---
 
 ## Architecture imposée — 5 couches
