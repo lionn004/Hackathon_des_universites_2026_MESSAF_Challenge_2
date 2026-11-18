@@ -15,7 +15,7 @@ Projet réalisé pour le Hackathon des Universités 2026 (MTDPCE, Semaine du Num
 5. **Brancher vos registres** : un registre se branche par configuration, sans code. Procédure pas à pas : [docs/brancher-un-registre.md](docs/brancher-un-registre.md).
 6. **Tout rejouer automatiquement** : `node tests/interoperabilite/test-interop.js` (stack principale arrêtée) : procédures, remplacement des registres, registres d'un autre format, panne en direct, donnée numérique manquante.
 
-Livrables : [rapport technique](docs/rapport-technique.md), [matrice de contribution](docs/matrice-contribution.md), [contrats OpenAPI](docs/) (affichés sur http://localhost:3010), licence [Apache 2.0](LICENSE).
+Livrables : [vidéo de démonstration](https://drive.google.com/drive/folders/1SSAkeUu0k1GZuOAAao0BR8OXZCI1ydFg?usp=sharing) (dossier Google Drive), [rapport technique](docs/rapport-technique.md), [matrice de contribution](docs/matrice-contribution.md), [contrats OpenAPI](docs/) (affichés sur http://localhost:3010), licence [Apache 2.0](LICENSE).
 
 ---
 
