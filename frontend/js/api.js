@@ -145,6 +145,15 @@ const authApi = {
 // Profil et enfants
 
 const profilApi = {
+  /**
+   * Ce que les registres savent du titulaire, lu à l'instant (GET /profil/registres).
+   * @param {string} [iue] IUE d'un enfant sous la tutelle du citoyen ; absent pour soi-même.
+   * @returns {Promise<object>} VueRegistres : { titulaire, pieces, date_consultation }.
+   */
+  async registres(iue) {
+    return apiFetch(`/profil/registres${toQuery({ iue })}`);
+  },
+
   async get() {
     return apiFetch('/profil');
   },
@@ -207,6 +216,14 @@ const consentsApi = {
 };
 
 const journalApi = {
+  /**
+   * Recalcule la chaîne des empreintes du journal (GET /journal/verification).
+   * @returns {Promise<object>} VerificationJournal : { integre, entrees_verifiees, rupture, ... }.
+   */
+  async verification() {
+    return apiFetch('/journal/verification');
+  },
+
   async list(params = {}) {
     return apiFetch(`/journal${toQuery(params)}`);
   },
@@ -326,6 +343,121 @@ function libelleDonnee(nom) {
 /** @returns {string[]} Les libellés d'une liste de noms techniques. */
 function libellesDonnees(noms) {
   return Array.isArray(noms) ? noms.map(libelleDonnee) : [];
+}
+
+/**
+ * Ligne « Base légale : ... Finalité : ... » d'une démarche (schéma BaseLegale du contrat).
+ * Texte et référence CIL restent dans un détail repliable : ils valent « à préciser » dans la démo.
+ * @param {object|null} b Base légale, null pour une entrée antérieure à son introduction.
+ * @returns {string} HTML, vide si la base légale est absente.
+ */
+function renderBaseLegale(b) {
+  if (!b || (!b.libelle && !b.finalite)) return '';
+  const details = [
+    b.texte ? `Texte : ${escapeHtml(b.texte)}` : '',
+    b.reference_cil ? `Référence CIL : ${escapeHtml(b.reference_cil)}` : '',
+  ].filter(Boolean);
+  return `
+    <div class="base-legale">
+      ${b.libelle ? `Base légale : <strong>${escapeHtml(b.libelle)}</strong>.` : ''}
+      ${b.finalite ? `Finalité : ${escapeHtml(b.finalite)}` : ''}
+      ${details.length ? `<details><summary>Détails</summary>${details.join('<br>')}</details>` : ''}
+    </div>`;
+}
+
+/** @returns {string[]} Textes de la base légale, pour la recherche. */
+function texteBaseLegale(b) {
+  return b ? [b.libelle, b.finalite] : [];
+}
+
+// Données d'une pièce (page d'une pièce et « Mes données dans les registres » de Mon profil)
+
+/** Libellés des champs dont la valeur affichée est déjà formulée (« Néant (casier vierge) »). */
+const LIBELLES_CHAMPS_FIXES = {
+  pere: 'Père',
+  mere: 'Mère',
+  casier_vierge: 'Bulletin',
+  en_regle: 'Situation fiscale',
+  iue: 'IUE',
+};
+
+/** Libellés de repli si le dictionnaire est indisponible (contrats docs/openapi-registre-*.yaml). */
+const LIBELLES_CHAMPS = {
+  nom: 'Nom', prenom: 'Prénom(s)', date_naissance: 'Date de naissance', lieu_naissance: 'Lieu de naissance',
+  sexe: 'Sexe', nationalite: 'Nationalité', pere_iue: 'IUE du père', mere_iue: 'IUE de la mère',
+  date_deces: 'Date de décès', est_majeur: 'Majeur', condamnations: 'Condamnations',
+  date_delivrance: 'Date de délivrance', est_national: 'Burkinabè', mode_acquisition: 'Mode d\'acquisition',
+  date_acquisition: 'Date d\'acquisition', numero_certificat: 'N° de certificat', ifu: 'IFU',
+  type_contribuable: 'Type de contribuable', regime_fiscal: 'Régime fiscal',
+  derniere_declaration: 'Dernière déclaration', montant_impot_du: 'Montant d\'impôt dû',
+};
+
+/**
+ * Libellé d'un champ de pièce : libellé fixe, puis dictionnaire (domaine du registre
+ * si connu), puis libellé de repli, puis le nom mis en forme (« type_contribuable » : « Type contribuable »).
+ * @param {string} cle Nom du champ.
+ * @param {string} [registre] Registre source de la pièce, qui est aussi le domaine du dictionnaire.
+ */
+function libelleChamp(cle, registre) {
+  if (LIBELLES_CHAMPS_FIXES[cle]) return LIBELLES_CHAMPS_FIXES[cle];
+  const duDomaine = registre && dictionnaireDomaines[registre]?.[cle]?.libelle;
+  if (duDomaine) return duDomaine;
+  const duDictionnaire = libelleDonnee(cle);
+  if (duDictionnaire !== cle) return duDictionnaire;
+  if (LIBELLES_CHAMPS[cle]) return LIBELLES_CHAMPS[cle];
+  const s = cle.replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const estDateIso = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v);
+
+/**
+ * Valeur lisible (déjà échappée) d'un champ de pièce.
+ * @param {string} cle Nom du champ.
+ * @param {*} v Valeur lue dans le registre.
+ * @param {string} [registre] Registre source, pour les libellés des sous-champs.
+ */
+function valeurChamp(cle, v, registre) {
+  if ((cle === 'pere' || cle === 'mere') && !v) {
+    return '<span style="color:var(--gris-500)">Inconnu de l\'état civil</span>';
+  }
+  if (cle === 'sexe') return v === 'M' ? 'Masculin' : v === 'F' ? 'Féminin' : escapeHtml(v);
+  if (cle === 'casier_vierge') return v ? 'Néant (casier vierge)' : 'Mentions inscrites (voir condamnations)';
+  if (cle === 'en_regle') return v ? 'En règle' : 'Non en règle';
+  if (cle === 'montant_impot_du' && typeof v === 'number') return `${v.toLocaleString('fr-FR')} FCFA`;
+  if (cle === 'condamnations' && Array.isArray(v) && v.length === 0) return 'Aucune condamnation';
+  if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+  if (estDateIso(v)) return formatDate(v);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return 'Aucune';
+    return `<ul style="margin:0;padding-left:var(--space-5)">${v.map(item => `<li>${valeurChamp('', item, registre)}</li>`).join('')}</ul>`;
+  }
+  if (v && typeof v === 'object') {
+    // Personne liée (père, mère) : « Prénom NOM (IUE ...) »
+    if ('nom' in v || 'prenom' in v) {
+      const nom = [v.prenom, v.nom].filter(Boolean).join(' ') || VIDE;
+      return `${escapeHtml(nom)}${v.iue ? ` <span style="color:var(--gris-500)">(IUE ${escapeHtml(v.iue)})</span>` : ''}`;
+    }
+    return Object.entries(v).map(([k, x]) => `${escapeHtml(libelleChamp(k, registre))} : ${valeurChamp(k, x, registre)}`).join(', ');
+  }
+  return escapeHtml(v);
+}
+
+/**
+ * Lignes de tableau des données d'une pièce. pere et mere remplacent pere_iue et mere_iue,
+ * et valent null si le parent est inconnu : ils sont alors affichés « Inconnu de l'état civil ».
+ * @param {object} donnees Données de la pièce (ContenuPiece.donnees du contrat).
+ * @param {string} [registre] Registre source de la pièce.
+ * @returns {string} HTML de lignes <tr>.
+ */
+function lignesDonneesPiece(donnees, registre) {
+  const d = { ...(donnees || {}) };
+  if ('pere' in d) delete d.pere_iue;
+  if ('mere' in d) delete d.mere_iue;
+  return Object.entries(d)
+    .filter(([k, v]) => k === 'pere' || k === 'mere' || (v !== null && v !== undefined && v !== ''))
+    .map(([k, v]) => `<tr><th>${escapeHtml(libelleChamp(k, registre))}</th><td>${valeurChamp(k, v, registre)}</td></tr>`)
+    .join('');
 }
 
 const PROPRIETAIRES = { citoyen: 'vous', pere: 'père', mere: 'mère' };

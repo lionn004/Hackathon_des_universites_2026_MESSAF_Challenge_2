@@ -93,7 +93,7 @@
       }
       const recherche = document.getElementById('f-recherche').value;
       items = items.filter(c => correspond(recherche,
-        c.administration_nom, c.demarche_nom, c.champs_demandes, libellesDonnees(c.champs_demandes),
+        c.administration_nom, c.demarche_nom, c.champs_demandes, libellesDonnees(c.champs_demandes), texteBaseLegale(c.base_legale),
         c.pour_enfant && [c.pour_enfant.prenom, c.pour_enfant.nom]));
       document.getElementById('f-count').textContent = recherche.trim()
         ? `${items.length} résultat${items.length > 1 ? 's' : ''} pour « ${recherche.trim()} »`
@@ -120,9 +120,14 @@
             <div style="font-size:var(--font-size-xs);color:var(--or-fonce);margin-bottom:var(--space-2)">
               Concerne votre enfant : ${escapeHtml([c.pour_enfant.prenom, c.pour_enfant.nom].filter(Boolean).join(' ') || c.pour_enfant.iue)}
             </div>` : ''}
-          <p style="color:var(--gris-600);font-size:var(--font-size-sm);margin-bottom:var(--space-3)">
+          <div style="color:var(--gris-600);font-size:var(--font-size-sm);margin-bottom:var(--space-3)">
             Démarche : <strong>${escapeHtml(c.demarche_nom) || VIDE}</strong>
-          </p>
+            ${renderBaseLegale(c.base_legale)}
+          </div>
+          ${c.statut === 'en_attente' ? `
+            <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-3)">
+              Votre accord est requis pour partager vos données avec cette entité.
+            </p>` : ''}
           ${Array.isArray(c.champs_demandes) && c.champs_demandes.length ? `
             <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-3)">
               Données demandées : ${escapeHtml(libellesDonnees(c.champs_demandes).join(', '))}

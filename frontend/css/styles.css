@@ -1632,3 +1632,54 @@ input[type="password"]::-ms-clear {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Base légale d'une démarche (journal, consentements, interface de test) --- */
+.base-legale {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--gris-500);
+  line-height: 1.5;
+}
+.base-legale strong { color: var(--gris-600); font-weight: 600; }
+.base-legale details { margin-top: 2px; }
+.base-legale summary { cursor: pointer; color: var(--vert); width: fit-content; }
+
+/* --- Intégrité du journal (page Journal) --- */
+.journal-integrite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--blanc);
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radius-md);
+}
+.journal-integrite-etat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--gris-600);
+}
+.journal-empreinte {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: var(--font-size-xs);
+  color: var(--gris-500);
+  cursor: help;
+}
+
+/* --- Mes données dans les registres (page Mon profil) --- */
+.registre-bloc h3 { font-size: var(--font-size-base); margin-bottom: var(--space-4); }
+.registre-piece + .registre-piece { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--gris-100); }
+.registre-piece h4 { font-size: var(--font-size-sm); font-weight: 600; margin-bottom: var(--space-2); color: var(--gris-700); }
+.registre-donnees { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+.registre-donnees th { text-align: left; font-weight: 400; color: var(--gris-500); padding: var(--space-1) var(--space-4) var(--space-1) 0; width: 40%; vertical-align: top; }
+.registre-donnees td { padding: var(--space-1) 0; color: var(--gris-800); }
+@media (max-width: 600px) {
+  .registre-donnees th, .registre-donnees td { display: block; width: auto; padding: 0; }
+  .registre-donnees td { margin-bottom: var(--space-2); }
+}
