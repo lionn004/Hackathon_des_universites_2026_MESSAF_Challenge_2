@@ -23,13 +23,17 @@ if (!id || !iue) {
   process.exit(2);
 }
 
+/** Largeur de la colonne des libellés : le plus long, « Données manquantes » indenté de deux espaces, fait 20 caractères. */
+const LARGEUR_LIBELLE = 22;
+
 /**
- * Affiche une ligne « Libellé   valeur » alignée.
+ * Affiche une ligne « Libellé   valeur » alignée. Au moins un espace sépare toujours le
+ * libellé de la valeur, même si un libellé dépasse la colonne.
  * @param {string} libelle
  * @param {string} valeur
  */
 function ligne(libelle, valeur) {
-  console.log(`${libelle.padEnd(20)}${valeur}`);
+  console.log(`${`${libelle} `.padEnd(LARGEUR_LIBELLE)}${valeur}`);
 }
 
 /**
@@ -42,7 +46,7 @@ function lisible(v) {
 }
 
 registresClient.diagnostiquer(id, iue).then((r) => {
-  console.log(`Registre            ${r.registre} (${r.nom || 'sans nom'}) : ${r.adresse}`);
+  ligne('Registre', `${r.registre} (${r.nom || 'sans nom'}) : ${r.adresse}`);
   ligne('Connexion', r.connexion.ok ? `OK (${r.connexion.ms} ms)` : `ÉCHEC : pas de réponse exploitable en ${r.connexion.ms} ms`);
   if (r.identification) ligne('Identification', `${r.identification.ok ? 'OK' : 'ÉCHEC'} : ${r.identification.detail}`);
   let toutLu = r.connexion.ok && r.identification && r.identification.ok;
