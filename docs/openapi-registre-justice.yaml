@@ -4,7 +4,9 @@ info:
   description: |
     API du registre simulé de la justice.
     Expose les données de casier judiciaire et de nationalité.
-    Contrat standardisé, interchangeable avec les registres des autres équipes.
+    Format recommandé pour brancher un registre à la plateforme sans aucune correspondance.
+    Un registre d'un autre format se branche aussi, en le décrivant dans le catalogue des
+    registres de la passerelle (docs/conception-interoperabilite.md).
   version: 1.0.0
 
 servers:

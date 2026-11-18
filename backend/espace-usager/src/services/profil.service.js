@@ -17,7 +17,7 @@ const citoyenModel = require('../models/citoyen.model');
 async function getProfile(iue) {
   const account = await identiteService.getAccount(iue);
   const [identity, children] = await Promise.all([
-    identiteService.getIdentity(iue),
+    identiteService.getIdentityOrNull(iue),
     citoyenModel.findChildren(account.id),
   ]);
   return {

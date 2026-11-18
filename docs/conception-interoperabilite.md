@@ -151,6 +151,12 @@ pieces:                                      # quelle opération lit chaque piè
   (`JJ/MM/AAAA`, `AAAA-MM-JJ` ou date-heure ISO, toujours rendue en `AAAA-MM-JJ`), `nombre`, ou une
   table `valeurs` (ex : `{ Masculin: M, Féminin: F }`).
 - `champ` accepte un chemin (`identite.nom`) pour les réponses imbriquées.
+- Les routes sont des lectures (`GET`). Une variable de route peut être mise en forme :
+  `{date_naissance|jj/mm/aaaa}` pour un registre qui attend ses dates ainsi.
+- `parametre_champs` : nom du paramètre de filtrage des champs, si le registre en a un (nos
+  registres : `champs`). La passerelle filtre de toute façon elle-même.
+- `entetes` : en-têtes à envoyer (ex : `Authorization: "Bearer ${JETON_REGISTRE}"`).
+- `sonde` : route appelée toutes les 5 s pour savoir si le registre répond (défaut : l'adresse).
 - Un champ que le registre envoie sans correspondance **n'entre jamais** dans la plateforme.
 - `etat-civil.filiation` est facultative : sans elle, les parents viennent de `pere_iue` et
   `mere_iue` de la fiche, et la liste des enfants est vide (rattachement automatique indisponible).
@@ -231,7 +237,7 @@ refasse sa demande. Aucune copie n'est gardée pendant l'attente.
 | Citoyen inconnu découvert à la reprise | `echouee` |
 
 **Demandes de pièces des citoyens** : une cascade qui touche un registre en panne donne une demande
-`en_cours` ; la reprise automatique (§ 9, tâche du BFF toutes les 30 s) la termine au retour du
+`en_cours` ; la reprise automatique (§ 9, tâche du BFF toutes les 10 s, `REPRISE_INTERVALLE_MS`) la termine au retour du
 registre et notifie le citoyen.
 
 **Espace usager** : il reste utilisable quand un registre tombe (connexion, journal, consentements,
@@ -303,7 +309,7 @@ justice, entrée du journal de démo d'Awa (décideur = titulaire pour un accès
 
 | Qui | Travail |
 |-----|---------|
-| Backend | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue` et `recherche`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script du guichet ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
+| Backend (fait) | Dictionnaire, catalogue, connecteur générique, données calculées, identification `iue` et `recherche`, commande de test ; état des registres et contournement, sources de secours, `en_attente_registre` et reprise ; reprise des demandes dans le BFF ; script du guichet ; `restart` ; contrats ; corrections de l'audit ; test d'interopérabilité étendu (registre externe d'un autre format, branché par le catalogue) |
 | Frontend | Page « État des registres » (lecture seule) ; libellés du dictionnaire dans le journal ; statut « en attente d'un registre » dans Mes pièces et l'interface de test ; vérification et fusion de la PR #18 |
 
 ## 16. Démonstration de l'épreuve

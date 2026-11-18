@@ -1,2 +1,5 @@
 node_modules/
 .env
+
+# Copie du dictionnaire faite par le test d'interopérabilité (source : backend/passerelle/config)
+tests/interoperabilite/config-format-different/dictionnaire.yaml

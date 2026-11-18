@@ -21,4 +21,6 @@ app.listen(config.port, () => {
   diagnosticService.logRegistriesStatus().catch((e) => {
     console.warn(`[passerelle] diagnostic des registres impossible : ${e.message}`);
   });
+  // Sonde permanente : tient à jour l'état (disponible / hors service) de chaque registre.
+  diagnosticService.demarrerSondes();
 });

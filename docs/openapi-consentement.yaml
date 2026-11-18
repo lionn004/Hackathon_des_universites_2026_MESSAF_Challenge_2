@@ -58,6 +58,18 @@ paths:
                       $ref: "#/components/schemas/Consentement"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
+        "400":
+          description: "DONNEES_INVALIDES : statut, page ou limite invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton citoyen absent ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /consentements/en-attente/count:
     get:
@@ -77,6 +89,12 @@ paths:
                   count:
                     type: integer
                     example: 2
+        "401":
+          description: "Jeton citoyen absent ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /consentements/{id}:
     get:
@@ -100,6 +118,12 @@ paths:
                 $ref: "#/components/schemas/Consentement"
         "404":
           description: Consentement non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton citoyen absent ou invalide"
           content:
             application/json:
               schema:
@@ -138,6 +162,18 @@ paths:
                 $ref: "#/components/schemas/Consentement"
         "400":
           description: Demande déjà traitée ou expirée
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton citoyen absent ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "CONSENTEMENT_NON_TROUVE"
           content:
             application/json:
               schema:
@@ -253,6 +289,12 @@ paths:
                     example: ["est_majeur", "nationalite"]
         "404":
           description: Démarche inconnue (aucune règle de minimisation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "400":
+          description: "DONNEES_INVALIDES : demarche_id, registre ou donnees_brutes invalide"
           content:
             application/json:
               schema:
@@ -409,7 +451,8 @@ components:
         requete_id:
           type: string
           format: uuid
-          description: Référence vers la requête de la passerelle
+          nullable: true
+          description: "Référence vers la requête de la passerelle ; null pour les consentements de démonstration créés par le seed"
 
     Pagination:
       type: object

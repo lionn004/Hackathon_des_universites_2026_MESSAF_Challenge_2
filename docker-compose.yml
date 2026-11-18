@@ -6,6 +6,7 @@ services:
   # Base de données commune. Les données persistent dans le volume pgdata.
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: dlnuf
       POSTGRES_PASSWORD: dlnuf
@@ -23,6 +24,7 @@ services:
   # Registre état-civil (couche 1, port 3001). Démarre seulement quand PostgreSQL est prêt.
   registre-etat-civil:
     build: ./backend/registres/etat-civil
+    restart: unless-stopped
     environment:
       PORT: 3001
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=etat_civil
@@ -35,6 +37,7 @@ services:
   # Registre justice (couche 1, port 3002) : casier judiciaire et nationalité.
   registre-justice:
     build: ./backend/registres/justice
+    restart: unless-stopped
     environment:
       PORT: 3002
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=justice
@@ -47,6 +50,7 @@ services:
   # Registre fiscal (couche 1, port 3003) : IFU et situation fiscale.
   registre-fiscal:
     build: ./backend/registres/fiscal
+    restart: unless-stopped
     environment:
       PORT: 3003
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=fiscal
@@ -60,6 +64,7 @@ services:
   # avec JWT_SECRET (à définir dans un fichier .env à la racine pour la production).
   journal:
     build: ./backend/journal
+    restart: unless-stopped
     environment:
       PORT: 3006
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=journal
@@ -73,6 +78,7 @@ services:
   # Consentement & minimisation (couche 3, port 3005). Les SMS sont simulés dans ses logs.
   consentement:
     build: ./backend/consentement
+    restart: unless-stopped
     environment:
       PORT: 3005
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=consentement
@@ -84,10 +90,12 @@ services:
       postgres:
         condition: service_healthy
 
-  # Passerelle d'échange (couche 2, port 3004). Les URL des registres sont
-  # configurables : c'est ici que le jury peut brancher le registre d'une autre équipe.
+  # Passerelle d'échange (couche 2, port 3004). Les registres sont décrits dans le
+  # catalogue (backend/passerelle/config/catalogue-registres.yaml) : brancher un autre
+  # registre se fait là, et les adresses restent surchargeables par REGISTRE_*_URL.
   passerelle:
     build: ./backend/passerelle
+    restart: unless-stopped
     environment:
       PORT: 3004
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=passerelle
@@ -99,6 +107,13 @@ services:
       JOURNAL_URL: http://journal:3006/api
       BFF_URL: http://espace-usager:3000/api
       CLE_SERVICE_INTERNE: ${CLE_SERVICE_INTERNE:-dlnuf-cle-interne-a-changer}
+      SONDE_INTERVALLE_MS: ${SONDE_INTERVALLE_MS:-5000}
+      # Dossier du dictionnaire et du catalogue des registres (défaut : celui monté ci-dessous).
+      CATALOGUE_DOSSIER: ${CATALOGUE_DOSSIER:-/app/config}
+    # Dictionnaire et catalogue des registres : modifiables sans reconstruire l'image
+    # (docker compose restart passerelle après modification).
+    volumes:
+      - ./backend/passerelle/config:/app/config:ro
     ports:
       - "3004:3004"
     depends_on:
@@ -118,6 +133,7 @@ services:
   # BFF espace usager (couche 5, port 3000) : SEUL service appelé par le frontend.
   espace-usager:
     build: ./backend/espace-usager
+    restart: unless-stopped
     environment:
       PORT: 3000
       DATABASE_URL: postgresql://dlnuf:dlnuf@postgres:5432/dlnuf?schema=espace_usager
@@ -129,6 +145,8 @@ services:
       JOURNAL_URL: http://journal:3006/api
       CORS_ORIGINES: ${CORS_ORIGINES:-*}
       INTERFACE_TEST_ACTIVE: ${INTERFACE_TEST_ACTIVE:-true}
+      # Reprise automatique des demandes en attente d'un registre ou bloquées au guichet.
+      REPRISE_INTERVALLE_MS: ${REPRISE_INTERVALLE_MS:-10000}
     ports:
       - "3000:3000"
     depends_on:
@@ -146,6 +164,7 @@ services:
   # Le navigateur appelle uniquement le BFF (http://localhost:3000/api).
   frontend:
     build: ./frontend
+    restart: unless-stopped
     ports:
       - "3020:80"
     depends_on:
@@ -157,6 +176,7 @@ services:
   # Lit directement les fichiers de docs/ (montés en lecture seule) : toujours à jour.
   documentation:
     image: swaggerapi/swagger-ui:v5.17.14
+    restart: unless-stopped
     environment:
       URLS: >-
         [

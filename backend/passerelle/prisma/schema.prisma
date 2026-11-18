@@ -37,6 +37,11 @@ enum StatutRequete {
   consentement_refuse
   expire
   complete
+  // Un registre nécessaire est hors service : la requête est conservée et reprise
+  // à la consultation suivante (docs/conception-interoperabilite.md, § 10).
+  en_attente_registre
+  // Citoyen découvert inconnu de l'état civil à la reprise d'une requête en attente.
+  echouee
 }
 
 // Administration (publique ou privée) qui consomme des données via la passerelle.

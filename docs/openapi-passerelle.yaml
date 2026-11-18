@@ -6,7 +6,13 @@ info:
     Route les requêtes entre administrations et registres.
     Gère la résolution des chaînes de dépendances en cascade.
     Applique le filtre de minimisation selon la démarche.
-  version: 1.0.0
+
+    Les registres ne sont pas écrits dans le code : ils sont décrits dans le catalogue
+    des registres (config/catalogue-registres.yaml) et traduits vers le dictionnaire des
+    données (config/dictionnaire.yaml). Un registre hors service est contourné : les
+    requêtes qui en dépendent passent « en_attente_registre » et sont complétées à une
+    consultation suivante (voir docs/conception-interoperabilite.md).
+  version: 1.1.0
 
 servers:
   - url: http://localhost:3004/api
@@ -19,6 +25,8 @@ tags:
     description: Requêtes de données entre administrations
   - name: Types de pièces
     description: Catalogue des types de pièces et prérequis
+  - name: Registres
+    description: État des registres branchés et dictionnaire des données
 
 paths:
   # ─── Catalogue des démarches ───
@@ -104,6 +112,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ArbrePrerequis"
+        "404":
+          description: "TYPE_PIECE_INCONNU : type de pièce absent du catalogue"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ─── Requêtes de données ───
   /requetes:
@@ -134,7 +148,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RequeteResultat"
         "202":
-          description: En attente de consentement (admin privée)
+          description: "En attente : consentement du citoyen (admin privée, statut en_attente_consentement) ou registre hors service (statut en_attente_registre, la requête est conservée et reprise à la consultation suivante)"
           content:
             application/json:
               schema:
@@ -186,6 +200,12 @@ paths:
         Pour une administration publique, les données ont été remises dans la réponse
         200 de POST /requetes. L'administration conserve ce qu'elle a reçu ; pour
         l'obtenir de nouveau, elle soumet une nouvelle requête.
+
+        Registre hors service : la requête est « en_attente_registre ». Chaque consultation
+        la reprend là où elle s'était arrêtée (vérification du citoyen, demande de
+        consentement, ou lecture et remise) ; dès que les registres sont revenus, la
+        consultation remet les données, sans nouvelle demande. Rien n'est lu ni gardé
+        pendant l'attente. « echouee » : le citoyen s'est révélé inconnu à la reprise.
       security:
         - BearerAuth: []
       parameters:
@@ -202,6 +222,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RequeteStatut"
+        "401":
+          description: "Jeton d'administration absent ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
         "404":
           description: Requête inconnue ou appartenant à une autre administration
           content:
@@ -238,6 +264,12 @@ paths:
                     example: "+226 70 12 34 56"
         "400":
           description: La requête n'est plus en attente de consentement (RELANCE_IMPOSSIBLE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton d'administration absent ou invalide"
           content:
             application/json:
               schema:
@@ -286,6 +318,40 @@ paths:
                         domaine_mission:
                           type: string
                           example: "education"
+
+  # ─── Registres et dictionnaire ───
+  /registres:
+    get:
+      tags: [Registres]
+      summary: État des registres branchés
+      description: |
+        Registres déclarés dans le catalogue, leur état (actif ou suspendu), leur
+        disponibilité (sondée toutes les 5 s) et les opérations qu'ils servent. Les adresses
+        des registres ne sont pas exposées. Route publique : aucune donnée personnelle.
+      responses:
+        "200":
+          description: État des registres
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtatRegistres"
+
+  /dictionnaire:
+    get:
+      tags: [Registres]
+      summary: Dictionnaire des données
+      description: |
+        Données de la plateforme par domaine, avec leur libellé (affiché au citoyen dans
+        son journal), leur type, leur sensibilité et l'opération qui les fournit. Une donnée
+        « calculee » est dérivée par la passerelle (ex : est_majeur à partir de la date de
+        naissance, qui ne sort jamais). Route publique.
+      responses:
+        "200":
+          description: Dictionnaire
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dictionnaire"
 
   # ─── Interne (réservé au BFF espace usager) ───
   /interne/citoyens/{iue}:
@@ -351,6 +417,12 @@ paths:
                 $ref: "#/components/schemas/Erreur"
         "404":
           description: CITOYEN_NON_TROUVE
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "503":
+          description: "REGISTRE_INDISPONIBLE : l'état civil est hors service ; le BFF affiche alors l'espace sans les noms"
           content:
             application/json:
               schema:
@@ -470,7 +542,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Erreur"
         "502":
-          description: "SERVICE_INDISPONIBLE ou SERVICE_EN_ERREUR : un registre ne répond pas, ou répond une erreur"
+          description: "SERVICE_EN_ERREUR : un registre répond autrement que le catalogue ne le décrit"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "503":
+          description: "REGISTRE_INDISPONIBLE : le registre de la pièce (ou l'état civil) est hors service"
           content:
             application/json:
               schema:
@@ -518,7 +596,13 @@ paths:
                         type: string
                   statut:
                     type: string
-                    enum: [complete, fallback_physique]
+                    enum: [complete, fallback_physique, en_attente_registre]
+                    description: "en_attente_registre : un registre nécessaire est hors service ; le BFF relance la demande jusqu'à son retour"
+                  registres_indisponibles:
+                    type: array
+                    items:
+                      type: string
+                    description: Registres hors service (seulement si statut = en_attente_registre)
                   cascade:
                     type: array
                     items:
@@ -533,11 +617,23 @@ paths:
                           type: string
                         statut:
                           type: string
-                          enum: [resolu, manquant_fallback_physique]
+                          enum: [resolu, manquant_fallback_physique, en_attente_registre]
                         sous_prerequis:
                           type: array
                           items:
                             type: object
+        "400":
+          description: "DONNEES_INVALIDES : iue ou type_piece_id invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "CLE_SERVICE_INVALIDE : clé de service absente ou invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
         "404":
           description: TYPE_PIECE_INCONNU ou CITOYEN_NON_TROUVE
           content:
@@ -737,10 +833,16 @@ components:
           format: uuid
         statut:
           type: string
-          enum: [en_attente_consentement]
+          enum: [en_attente_consentement, en_attente_registre]
         consentement_id:
           type: string
           format: uuid
+          description: Présent seulement si statut = en_attente_consentement
+        registres_indisponibles:
+          type: array
+          items:
+            type: string
+          description: "Présent seulement si statut = en_attente_registre : registres hors service attendus"
         message:
           type: string
           example: "En attente du consentement du citoyen. Notification envoyée."
@@ -753,21 +855,104 @@ components:
           format: uuid
         statut:
           type: string
-          enum: [en_attente_consentement, consentement_accepte, consentement_refuse, expire, complete]
+          enum: [en_attente_consentement, consentement_accepte, consentement_refuse, expire, complete, en_attente_registre, echouee]
         donnees:
           type: object
           nullable: true
-          description: "Rempli uniquement dans la réponse qui remet les données (première consultation après l'acceptation) ; null ensuite, la passerelle n'en garde pas de copie"
+          description: "Rempli uniquement dans la réponse qui remet les données (première consultation après l'acceptation ou après le retour d'un registre) ; null ensuite, la passerelle n'en garde pas de copie"
+        registres_indisponibles:
+          type: array
+          items:
+            type: string
+          description: Présent seulement si statut = en_attente_registre
         date_creation:
           type: string
           format: date-time
         date_expiration:
           type: string
           format: date-time
+          nullable: true
+          description: Expiration du consentement (null pour une requête publique)
         date_reponse:
           type: string
           format: date-time
           nullable: true
+
+    EtatRegistres:
+      type: object
+      properties:
+        registres:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                example: "justice"
+              nom:
+                type: string
+                example: "Registre de la justice (MESSAF)"
+              proprietaire:
+                type: string
+                nullable: true
+              etat:
+                type: string
+                enum: [actif, suspendu]
+              disponibilite:
+                type: string
+                enum: [disponible, hors_service]
+              depuis:
+                type: string
+                format: date-time
+                description: Depuis quand le registre est dans cette disponibilité
+              derniere_verification:
+                type: string
+                format: date-time
+                nullable: true
+              identification:
+                type: string
+                enum: [iue, recherche]
+              operations:
+                type: array
+                items:
+                  type: string
+                example: ["justice.casier", "justice.nationalite"]
+        sources:
+          type: object
+          description: "Pour chaque opération, les registres qui la servent : le premier fait foi, les suivants sont des sources de secours"
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    Dictionnaire:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "1.0.0"
+        domaines:
+          type: object
+          description: "Domaine, puis donnée"
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: object
+              properties:
+                libelle:
+                  type: string
+                  example: "Majeur"
+                type:
+                  type: string
+                  enum: [texte, date, booleen, nombre, identifiant, liste]
+                sensibilite:
+                  type: string
+                  enum: [publique, personnelle, sensible]
+                operation:
+                  type: string
+                  example: "etat-civil.fiche"
+                calculee:
+                  type: boolean
 
     Erreur:
       type: object

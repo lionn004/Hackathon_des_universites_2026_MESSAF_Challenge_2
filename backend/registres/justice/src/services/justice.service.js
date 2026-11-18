@@ -98,6 +98,11 @@ async function getNationalite(iue, fieldsParam) {
     date_acquisition: toIsoDate(person.date_acquisition),
     numero_certificat: person.numero_certificat,
   };
+  // Le contrat ne déclare aucun champ « nullable » : un champ sans valeur (ex : pas encore
+  // de numéro de certificat délivré, cas d'Awa) est omis plutôt que renvoyé à null.
+  for (const [champ, valeur] of Object.entries(certificat)) {
+    if (valeur === null || valeur === undefined) delete certificat[champ];
+  }
   return pickFields(certificat, fieldsParam, NATIONALITE_FIELDS);
 }
 

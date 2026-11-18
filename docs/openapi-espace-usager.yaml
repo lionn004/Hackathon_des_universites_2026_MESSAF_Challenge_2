@@ -133,6 +133,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erreur"
+        "400":
+          description: "DONNEES_INVALIDES : iue ou mot de passe mal formé"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /auth/mot-de-passe-oublie:
     post:
@@ -171,6 +177,12 @@ paths:
                   token_temporaire:
                     type: string
                     description: Token à usage unique pour l'étape suivante
+        "400":
+          description: "DONNEES_INVALIDES : iue ou téléphone mal formé"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /auth/reinitialiser-mot-de-passe:
     post:
@@ -206,6 +218,12 @@ paths:
                   message:
                     type: string
                     example: "Mot de passe réinitialisé avec succès"
+        "400":
+          description: "DONNEES_INVALIDES ou CODE_INVALIDE : code SMS faux ou expiré, mot de passe trop court"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # PROFIL
@@ -223,6 +241,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProfilCitoyen"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # ENFANTS (TUTEUR)
@@ -246,6 +270,12 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Enfant"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /enfants/{iue}/transfert:
     post:
@@ -279,6 +309,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # DEMANDES DE PIÈCES
@@ -305,6 +341,98 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/TypePiece"
+
+  /registres:
+    get:
+      tags: [Demandes]
+      summary: État des registres branchés (relais public de la passerelle)
+      description: |
+        Registres de la plateforme, leur disponibilité (sondée toutes les 5 s) et les
+        opérations qu'ils servent. L'espace usager l'affiche pour expliquer une attente :
+        « registre casier momentanément indisponible, votre demande reprendra automatiquement ».
+        Route publique, sans donnée personnelle. Schéma : EtatRegistres de la passerelle.
+      responses:
+        "200":
+          description: État des registres
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registres:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        nom:
+                          type: string
+                        proprietaire:
+                          type: string
+                          nullable: true
+                        etat:
+                          type: string
+                          enum: [actif, suspendu]
+                        disponibilite:
+                          type: string
+                          enum: [disponible, hors_service]
+                        depuis:
+                          type: string
+                          format: date-time
+                        derniere_verification:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        identification:
+                          type: string
+                          enum: [iue, recherche]
+                        operations:
+                          type: array
+                          items:
+                            type: string
+                  sources:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+
+  /dictionnaire:
+    get:
+      tags: [Demandes]
+      summary: Dictionnaire des données (relais public de la passerelle)
+      description: |
+        Libellé de chaque donnée de la plateforme, par domaine : le journal du citoyen
+        affiche « Majeur » plutôt que « est_majeur ». Route publique. Schéma : Dictionnaire
+        de la passerelle.
+      responses:
+        "200":
+          description: Dictionnaire
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  domaines:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      additionalProperties:
+                        type: object
+                        properties:
+                          libelle:
+                            type: string
+                          type:
+                            type: string
+                          sensibilite:
+                            type: string
+                          operation:
+                            type: string
+                          calculee:
+                            type: boolean
 
   /demandes:
     get:
@@ -345,6 +473,18 @@ paths:
                       $ref: "#/components/schemas/Demande"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
+        "400":
+          description: "DONNEES_INVALIDES : statut, page ou limite invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
     post:
       tags: [Demandes]
@@ -389,6 +529,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erreur"
+        "400":
+          description: "DONNEES_INVALIDES : type_piece_id manquant"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /demandes/{id}:
     get:
@@ -411,6 +563,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Demande"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "DEMANDE_NON_TROUVEE : demande inconnue ou d'un autre citoyen"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /demandes/{id}/contenu:
     get:
@@ -567,6 +731,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Erreur"
+        "503":
+          description: "REGISTRE_INDISPONIBLE : le registre de la pièce est momentanément hors service ; réessayer plus tard"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # CONSENTEMENTS (proxy)
@@ -608,6 +778,18 @@ paths:
                       $ref: "#/components/schemas/ConsentementResume"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
+        "400":
+          description: "DONNEES_INVALIDES : statut, page ou limite invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   /consentements/{id}:
     get:
@@ -629,6 +811,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConsentementResume"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "CONSENTEMENT_NON_TROUVE : demande inconnue ou d'un autre citoyen"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
     put:
       tags: [Consentements]
@@ -660,6 +854,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConsentementResume"
+        "400":
+          description: "DONNEES_INVALIDES, CONSENTEMENT_DEJA_TRAITE ou CONSENTEMENT_EXPIRE : décision invalide, demande déjà traitée ou expirée"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "CONSENTEMENT_NON_TROUVE : demande inconnue ou d'un autre citoyen"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # JOURNAL (proxy)
@@ -706,6 +918,18 @@ paths:
                       $ref: "#/components/schemas/EntreeJournal"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
+        "400":
+          description: "DONNEES_INVALIDES : dates, page ou limite invalides"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # TABLEAU DE BORD
@@ -765,6 +989,12 @@ paths:
                         lien:
                           type: string
                           description: Route frontend vers l'élément concerné
+        "401":
+          description: "Jeton absent, invalide ou expiré"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # INTERFACE DE TEST (admin simulation)
@@ -873,7 +1103,7 @@ paths:
                     format: uuid
                     description: Identifiant de la requête dans la passerelle
         "202":
-          description: En attente de consentement (admin privée)
+          description: "En attente : consentement du citoyen (admin privée) ou registre hors service (statut en_attente_registre)"
           content:
             application/json:
               schema:
@@ -881,7 +1111,15 @@ paths:
                 properties:
                   type_admin:
                     type: string
-                    enum: [privee]
+                    enum: [publique, privee]
+                  statut:
+                    type: string
+                    enum: [en_attente_consentement, en_attente_registre]
+                  registres_indisponibles:
+                    type: array
+                    items:
+                      type: string
+                    description: Présent seulement si statut = en_attente_registre
                   consentement_id:
                     type: string
                     format: uuid
@@ -894,6 +1132,18 @@ paths:
                     example: "Demande de consentement envoyée au citoyen"
         "403":
           description: "Refus de la passerelle (ex : HORS_MISSION), relayé tel quel"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "400":
+          description: "DONNEES_INVALIDES : administration_id, iue_citoyen ou demarche_id invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "CITOYEN_NON_TROUVE ou DEMARCHE_INCONNUE (relayé de la passerelle), ou INTERFACE_TEST_DESACTIVEE"
           content:
             application/json:
               schema:
@@ -934,10 +1184,38 @@ paths:
                     format: uuid
                   statut:
                     type: string
-                    enum: [en_attente_consentement, consentement_accepte, consentement_refuse, expire, complete]
+                    enum: [en_attente_consentement, consentement_accepte, consentement_refuse, expire, complete, en_attente_registre, echouee]
                   donnees:
                     type: object
                     nullable: true
+                  registres_indisponibles:
+                    type: array
+                    items:
+                      type: string
+                    description: Présent seulement si statut = en_attente_registre
+                  date_creation:
+                    type: string
+                    format: date-time
+                  date_expiration:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  date_reponse:
+                    type: string
+                    format: date-time
+                    nullable: true
+        "400":
+          description: "DONNEES_INVALIDES : administration_id invalide"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
+        "404":
+          description: "REQUETE_NON_TROUVEE, ou INTERFACE_TEST_DESACTIVEE"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erreur"
 
   # ═══════════════════════════════════════
   # INTERNE (réservé aux services backend, jamais appelé par le frontend)
@@ -1114,6 +1392,10 @@ components:
         statut:
           type: string
           enum: [en_cours, complete, echouee, fallback_physique]
+          description: |
+            en_cours : un registre nécessaire est hors service ; la reprise automatique termine la
+            demande à son retour. fallback_physique : une pièce manque (guichet) ; la reprise
+            automatique la termine dès que la pièce est saisie dans son registre.
         pour_enfant:
           type: object
           nullable: true
@@ -1139,6 +1421,7 @@ components:
               statut:
                 type: string
                 enum: [resolu, en_cours, manquant]
+                description: "en_cours : registre hors service, vérification reprise automatiquement ; manquant : à présenter au guichet"
               sous_prerequis:
                 type: array
                 items:

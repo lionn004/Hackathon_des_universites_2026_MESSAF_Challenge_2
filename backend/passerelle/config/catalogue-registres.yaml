@@ -1,0 +1,109 @@
+# Catalogue des registres (docs/conception-interoperabilite.md, § 5 et § 11).
+#
+# Dit à la passerelle OÙ aller chercher chaque donnée du dictionnaire, et COMMENT.
+# Brancher un registre = le déclarer ici, le désigner dans « sources », le tester
+# (npm run tester-registre -- <registre> <iue>), puis redémarrer la passerelle
+# (docker compose restart passerelle). Aucun code à écrire.
+#
+# Pour chaque registre :
+#   nom, proprietaire   description ;
+#   etat                actif | suspendu (un registre suspendu n'est jamais appelé) ;
+#   adresse             URL de base ; ${VARIABLE:-défaut} lit une variable d'environnement ;
+#   delai_ms            au-delà, l'appel échoue et le registre passe hors service ;
+#   sonde               route appelée toutes les 5 s pour savoir s'il répond (défaut : l'adresse) ;
+#   parametre_champs    nom du paramètre de filtrage des champs, si le registre en a un (ex : champs) ;
+#   entetes             en-têtes à envoyer (ex : Authorization: "Bearer ${JETON_REGISTRE}") ;
+#   identification      comment désigner la personne :
+#                         { mode: iue }  le registre accepte l'IUE ({iue} dans les routes) ;
+#                         { mode: recherche, route, liste, identifiant_local }
+#                           la passerelle lit nom, prénom et date de naissance à l'état civil,
+#                           cherche la personne et exige EXACTEMENT un résultat ;
+#   operations          pour chaque opération servie (domaine.operation) :
+#                         route            "MÉTHODE /chemin" avec {iue} ou {identifiant_local} ;
+#                         donnees          chemin de la fiche dans la réponse (ex : data) ;
+#                         inconnu          codes HTTP qui veulent dire « personne inconnue » (défaut [404]) ;
+#                         correspondances  donnée du dictionnaire : { champ, conversion, valeurs, elements } ;
+#                                          sans correspondances, les noms du registre sont ceux du dictionnaire.
+#
+# Un champ renvoyé par un registre sans correspondance n'entre jamais dans la plateforme.
+
+registres:
+  etat-civil:
+    nom: Registre de l'état civil (MESSAF)
+    proprietaire: Ministère de l'Administration territoriale
+    etat: actif
+    adresse: ${REGISTRE_ETAT_CIVIL_URL:-http://localhost:3001/api}
+    delai_ms: 2000
+    sonde: "GET /sante"
+    parametre_champs: champs        # ces registres filtrent eux-mêmes (?champs=)
+    identification: { mode: iue }
+    operations:
+      etat-civil.fiche:     { route: "GET /citoyens/{iue}" }
+      etat-civil.filiation: { route: "GET /citoyens/{iue}/filiation" }
+
+  justice:
+    nom: Registre de la justice (MESSAF)
+    proprietaire: Ministère de la Justice
+    etat: actif
+    adresse: ${REGISTRE_JUSTICE_URL:-http://localhost:3002/api}
+    delai_ms: 2000
+    sonde: "GET /sante"
+    parametre_champs: champs        # ces registres filtrent eux-mêmes (?champs=)
+    identification: { mode: iue }
+    operations:
+      justice.casier:      { route: "GET /citoyens/{iue}/casier" }
+      justice.nationalite: { route: "GET /citoyens/{iue}/nationalite" }
+
+  fiscal:
+    nom: Registre fiscal (MESSAF)
+    proprietaire: Ministère de l'Économie et des Finances
+    etat: actif
+    adresse: ${REGISTRE_FISCAL_URL:-http://localhost:3003/api}
+    delai_ms: 2000
+    sonde: "GET /sante"
+    parametre_champs: champs        # ces registres filtrent eux-mêmes (?champs=)
+    identification: { mode: iue }
+    operations:
+      fiscal.situation: { route: "GET /citoyens/{iue}/fiscal" }
+
+  # Exemple : registre de la nationalité d'une autre administration, dans un autre format.
+  # Pour l'activer : décommenter, définir REGISTRE_NATIONALITE_URL, puis le placer en tête
+  # de « justice.nationalite » dans les sources.
+  #
+  # nationalite-externe:
+  #   nom: Registre de la nationalité (externe)
+  #   proprietaire: Ministère de la Justice
+  #   etat: actif
+  #   adresse: ${REGISTRE_NATIONALITE_URL}
+  #   delai_ms: 2000
+  #   identification:
+  #     mode: recherche
+  #     route: "GET /personnes?nom={nom}&prenom={prenom}&naissance={date_naissance}"
+  #     liste: items
+  #     identifiant_local: numeroDossier
+  #   operations:
+  #     justice.nationalite:
+  #       route: "GET /personnes/{identifiant_local}/nationalite"
+  #       donnees: data
+  #       inconnu: [404]
+  #       correspondances:
+  #         est_national:      { champ: estBurkinabe, conversion: booleen }
+  #         nationalite:       { champ: nationalite }
+  #         date_acquisition:  { champ: dateObtention, conversion: date }
+  #         numero_certificat: { champ: numCertificat }
+
+# Pour chaque opération : les registres qui la servent, dans l'ordre. Le premier fait foi ;
+# les suivants sont des sources de secours, utilisées s'il est hors service.
+sources:
+  etat-civil.fiche:     [etat-civil]
+  etat-civil.filiation: [etat-civil]
+  justice.casier:       [justice]
+  justice.nationalite:  [justice]
+  fiscal.situation:     [fiscal]
+
+# Opération qui lit chaque type de pièce (catalogue des pièces de la passerelle).
+pieces:
+  extrait-naissance: etat-civil.fiche
+  certificat-nationalite: justice.nationalite
+  casier-judiciaire: justice.casier
+  attestation-fiscale: fiscal.situation

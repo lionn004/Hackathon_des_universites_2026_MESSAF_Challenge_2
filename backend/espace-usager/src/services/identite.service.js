@@ -34,6 +34,21 @@ function getIdentity(iue) {
 }
 
 /**
+ * Identité d'un citoyen pour l'affichage seulement : null si l'état civil est hors service
+ * ou injoignable. L'espace usager reste ainsi utilisable pendant une panne de registre
+ * (docs/conception-interoperabilite.md, § 10) ; seuls les noms manquent.
+ * @param {string} iue
+ * @returns {Promise<object|null>}
+ */
+async function getIdentityOrNull(iue) {
+  try {
+    return await getIdentity(iue);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Identité d'un citoyen dont on sait qu'il existe (il a un compte).
  * @param {string} iue
  * @returns {Promise<object>}
@@ -53,7 +68,7 @@ async function getKnownIdentity(iue) {
 async function getChildren(account) {
   const children = await citoyenModel.findChildren(account.id);
   return Promise.all(children.map(async (child) => {
-    const identity = await getIdentity(child.iue);
+    const identity = await getIdentityOrNull(child.iue);
     return { account: child, identity, age: identity ? computeAge(identity.date_naissance) : null };
   }));
 }
@@ -71,5 +86,5 @@ async function getAccount(iue) {
 }
 
 module.exports = {
-  TRANSFER_AGE, computeAge, getIdentity, getKnownIdentity, getChildren, getAccount,
+  TRANSFER_AGE, computeAge, getIdentity, getIdentityOrNull, getKnownIdentity, getChildren, getAccount,
 };
