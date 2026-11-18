@@ -15,7 +15,7 @@ Trois réponses à l'épreuve en direct structurent la solution :
 
 Les registres du jury ont un format inconnu à l'avance. La plateforme s'y branche donc **par configuration** : un dictionnaire des données et un catalogue des registres décrivent quoi lire, où et comment. Brancher un registre, c'est le déclarer, pas écrire du code ; si le registre publie un contrat OpenAPI, un assistant en propose la déclaration, qu'un humain relit avant toute activation.
 
-Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, la panne en direct et la numérisation d'une donnée manquante : **363 vérifications réussies, 0 échec** au 18 novembre 2026.
+Toute la plateforme démarre en une commande (`docker compose up`). Un test automatique rejoue les trois procédures, le remplacement des registres, deux registres d'un autre format, la panne en direct et la numérisation d'une donnée manquante : **367 vérifications réussies, 0 échec** au 18 novembre 2026.
 
 ## 2. L'énoncé et ce que nous en avons retenu
 
@@ -198,7 +198,7 @@ Le journal enregistre **chaque accès** : quelle administration, quelles donnée
 
 - **Ajout seul.** Le service journal n'a qu'une route d'écriture (`POST /journal/enregistrer`, appelée par la passerelle) : aucune entrée n'est modifiée ni supprimée. Il conserve une photo figée des noms (administration, démarche), pour que le journal reste lisible même si le catalogue change.
 - **Double traçabilité.** Chaque entrée porte le **titulaire** des données et le **décideur**. Pour un mineur dont le tuteur a répondu au consentement, le titulaire est l'enfant et le décideur le tuteur.
-- **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Le dictionnaire fournit le libellé de chaque donnée (`GET /api/dictionnaire` : « Majeur » plutôt que `est_majeur`) ; son affichage dans le journal et les consentements est en cours d'intégration au frontend.
+- **Visible par le citoyen.** Le citoyen consulte tout son journal depuis son espace, et celui de ses enfants mineurs, avec une recherche et des filtres par période et par type d'accès. Le journal et les consentements affichent le libellé de chaque donnée, tiré du dictionnaire (`GET /api/dictionnaire`) : « Majeur » plutôt que `est_majeur`.
 - **Pas de trace, pas de données.** Si le journal est indisponible, la passerelle ne transmet rien.
 
 ## 9. Tenir quand un registre tombe
@@ -292,7 +292,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
 
-Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **363 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
+Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la plateforme. Résultat au 18 novembre 2026 : **367 vérifications réussies, 0 échec, 0 avertissement.** L'option `--seul=<scénario>` rejoue un seul scénario, par exemple pour répéter la panne en direct.
 
 ## 15. Conformité aux livrables
 
@@ -332,6 +332,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - **Catalogue en base de données**, avec une API et une interface d'administration réservées à un rôle « gestionnaire du catalogue » (autorité du référentiel), et l'historique de chaque modification.
 - **Assistant de branchement plus fin** : enrichir les synonymes au fil des registres branchés, et comparer les exemples du contrat OpenAPI aux formats attendus (dates, codes).
 - **Mode d'identification `correspondance`** : une table IUE / identifiant local (numéro d'acte, NIP, IFU), remplie au fil de l'enrôlement.
+- **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.
 - **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, journal chaîné par empreintes pour prouver qu'aucune entrée n'a été modifiée, bases séparées par service, vrai fournisseur de SMS.
 - **Espace usager** : vue d'ensemble de ce que les registres savent du citoyen, documents à durée de validité (CNIB, casier), application mobile sur le même contrat.
