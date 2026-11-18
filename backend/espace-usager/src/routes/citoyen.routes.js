@@ -24,6 +24,7 @@ router.get('/consentements/:id', requireCitizen, asyncHandler(controller.getCons
 router.put('/consentements/:id', requireCitizen, asyncHandler(controller.answerConsent));
 
 router.get('/journal', requireCitizen, asyncHandler(controller.listJournal));
+router.get('/journal/verification', requireCitizen, asyncHandler(controller.verifyJournal));
 
 router.get('/tableau-de-bord', requireCitizen, asyncHandler(controller.getDashboard));
 

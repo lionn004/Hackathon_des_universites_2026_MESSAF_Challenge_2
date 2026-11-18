@@ -7,6 +7,7 @@
  * grâce à asyncHandler (voir routes/journal.routes.js).
  */
 const journalService = require('../services/journal.service');
+const integriteService = require('../services/integrite.service');
 
 /**
  * GET /api/journal?date_debut=&date_fin=&administration=&page=&limite=
@@ -27,6 +28,15 @@ async function stats(req, res) {
 }
 
 /**
+ * GET /api/journal/verification
+ * Recalcule la chaîne des empreintes et dit si le journal est intact.
+ */
+async function verify(req, res) {
+  const data = await integriteService.verifier(req.citoyen);
+  res.status(200).json(data);
+}
+
+/**
  * POST /api/journal/enregistrer
  * Enregistre un accès ; répond 201 avec l'entrée créée.
  */
@@ -35,4 +45,4 @@ async function record(req, res) {
   res.status(201).json(entry);
 }
 
-module.exports = { list, stats, record };
+module.exports = { list, stats, verify, record };

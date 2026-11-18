@@ -59,4 +59,15 @@ async function stats(account) {
   return journalClient.stats(await jetonService.signForService(account));
 }
 
-module.exports = { list, stats };
+/**
+ * GET /journal/verification : intégrité du journal (chaîne des empreintes), relayée telle
+ * quelle : le service journal ne renvoie aucune donnée d'un autre citoyen.
+ * @param {string} iue Citoyen connecté.
+ * @returns {Promise<object>} VerificationJournal.
+ */
+async function verify(iue) {
+  const account = await identiteService.getAccount(iue);
+  return journalClient.verify(await jetonService.signForService(account));
+}
+
+module.exports = { list, stats, verify };

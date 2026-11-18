@@ -3,8 +3,11 @@
  *
  * Permet à l'équipe frontend d'afficher un journal et des statistiques
  * avant que la passerelle n'existe.
- * Idempotent : chaque entrée a un id fixe et est insérée ou mise à jour (upsert),
- * le script peut donc être relancé à chaque démarrage du conteneur sans doublon.
+ * Idempotent : chaque entrée a un id fixe et n'est créée que si elle n'existe pas encore
+ * (upsert sans mise à jour) : le script peut être relancé à chaque démarrage du conteneur
+ * sans doublon, et il ne réécrit JAMAIS une entrée existante (journal en ajout seul ; une
+ * réécriture effacerait une altération que la chaîne des empreintes doit révéler).
+ * Les entrées créées ici sont scellées dans la chaîne au démarrage du service (server.js).
  * Lancement manuel : `npm run db:seed`.
  *
  * Les identifiants d'administration sont les UUID fixes de référence définis
@@ -90,10 +93,10 @@ const entries = [
   }),
 ];
 
-/** Insère ou met à jour chaque entrée de démo. */
+/** Crée chaque entrée de démo absente, sans jamais modifier une entrée existante. */
 async function main() {
   for (const e of entries) {
-    await prisma.journalAcces.upsert({ where: { id: e.id }, update: e, create: e });
+    await prisma.journalAcces.upsert({ where: { id: e.id }, update: {}, create: e });
   }
   console.log(`[seed journal] ${entries.length} entrées`);
 }

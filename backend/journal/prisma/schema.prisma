@@ -46,6 +46,19 @@ model JournalAcces {
   type_acces          TypeAcces
   date_acces          DateTime            @default(now())
 
+  // Chaînage par empreintes (preuve d'intégrité, services/integrite.service.js) :
+  // rang dans la chaîne (1, 2, 3...), empreinte SHA-256 de l'entrée précédente, et
+  // empreinte de celle-ci (son contenu + son rang + l'empreinte précédente). Modifier ou
+  // supprimer une entrée, même directement en base, rompt la chaîne. Facultatifs
+  // seulement pour les entrées antérieures au chaînage, scellées au démarrage du service.
+  // Index simple, pas de contrainte d'unicité : la mise à jour d'une base existante (prisma
+  // db push) reste sans risque ; l'unicité vient du verrou d'écriture, et la vérification
+  // signale de toute façon un rang en double ou manquant.
+  rang                 Int?
+  empreinte_precedente String? @db.Char(64)
+  empreinte            String? @db.Char(64)
+
+  @@index([rang])
   @@index([titulaire_iue, date_acces])
   @@index([decideur_iue, date_acces])
 }

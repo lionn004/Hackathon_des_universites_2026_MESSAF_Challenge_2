@@ -47,7 +47,7 @@ Puis (onglet B) : « Consentements », accepter la demande de la banque.
 Puis (onglet A) : « Vérifier le statut de la requête » : la banque reçoit nom, prénom, nationalité et « en règle ». L'accès n'entre au journal qu'à ce moment, quand les données sont remises : ne pas sauter cette étape.
 Puis (onglet B) : « Journal » : l'accès de l'université (direct) et celui de la banque (consentement).
 
-**Voix off** : « Une banque, elle, est une entité privée : rien ne lui est transmis sans l'accord d'Amadou. Il reçoit la demande dans son espace, voit qui demande quoi et pourquoi, et accepte. La banque reçoit alors ces quatre données, et seulement celles-là. Dans son journal, Amadou voit tout : qui a consulté ses données, lesquelles, pour quelle démarche et quand. Personne ne peut effacer ces traces. »
+**Voix off** : « Une banque, elle, est une entité privée : rien ne lui est transmis sans l'accord d'Amadou. Il reçoit la demande dans son espace, voit qui demande quoi et pourquoi, et accepte. La banque reçoit alors ces quatre données, et seulement celles-là. Dans son journal, Amadou voit tout : qui a consulté ses données, lesquelles, pour quelle démarche et quand. Chaque trace est scellée par une empreinte : la modifier ou l'effacer, même directement dans la base, se voit. »
 
 ### 1:30 à 2:20 : tenir quand un registre tombe
 
