@@ -917,7 +917,8 @@ components:
                 nullable: true
               identification:
                 type: string
-                enum: [iue, recherche]
+                enum: [iue, recherche, correspondance]
+                description: "Comment la personne est trouvée dans ce registre : par l'IUE, par recherche (nom, prénom, date de naissance lus à l'état civil) ou par une table de correspondance IUE / identifiant du registre"
               operations:
                 type: array
                 items:

@@ -6,7 +6,8 @@
  * le connecteur :
  *  1. prend dans « sources » le premier registre disponible qui sait fournir les données
  *     voulues (les suivants sont des sources de secours) ;
- *  2. identifie la personne (IUE, ou recherche par nom, prénom et date de naissance) ;
+ *  2. identifie la personne (IUE, table de correspondance, ou recherche par nom, prénom et
+ *     date de naissance) ;
  *  3. appelle la route déclarée, avec le délai propre au registre ;
  *  4. traduit la réponse vers le dictionnaire (correspondances, conversions) : un champ sans
  *     correspondance n'entre jamais dans la plateforme ;
@@ -157,6 +158,41 @@ function traduireObjet(brut, schema, correspondances) {
   return out;
 }
 
+/**
+ * Registre identifié par correspondance : les personnes qu'il cite (pere_iue, mere_iue, parents
+ * et enfants de la filiation) y sont désignées par SON identifiant local. On les remplace par
+ * leur IUE grâce à la table. Une personne absente de la table devient null (inconnue de la
+ * plateforme) : un identifiant local ne sort jamais sous le nom d'un IUE.
+ * @param {object} donnees Données traduites (modifiées sur place).
+ * @param {object} schema Données de l'opération (dictionnaire).
+ * @param {Map<string, string>} versIue Identifiant local -> IUE.
+ */
+function localVersIue(donnees, schema, versIue) {
+  for (const [nom, def] of Object.entries(schema)) {
+    const valeur = donnees[nom];
+    if (valeur === undefined || valeur === null) continue;
+    if (def.type === 'identifiant') {
+      donnees[nom] = versIue.get(String(valeur)) ?? null;
+    } else if (def.type === 'liste' && Array.isArray(valeur)) {
+      for (const element of valeur) localVersIue(element, def.elements || {}, versIue);
+    }
+  }
+}
+
+/**
+ * Traduit la fiche d'un registre vers le dictionnaire, identifiants de personnes compris.
+ * @param {object} reg Registre du catalogue.
+ * @param {object} fiche Objet reçu du registre.
+ * @param {object} schema Données de l'opération.
+ * @param {object} [correspondances]
+ * @returns {object}
+ */
+function traduireFiche(reg, fiche, schema, correspondances) {
+  const donnees = traduireObjet(fiche, schema, correspondances);
+  if (reg.identification.mode === 'correspondance') localVersIue(donnees, schema, reg.identification.versIue);
+  return donnees;
+}
+
 // Données calculées (« majeur : oui »)
 
 /**
@@ -274,6 +310,8 @@ async function appeler(id, reg, methode, url) {
 
 /**
  * Identifie la personne dans un registre (conception § 6).
+ * Mode « correspondance » : l'identifiant local est lu dans la table du registre, sans appel ;
+ * un IUE absent de la table est une personne inconnue de ce registre.
  * Mode « recherche » : nom, prénom et date de naissance sont lus à l'état civil par l'IUE,
  * puis il faut EXACTEMENT un résultat ; sinon la pièce n'est pas lue (aucun résultat : donnée numérique manquante ; plusieurs : homonymes).
  * @returns {Promise<object|null>} Valeurs des variables de route, ou null si introuvable.
@@ -281,6 +319,10 @@ async function appeler(id, reg, methode, url) {
 async function identifier(id, reg, iue) {
   const ident = reg.identification;
   if (ident.mode === 'iue') return { iue };
+  if (ident.mode === 'correspondance') {
+    const local = ident.parIue.get(iue);
+    return local === undefined ? null : { iue, identifiant_local: local };
+  }
 
   // eslint-disable-next-line no-use-before-define
   const identite = await lireOperation(ETAT_CIVIL_FICHE, iue, IDENTITE_RECHERCHE);
@@ -319,7 +361,7 @@ async function lireDans(id, reg, operation, iue, necessaires) {
   if (res.status !== 200) throw reponseInattendue(id, res);
   const fiche = lireChemin(res.body, op.donnees);
   if (!isRecord(fiche)) throw reponseInattendue(id, res, 'fiche introuvable dans la réponse (voir « donnees » au catalogue)');
-  return traduireObjet(fiche, schema, op.correspondances);
+  return traduireFiche(reg, fiche, schema, op.correspondances);
 }
 
 /**
@@ -543,9 +585,20 @@ async function diagnostiquer(id, iue) {
     rapport.identification = { ok: false, detail: err.message };
     return rapport;
   }
+  const mode = reg.identification.mode;
+  const commentTrouvee = {
+    iue: 'IUE utilisé directement',
+    correspondance: `table de correspondance : identifiant local ${personne && personne.identifiant_local}`,
+    recherche: `recherche nom + prénom + date : identifiant local ${personne && personne.identifiant_local}`,
+  };
+  const pourquoiIntrouvable = {
+    iue: 'personne inconnue de ce registre',
+    correspondance: `IUE absent de la table de correspondance (${reg.identification.table})`,
+    recherche: 'personne introuvable (aucun résultat, ou plusieurs : jamais de choix au hasard)',
+  };
   rapport.identification = personne
-    ? { ok: true, detail: reg.identification.mode === 'iue' ? 'IUE utilisé directement' : `recherche nom + prénom + date : identifiant local ${personne.identifiant_local}` }
-    : { ok: false, detail: 'personne introuvable (aucun résultat, ou plusieurs : jamais de choix au hasard)' };
+    ? { ok: true, detail: commentTrouvee[mode] }
+    : { ok: false, detail: pourquoiIntrouvable[mode] };
   if (!personne) return rapport;
 
   for (const [operation, op] of Object.entries(reg.operations || {})) {
@@ -567,7 +620,7 @@ async function diagnostiquer(id, iue) {
       rapport.operations.push({ operation, ok: false, detail: `HTTP ${res.status} : fiche introuvable dans la réponse (voir « donnees »)` });
       continue;
     }
-    const donnees = traduireObjet(fiche, schema, op.correspondances);
+    const donnees = traduireFiche(reg, fiche, schema, op.correspondances);
     if (Object.hasOwn(schema, 'iue')) donnees.iue = iue;
     calculer(schema, donnees);
     const utilises = new Set(op.correspondances

@@ -27,7 +27,9 @@
  *  - 4004 : état civil v2 (autres routes et noms, réponse emballée, dates JJ/MM/AAAA,
  *    sexe en toutes lettres, pas de « est_majeur » : la passerelle doit le calculer) ;
  *  - 4005 : registre de nationalité sans IUE (recherche par nom, prénom, date ; Awa y a
- *    un homonyme, la plateforme ne doit jamais choisir au hasard).
+ *    un homonyme, la plateforme ne doit jamais choisir au hasard) ;
+ *  - 4006 : état civil à identifiant local (numéro d'acte, parents compris, aucun IUE),
+ *    branché par une table de correspondance (tests/interoperabilite/config-correspondance/).
  * Port 4009 : pilotage des pannes simulées (GET /panne/<registre>?etat=on|off).
  */
 const http = require('node:http');
@@ -402,6 +404,65 @@ function creerNationaliteExterne() {
 }
 
 /**
+ * État civil à identifiant local (port 4006) : il ne connaît PAS l'IUE. Chaque personne y est
+ * désignée par son numéro d'acte de naissance, parents compris. Il ne se branche que par une
+ * table de correspondance IUE / numéro d'acte (mode « correspondance »), y compris comme pivot.
+ * La correspondance IUE -> acte ci-dessous ne sert qu'à construire ses données de test : le
+ * registre lui-même n'expose jamais d'IUE.
+ */
+const ACTES = {
+  '784302956148': 'BF-EC-1998-0042', // Amadou
+  '291047583620': 'BF-EC-1968-0007', // Ibrahim
+  '638501274093': 'BF-EC-1972-0013', // Fatimata
+  '456123789012': 'BF-EC-2014-0101', // Awa
+  '527814903361': 'BF-EC-2010-0077', // Moussa
+  '316580942751': 'BF-EC-1996-0031', // Salif (volontairement absent de la table de la plateforme)
+  '873045129604': 'BF-EC-2021-0055', // Aïcha
+};
+const IUE_PAR_ACTE = Object.fromEntries(Object.entries(ACTES).map(([iue, acte]) => [acte, iue]));
+
+/**
+ * Fiche de l'état civil à identifiant local : numéro d'acte, parents par numéro d'acte, pas
+ * d'IUE ni de « est_majeur », et un champ hors contrat.
+ * @param {string} acte
+ * @returns {object|null}
+ */
+function ficheActe(acte) {
+  const iue = IUE_PAR_ACTE[acte];
+  const f = iue && ETAT_CIVIL_V2[iue];
+  if (!f) return null;
+  return {
+    numero_acte: acte,
+    nom: f.nom,
+    prenom: f.prenom,
+    date_naissance: f.date_naissance,
+    lieu_naissance: f.lieu_naissance,
+    sexe: f.sexe,
+    nationalite: f.nationalite,
+    acte_pere: f.pere_iue ? ACTES[f.pere_iue] : null,
+    acte_mere: f.mere_iue ? ACTES[f.mere_iue] : null,
+    officier_etat_civil: `Mairie de ${f.lieu_naissance} (${MARQUEUR_FUITE})`,
+  };
+}
+
+/**
+ * Serveur de l'état civil à identifiant local (port 4006).
+ * @returns {http.Server}
+ */
+function creerEtatCivilLocal() {
+  return http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://registre-externe');
+    console.log(`[registre-externe etat-civil-local] ${req.method} ${url.pathname}${url.search}`);
+    if (enPanne('etat-civil-local', res)) return undefined;
+    if (url.pathname === '/etat') return json(res, 200, { ok: true });
+    const m = url.pathname.match(/^\/actes\/([^/]+)$/);
+    if (!m) return routeInconnue(res, url.pathname);
+    const fiche = ficheActe(decodeURIComponent(m[1]));
+    return fiche ? json(res, 200, fiche) : json(res, 404, { erreur: 'acte inconnu' });
+  });
+}
+
+/**
  * Serveur de pilotage des pannes (port 4009) : /panne/<registre>?etat=on|off.
  * @returns {http.Server}
  */
@@ -430,4 +491,5 @@ for (const [registre, port] of Object.entries(PORTS)) {
 }
 creerEtatCivilV2().listen(4004, () => console.log('[registre-externe] etat-civil-v2 prêt sur le port 4004'));
 creerNationaliteExterne().listen(4005, () => console.log('[registre-externe] nationalite-externe prêt sur le port 4005'));
+creerEtatCivilLocal().listen(4006, () => console.log('[registre-externe] etat-civil-local prêt sur le port 4006'));
 creerPilotage().listen(4009, () => console.log('[registre-externe] pilotage des pannes sur le port 4009'));

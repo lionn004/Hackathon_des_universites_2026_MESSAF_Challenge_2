@@ -19,8 +19,9 @@ const DOSSIER = process.env.CATALOGUE_DOSSIER || path.join(__dirname, '..', '..'
 const TYPES = ['texte', 'date', 'booleen', 'nombre', 'identifiant', 'liste'];
 const CONVERSIONS = ['texte', 'date', 'booleen', 'nombre'];
 const REGLES_CALCUL = ['age_au_moins', 'liste_vide'];
-const MODES_IDENTIFICATION = ['iue', 'recherche'];
+const MODES_IDENTIFICATION = ['iue', 'recherche', 'correspondance'];
 const ETATS = ['actif', 'suspendu'];
+const FORMAT_IUE = /^[0-9]{12}$/;
 
 /**
  * Opération structurelle (pas de donnée du dictionnaire) : liens de filiation.
@@ -75,6 +76,49 @@ function lireYaml(nom) {
 function decouperRoute(route) {
   const m = /^(GET)\s+(\/\S*)$/.exec(String(route || '').trim());
   return m ? { methode: m[1], chemin: m[2] } : null;
+}
+
+/**
+ * Lit la table de correspondance d'un registre identifié par « correspondance » : pour chaque
+ * personne, son IUE et l'identifiant que lui donne CE registre (numéro d'acte, de dossier...).
+ *
+ * Format : une ligne « iue;identifiant_local » par personne (séparateur « ; » ou « , »),
+ * lignes vides et lignes commençant par # ignorées, ligne d'en-tête « iue;... » facultative.
+ * Chemin relatif au dossier de configuration (ex : correspondances/etat-civil-jury.csv).
+ *
+ * La table doit être une bijection : un IUE n'a qu'un identifiant local, et un identifiant
+ * local qu'un IUE. Sinon la plateforme pourrait lire, ou désigner, une autre personne : toute
+ * ligne en double est donc une erreur de configuration, jamais un choix au hasard.
+ *
+ * @param {string} fichierRelatif
+ * @param {string} ou Contexte pour les messages.
+ * @param {string[]} erreurs Liste complétée en cas de problème.
+ * @returns {{parIue: Map<string, string>, versIue: Map<string, string>}|null} null si illisible.
+ */
+function lireTableCorrespondance(fichierRelatif, ou, erreurs) {
+  let texte;
+  try {
+    texte = fs.readFileSync(path.resolve(DOSSIER, fichierRelatif), 'utf8');
+  } catch {
+    erreurs.push(`${ou} : table de correspondance « ${fichierRelatif} » introuvable dans ${DOSSIER}`);
+    return null;
+  }
+  const parIue = new Map();
+  const versIue = new Map();
+  texte.split(/\r?\n/).forEach((brute, i) => {
+    const ligne = brute.trim();
+    if (!ligne || ligne.startsWith('#')) return;
+    const [iue = '', local = ''] = ligne.split(/[;,]/).map((s) => s.trim());
+    if (/^iue$/i.test(iue)) return; // ligne d'en-tête
+    const lieu = `${ou}, ${fichierRelatif} ligne ${i + 1}`;
+    if (!FORMAT_IUE.test(iue)) { erreurs.push(`${lieu} : IUE « ${iue} » invalide (12 chiffres attendus)`); return; }
+    if (!local) { erreurs.push(`${lieu} : identifiant local manquant pour l'IUE ${iue}`); return; }
+    if (parIue.has(iue)) { erreurs.push(`${lieu} : l'IUE ${iue} figure déjà dans la table`); return; }
+    if (versIue.has(local)) { erreurs.push(`${lieu} : l'identifiant local « ${local} » est déjà attribué à l'IUE ${versIue.get(local)}`); return; }
+    parIue.set(iue, local);
+    versIue.set(local, iue);
+  });
+  return { parIue, versIue };
 }
 
 /**
@@ -157,11 +201,23 @@ function verifierCatalogue(cat, operations, erreurs) {
       if (!decouperRoute(ident.route)) erreurs.push(`${ou} : identification par recherche sans route valide`);
       if (!ident.identifiant_local) erreurs.push(`${ou} : identification par recherche sans « identifiant_local »`);
     }
+    if (ident.mode === 'correspondance') {
+      if (!ident.table) {
+        erreurs.push(`${ou} : identification par correspondance sans « table » (ex : correspondances/${id}.csv)`);
+      } else {
+        // Tables gardées en mémoire, non énumérables : elles ne sortent jamais dans une réponse.
+        const table = lireTableCorrespondance(ident.table, ou, erreurs);
+        if (table) {
+          Object.defineProperty(ident, 'parIue', { value: table.parIue, enumerable: false });
+          Object.defineProperty(ident, 'versIue', { value: table.versIue, enumerable: false });
+        }
+      }
+    }
     for (const [cle, op] of Object.entries(reg.operations || {})) {
       if (!operations.has(cle)) { erreurs.push(`${ou} : opération « ${cle} » absente du dictionnaire`); continue; }
       if (!decouperRoute(op && op.route)) erreurs.push(`${ou}, ${cle} : route invalide (attendu "GET /chemin")`);
       if (ident.mode === 'iue' && !String(op.route).includes('{iue}')) erreurs.push(`${ou}, ${cle} : la route doit contenir {iue}`);
-      if (ident.mode === 'recherche' && !String(op.route).includes('{identifiant_local}')) {
+      if (['recherche', 'correspondance'].includes(ident.mode) && !String(op.route).includes('{identifiant_local}')) {
         erreurs.push(`${ou}, ${cle} : la route doit contenir {identifiant_local}`);
       }
       op.inconnu = Array.isArray(op.inconnu) ? op.inconnu.map(Number) : [404];
@@ -177,9 +233,11 @@ function verifierCatalogue(cat, operations, erreurs) {
       if (!reg) { erreurs.push(`sources ${cle} : registre « ${id} » non déclaré`); continue; }
       if (!reg.operations || !reg.operations[cle]) erreurs.push(`sources ${cle} : le registre « ${id} » ne déclare pas cette opération`);
       if (reg.etat === 'actif' && !reg.adresse) erreurs.push(`registre ${id} : adresse vide (variable d'environnement non définie ?)`);
-      // L'état civil sert de pivot à l'identification par recherche : il doit accepter l'IUE.
-      if (cle.startsWith('etat-civil.') && reg.identification.mode !== 'iue') {
-        erreurs.push(`sources ${cle} : le registre « ${id} » doit être identifié par l'IUE (pivot des recherches)`);
+      // L'état civil sert de pivot à l'identification par recherche (nom, prénom et date de
+      // naissance y sont lus par l'IUE) : il doit donc trouver une personne SANS recherche,
+      // soit par l'IUE, soit par une table de correspondance.
+      if (cle.startsWith('etat-civil.') && !['iue', 'correspondance'].includes(reg.identification.mode)) {
+        erreurs.push(`sources ${cle} : le registre « ${id} » doit être identifié par l'IUE ou par correspondance (pivot des recherches)`);
       }
     }
     // Une source de secours est une réplique du registre de référence (serveur ou site de

@@ -124,9 +124,14 @@ Toute requête désigne le citoyen par son IUE, sans exception : c'est l'identif
 | Mode | Fonctionnement |
 |------|----------------|
 | `iue` | Le registre accepte l'IUE directement. C'est la cible, et le cas de nos registres. |
-| `recherche` | La passerelle lit nom, prénom et date de naissance à l'état civil (par l'IUE), cherche la personne dans le registre et en tire son identifiant local. Pour les bases anciennes, sans IUE. |
+| `correspondance` | Une table, tenue par l'autorité du registre et remplie à l'enrôlement, donne pour chaque IUE l'identifiant de la personne dans ce registre (numéro d'acte, de dossier). Pour un registre qui a ses propres identifiants, **état civil compris**. |
+| `recherche` | La passerelle lit nom, prénom et date de naissance à l'état civil (par l'IUE), cherche la personne dans le registre et en tire son identifiant local. Pour les bases anciennes, sans IUE ni table. |
 
-**Règle de sûreté du mode `recherche`** : il faut exactement un résultat, la plateforme ne devine jamais. Avec zéro résultat, la personne n'est pas dans le registre numérique : c'est une donnée numérique manquante (§ 10). Avec plusieurs résultats (homonymes), la pièce n'est pas lue : on ne transmet jamais les données d'une autre personne. Lever cette ambiguïté demande le mode `correspondance` (§ 17).
+**L'état civil est le pivot** : la recherche y lit nom, prénom et date de naissance. Il doit donc trouver une personne sans recherche, par l'IUE ou par sa table de correspondance. C'est ce qui permet de brancher un état civil du jury dont les citoyens fictifs n'auraient pas d'IUE : on leur en attribue un dans la table, sans toucher au code.
+
+**Règle de sûreté du mode `recherche`** : il faut exactement un résultat, la plateforme ne devine jamais. Avec zéro résultat, la personne n'est pas dans le registre numérique : c'est une donnée numérique manquante (§ 10). Avec plusieurs résultats (homonymes), la pièce n'est pas lue : on ne transmet jamais les données d'une autre personne. C'est le mode `correspondance` qui lève cette ambiguïté, en désignant explicitement le bon dossier.
+
+**Règles du mode `correspondance`.** La table doit être une bijection : un IUE ou un identifiant présent deux fois empêche la passerelle de démarrer. La personne est trouvée sans appel au registre ; un IUE absent de la table est inconnu de ce registre. Les personnes que le registre cite par son identifiant (parents, enfants) sont retraduites en IUE : un identifiant local ne sort jamais de la plateforme, et la table n'est jamais exposée.
 
 ### 5.4 Brancher un registre en quatre étapes
 
@@ -152,7 +157,7 @@ docker compose exec passerelle npm run proposer-registre -- <fichier ou URL du c
 L'assistant lit le contrat OpenAPI du registre et écrit un brouillon de déclaration :
 
 - l'adresse (`servers`), la route d'état pour la sonde et le paramètre de filtrage des champs ;
-- l'identification : IUE reconnu par le nom du paramètre, sa description ou son format (12 chiffres), sinon route de recherche par nom, prénom et date de naissance, avec la liste des résultats et l'identifiant local ;
+- l'identification : IUE reconnu par le nom du paramètre, sa description ou son format (12 chiffres) ; sinon route de recherche par nom, prénom et date de naissance, avec la liste des résultats et l'identifiant local ; sinon, et toujours pour un état civil sans IUE, une table de correspondance à remplir ;
 - pour chaque route de lecture, l'opération du dictionnaire qu'elle sert et l'emplacement de la fiche dans la réponse (enveloppe `data`, `resultat`...) ;
 - les correspondances, par rapprochement des noms (même nom, synonyme connu, nom proche) et des types, et les tables de valeurs (`Masculin` vers `M`) ;
 - les données calculées par la passerelle, celles qui manquent, et les champs ignorés.
@@ -290,6 +295,7 @@ Le test `tests/interoperabilite/test-interop.js` démarre une stack séparée (s
 | Nos trois registres | Les 3 procédures, l'identité, les demandes de pièces et leur contenu |
 | Un registre externe à la place de l'état civil, puis de la justice, du fiscal et des trois | Les mêmes vérifications, avec un registre « d'une autre équipe » au format recommandé |
 | Format différent | Deux registres d'un autre format branchés par le seul catalogue : un état civil sans `est_majeur` (la passerelle le calcule) et un registre de nationalité sans IUE, avec un homonyme qui ne doit jamais être choisi ; la source de secours ; la commande `tester-registre` ; l'assistant `proposer-registre`, qui retrouve les deux déclarations à partir des seuls contrats OpenAPI |
+| Identification par correspondance | Un état civil qui ne connaît que ses numéros d'acte, branché comme pivot par une table : « majeur : oui », passeport avec les parents retraduits en IUE et la cascade résolue, aucun numéro d'acte transmis ; l'homonyme du registre de nationalité levé par la table ; un IUE absent de la table inconnu ; une table incohérente refusée au démarrage ; l'assistant qui propose la table |
 | Panne en direct | Coupure du casier, puis de l'état civil : ce qui n'en dépend pas reste servi, ce qui en dépend attend, rien n'est transmis ni copié, tout se complète au retour, une seule entrée au journal |
 | Donnée numérique manquante | La demande bloquée se complète seule après la numérisation des actes, et le citoyen est prévenu |
 | Pannes et configuration | Registre arrêté, adresse mal saisie |
@@ -323,7 +329,8 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 - Le catalogue des registres et le dictionnaire sont des fichiers YAML : les modifier demande un accès au serveur et un redémarrage de la passerelle.
 - Les registres doivent répondre en JSON à des lectures `GET`. Un registre en XML ou en SOAP demanderait un adaptateur.
 - Le mode `recherche` compare nom, prénom et date de naissance exactement : une orthographe différente donne « personne absente », ce qui est sûr mais moins fluide.
-- Homonymes en mode `recherche` (même nom, prénom et date de naissance) : la pièce n'est pas lue, et la reprise automatique ne peut pas lever l'ambiguïté seule. Il faut le mode `correspondance`.
+- Homonymes en mode `recherche` (même nom, prénom et date de naissance) : la pièce n'est pas lue. Il faut passer ce registre en mode `correspondance`.
+- La table de correspondance est un fichier : la compléter demande un redémarrage de la passerelle, comme le catalogue.
 - La reprise des demandes interroge les registres à intervalle régulier (10 s) plutôt que d'être prévenue par un événement.
 - Remise unique : une administration qui perd la réponse doit refaire sa demande, qui est alors à nouveau inscrite au journal. C'est voulu (aucune copie), mais cela suppose des administrations fiables.
 - Les SMS sont simulés (écrits dans les journaux des services).
@@ -333,7 +340,7 @@ Partout, le test vérifie qu'aucun champ hors dictionnaire ne sort de la platefo
 
 - **Catalogue en base de données**, avec une API et une interface d'administration réservées à un rôle « gestionnaire du catalogue » (autorité du référentiel), et l'historique de chaque modification.
 - **Assistant de branchement plus fin** : enrichir les synonymes au fil des registres branchés, et comparer les exemples du contrat OpenAPI aux formats attendus (dates, codes).
-- **Mode d'identification `correspondance`** : une table IUE / identifiant local (numéro d'acte, NIP, IFU), remplie au fil de l'enrôlement.
+- **Table de correspondance alimentée par l'enrôlement** : le mode `correspondance` est fait ; en production, sa table serait remplie et tenue par l'autorité de l'IUE au fil de l'enrôlement (numéro d'acte, NIP, IFU), avec l'historique de chaque modification, au lieu d'un fichier.
 - **Document à valeur officielle** : à la demande du citoyen, une pièce délivrée par l'autorité compétente, signée électroniquement et vérifiable auprès du registre (code QR), à la place de la version imprimable informative d'aujourd'hui.
 - **Statistiques de numérisation pour l'État** : nombre de démarches bloquées par type de pièce manquante et par registre, sans aucune donnée personnelle, pour orienter les campagnes de numérisation. Une répartition par centre d'état civil demanderait de connaître le centre qui détient chaque acte manquant, ce que la plateforme ne sait pas aujourd'hui (elle ne recueille rien auprès du citoyen).
 - **Production** : clés asymétriques ou TLS mutuel entre services, limitation du nombre de tentatives de connexion, HTTPS, journal chaîné par empreintes pour prouver qu'aucune entrée n'a été modifiée, bases séparées par service, vrai fournisseur de SMS.

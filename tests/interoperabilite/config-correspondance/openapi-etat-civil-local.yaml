@@ -1,0 +1,52 @@
+# Contrat OpenAPI du registre d'état civil « à identifiant local » simulé par
+# registre-externe.js (port 4006). Sert à vérifier l'assistant de branchement
+# (npm run proposer-registre) : un état civil sans IUE est le pivot des recherches, il doit
+# donc proposer une identification par table de correspondance.
+openapi: 3.0.3
+info:
+  title: Registre de l'état civil (numéros d'acte, externe)
+  version: 1.0.0
+servers:
+  - url: http://registre-externe:4006
+paths:
+  /etat:
+    get:
+      summary: État du service
+      responses:
+        "200":
+          description: Service disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+  /actes/{numero_acte}:
+    get:
+      summary: Acte de naissance d'une personne
+      parameters:
+        - name: numero_acte
+          in: path
+          required: true
+          description: "Numéro de l'acte de naissance (ex : BF-EC-1998-0042)"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Acte trouvé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  numero_acte: { type: string }
+                  nom: { type: string }
+                  prenom: { type: string }
+                  date_naissance: { type: string, format: date }
+                  lieu_naissance: { type: string }
+                  sexe: { type: string, enum: [M, F] }
+                  nationalite: { type: string }
+                  acte_pere: { type: string, nullable: true, description: "Numéro d'acte du père" }
+                  acte_mere: { type: string, nullable: true, description: "Numéro d'acte de la mère" }
+                  officier_etat_civil: { type: string }
+        "404":
+          description: Acte inconnu

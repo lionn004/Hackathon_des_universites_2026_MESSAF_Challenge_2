@@ -1,0 +1,96 @@
+# Catalogue de test : registres qui ne connaissent PAS l'IUE, branchés par des tables de
+# correspondance (tests/interoperabilite/test-interop.js, scénario « correspondance »).
+#
+# - etat-civil-local : chaque personne y est désignée par son numéro d'acte, parents compris.
+#   Il sert de PIVOT (état civil) : la recherche par nom, prénom et date y est impossible, la
+#   table correspondances/etat-civil-local.csv dit quel acte correspond à quel IUE. Salif en
+#   est volontairement absent : pour la plateforme, il est inconnu de ce registre.
+# - nationalite-externe : le même registre que dans config-format-different, mais identifié
+#   par sa table (correspondances/nationalite-externe.csv) au lieu de la recherche : Awa y a
+#   deux dossiers homonymes, la table désigne le bon sans aucun choix au hasard.
+# - justice (casier, et secours de la nationalité) et fiscal : nos registres, inchangés.
+#
+# Le dictionnaire (dictionnaire.yaml) est copié ici par le script de test au lancement.
+
+registres:
+  etat-civil-local:
+    nom: Registre de l'état civil (numéros d'acte, externe)
+    proprietaire: Ministère de l'Administration territoriale
+    etat: actif
+    adresse: ${REGISTRE_ETAT_CIVIL_LOCAL_URL:-http://registre-externe:4006}
+    delai_ms: 2000
+    sonde: "GET /etat"
+    identification:
+      mode: correspondance
+      table: correspondances/etat-civil-local.csv
+    operations:
+      etat-civil.fiche:
+        route: "GET /actes/{identifiant_local}"
+        correspondances:
+          nom:            { champ: nom }
+          prenom:         { champ: prenom }
+          date_naissance: { champ: date_naissance }
+          lieu_naissance: { champ: lieu_naissance }
+          sexe:           { champ: sexe }
+          nationalite:    { champ: nationalite }
+          pere_iue:       { champ: acte_pere }    # numéro d'acte, traduit en IUE par la table
+          mere_iue:       { champ: acte_mere }
+
+  nationalite-externe:
+    nom: Registre de la nationalité (externe)
+    proprietaire: Ministère de la Justice
+    etat: actif
+    adresse: ${REGISTRE_NATIONALITE_URL:-http://registre-externe:4005}
+    delai_ms: 2000
+    sonde: "GET /etat"
+    identification:
+      mode: correspondance
+      table: correspondances/nationalite-externe.csv
+    operations:
+      justice.nationalite:
+        route: "GET /personnes/{identifiant_local}/nationalite"
+        donnees: data
+        inconnu: [404]
+        correspondances:
+          est_national:      { champ: estBurkinabe, conversion: booleen }
+          nationalite:       { champ: nationalite }
+          mode_acquisition:  { champ: modeObtention, valeurs: { Naissance: naissance, Naturalisation: naturalisation, Mariage: mariage } }
+          date_acquisition:  { champ: dateObtention, conversion: date }
+          numero_certificat: { champ: numCertificat }
+
+  justice:
+    nom: Registre de la justice (MESSAF)
+    proprietaire: Ministère de la Justice
+    etat: actif
+    adresse: ${REGISTRE_JUSTICE_URL:-http://registre-justice:3002/api}
+    delai_ms: 2000
+    sonde: "GET /sante"
+    parametre_champs: champs
+    identification: { mode: iue }
+    operations:
+      justice.casier:      { route: "GET /citoyens/{iue}/casier" }
+      justice.nationalite: { route: "GET /citoyens/{iue}/nationalite" }
+
+  fiscal:
+    nom: Registre fiscal (MESSAF)
+    proprietaire: Ministère de l'Économie et des Finances
+    etat: actif
+    adresse: ${REGISTRE_FISCAL_URL:-http://registre-fiscal:3003/api}
+    delai_ms: 2000
+    sonde: "GET /sante"
+    parametre_champs: champs
+    identification: { mode: iue }
+    operations:
+      fiscal.situation: { route: "GET /citoyens/{iue}/fiscal" }
+
+sources:
+  etat-civil.fiche:    [etat-civil-local]
+  justice.casier:      [justice]
+  justice.nationalite: [nationalite-externe, justice]
+  fiscal.situation:    [fiscal]
+
+pieces:
+  extrait-naissance: etat-civil.fiche
+  certificat-nationalite: justice.nationalite
+  casier-judiciaire: justice.casier
+  attestation-fiscale: fiscal.situation

@@ -19,9 +19,11 @@ services:
       - "4003:4003"
       - "4004:4004"   # état civil v2 (autre format)
       - "4005:4005"   # nationalité sans IUE (autre format)
+      - "4006:4006"   # état civil à identifiant local (table de correspondance)
       - "4009:4009"   # pilotage des pannes simulées
 
-  # Catalogue de test (registres d'un autre format), choisi par CATALOGUE_DOSSIER.
+  # Catalogues de test (registres d'un autre format, tables de correspondance), choisis par CATALOGUE_DOSSIER.
   passerelle:
     volumes:
       - ./tests/interoperabilite/config-format-different:/app/config-format-different:ro
+      - ./tests/interoperabilite/config-correspondance:/app/config-correspondance:ro

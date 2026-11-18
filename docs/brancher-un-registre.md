@@ -17,7 +17,32 @@ Opérations à servir pour les registres du jury :
 
 Le fiscal reste servi par notre registre : le jury n'en fournit pas.
 
-**L'état civil sert de pivot** : il doit accepter l'IUE (`identification: { mode: iue }`), sinon la passerelle refuse le catalogue. C'est par lui que les autres registres, s'ils ne connaissent pas l'IUE, retrouvent une personne (nom, prénom, date de naissance).
+**L'état civil sert de pivot** : c'est par lui que les autres registres, s'ils ne connaissent pas l'IUE, retrouvent une personne (nom, prénom, date de naissance). Il doit donc trouver une personne sans recherche :
+
+- par l'IUE (`identification: { mode: iue }`) ;
+- ou, s'il ne connaît pas l'IUE (ses citoyens ont un numéro d'acte, par exemple), par une **table de correspondance** (`{ mode: correspondance, table: ... }`, voir ci-dessous).
+
+## Si le registre ne connaît pas l'IUE : la table de correspondance
+
+Toute requête désigne le citoyen par son IUE. Pour un registre qui a ses propres identifiants, on écrit une table qui donne, pour chaque citoyen, son IUE et son identifiant dans ce registre :
+
+1. Créer `backend/passerelle/config/correspondances/<registre>.csv`, une ligne par citoyen :
+   ```
+   iue;numero_acte
+   784302956148;BF-EC-1998-0042
+   291047583620;BF-EC-1968-0007
+   ```
+   La première ligne (en-tête) et les lignes qui commencent par `#` sont ignorées. Les IUE ont 12 chiffres ; pour les citoyens fictifs du jury qui n'en ont pas, on leur en attribue un ici (c'est l'enrôlement).
+2. Dans la déclaration du registre :
+   ```yaml
+   identification:
+     mode: correspondance
+     table: correspondances/<registre>.csv
+   ```
+   et `{identifiant_local}` dans ses routes (ex : `"GET /actes/{identifiant_local}"`).
+3. Les parents et enfants que le registre cite par son identifiant (ex : `acte_pere`) se déclarent comme d'habitude (`pere_iue: { champ: acte_pere }`) : la passerelle les retraduit en IUE grâce à la table.
+
+La passerelle refuse de démarrer si un IUE ou un identifiant figure deux fois dans la table : elle ne choisit jamais au hasard. Un citoyen absent de la table est inconnu de ce registre ; pour l'ajouter, compléter la table puis `docker compose restart passerelle`.
 
 ## 1. Rendre le registre joignable
 
@@ -44,7 +69,7 @@ L'assistant propose ; il ne décide pas du sens des champs. Vérifier :
 
 - `proprietaire` : à renseigner (le ministère qui tient le registre) ;
 - `adresse` : de préférence une variable, par exemple `${REGISTRE_NATIONALITE_URL}`, avec la valeur dans un fichier `.env` à la racine ;
-- `identification` : `{ mode: iue }` si le registre accepte l'IUE ; sinon `recherche`, avec le bon format de date dans la route (`{date_naissance|jj/mm/aaaa}` si le registre attend ses dates ainsi) ;
+- `identification` : `{ mode: iue }` si le registre accepte l'IUE ; sinon `correspondance` (proposé pour un état civil sans IUE, ou sans route de recherche : créer la table), ou `recherche`, avec le bon format de date dans la route (`{date_naissance|jj/mm/aaaa}` si le registre attend ses dates ainsi) ;
 - chaque correspondance marquée « nom proche : à vérifier » ou « table de valeurs à vérifier » ;
 - les « données du dictionnaire non trouvées » : un champ existe peut-être sous un autre nom ; sinon la donnée est absente de ce registre ;
 - les « champs ignorés » : ils n'entreront jamais dans la plateforme, c'est voulu.
@@ -88,8 +113,9 @@ docker compose restart passerelle
 
 | Situation | Ce qui se passe | Que faire |
 |-----------|-----------------|-----------|
-| Le registre ne connaît pas l'IUE | Mode `recherche` : la passerelle lit nom, prénom et date de naissance à l'état civil, puis cherche la personne | Vérifier le format de date de la route de recherche ; impossible pour l'état civil lui-même (pivot) |
-| Plusieurs personnes trouvées (homonymes) | La plateforme ne choisit jamais : la pièce n'est pas lue | Limite connue (mode `correspondance` en perspective) |
+| Le registre ne connaît pas l'IUE | Mode `correspondance` : la table donne son identifiant ; ou mode `recherche` : la passerelle lit nom, prénom et date de naissance à l'état civil, puis cherche la personne | Correspondance : remplir la table. Recherche : vérifier le format de date ; impossible pour l'état civil lui-même (pivot) |
+| Plusieurs personnes trouvées (homonymes) | En mode `recherche`, la plateforme ne choisit jamais : la pièce n'est pas lue | Passer ce registre en mode `correspondance` : la table désigne le bon dossier |
+| Citoyen absent de la table de correspondance | Inconnu de ce registre (comme une réponse 404) | Ajouter sa ligne, puis `docker compose restart passerelle` |
 | Le registre ne fournit pas `est_majeur` ou `casier_vierge` | La passerelle les calcule (date de naissance, liste des condamnations) | Rien : seule la donnée calculée sort |
 | Le registre répond lentement | Au-delà de `delai_ms` (2 000 ms), il est jugé hors service | Augmenter `delai_ms` dans le catalogue |
 | Le registre exige un jeton | | `entetes: { Authorization: "Bearer ${JETON_REGISTRE}" }`, jeton dans `.env` |
