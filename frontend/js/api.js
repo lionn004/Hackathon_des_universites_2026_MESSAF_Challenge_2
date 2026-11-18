@@ -280,6 +280,54 @@ function nomPiece(id) {
   return cataloguePieces.find(p => p.id === id)?.nom || id;
 }
 
+/** @returns {string|null} Démarche à suivre quand la pièce manque au registre numérique, ou null. */
+function demarchePiece(id) {
+  return cataloguePieces.find(p => p.id === id)?.demarche_si_absente || null;
+}
+
+// Dictionnaire des données (GET /dictionnaire), chargé une seule fois par page
+
+let dictionnaireDomaines = {};
+let dictionnairePromise = null;
+// Les champs du journal et des consentements arrivent sans leur domaine : on cherche
+// le nom dans cet ordre. « nationalite » existe à l'état civil et à la justice.
+const ORDRE_DOMAINES = ['etat-civil', 'justice', 'fiscal'];
+
+const dictionnaireApi = {
+  /**
+   * Charge le dictionnaire. Un échec n'empêche pas la page de s'afficher :
+   * les noms techniques restent affichés.
+   * @returns {Promise<object>} Les domaines du dictionnaire (vide en cas d'échec).
+   */
+  async charger() {
+    if (!dictionnairePromise) {
+      dictionnairePromise = apiFetch('/dictionnaire')
+        .then(data => { dictionnaireDomaines = data?.domaines || {}; return dictionnaireDomaines; })
+        .catch(() => { dictionnairePromise = null; return dictionnaireDomaines; });
+    }
+    return dictionnairePromise;
+  },
+};
+
+/**
+ * Libellé lisible d'une donnée (« est_majeur » devient « Majeur »).
+ * @param {string} nom Nom technique de la donnée.
+ * @returns {string} Le libellé du dictionnaire, ou le nom technique s'il est inconnu.
+ */
+function libelleDonnee(nom) {
+  const domaines = [...ORDRE_DOMAINES, ...Object.keys(dictionnaireDomaines).filter(d => !ORDRE_DOMAINES.includes(d))];
+  for (const d of domaines) {
+    const libelle = dictionnaireDomaines[d]?.[nom]?.libelle;
+    if (libelle) return libelle;
+  }
+  return nom;
+}
+
+/** @returns {string[]} Les libellés d'une liste de noms techniques. */
+function libellesDonnees(noms) {
+  return Array.isArray(noms) ? noms.map(libelleDonnee) : [];
+}
+
 const PROPRIETAIRES = { citoyen: 'vous', pere: 'père', mere: 'mère' };
 
 // Affichage
@@ -386,14 +434,15 @@ function statusBadge(statut) {
     accepte: 'Accepté',
     refuse: 'Refusé',
     expire: 'Expiré',
-    en_cours: 'En cours',
+    // Demande ou pièce de la cascade : un registre est hors service, la reprise est automatique.
+    en_cours: 'En attente du registre',
     complete: 'Complète',
     echouee: 'Échouée',
     actif: 'Actif',
-    fallback_physique: 'Guichet',
+    fallback_physique: 'Donnée à numériser',
     resolu: 'Résolu',
-    manquant: 'Manquant',
-    manquant_fallback_physique: 'Manquant',
+    manquant: 'À numériser',
+    manquant_fallback_physique: 'À numériser',
     en_attente_consentement: 'En attente',
     consentement_accepte: 'Accepté',
     consentement_refuse: 'Refusé',
@@ -418,6 +467,8 @@ function renderCascade(nodes) {
         <span class="cascade-owner">(${escapeHtml(PROPRIETAIRES[n.proprietaire] || n.proprietaire || VIDE)})</span>
         ${n.statut ? statusBadge(n.statut) : ''}
       </span>
+      ${n.statut === 'manquant' && demarchePiece(n.type_piece) ? `
+        <div class="cascade-demarche"><strong>Démarche à suivre :</strong> ${escapeHtml(demarchePiece(n.type_piece))}</div>` : ''}
       ${renderCascade(n.sous_prerequis || n.prerequis)}
     </li>`).join('')}</ul>`;
 }

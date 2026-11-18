@@ -68,8 +68,8 @@
             <select class="form-input" id="f-statut">
               <option value="">Tous les statuts</option>
               <option value="complete">Complète</option>
-              <option value="fallback_physique">À compléter au guichet</option>
-              <option value="en_cours">En cours</option>
+              <option value="fallback_physique">Donnée à numériser</option>
+              <option value="en_cours">En attente du registre</option>
               <option value="echouee">Échouée</option>
             </select>
           </div>
@@ -123,8 +123,13 @@
             </div>` : ''}
           ${d.statut === 'fallback_physique' ? `
             <div class="alert alert-warning mt-4">
-              <span>Certaines pièces (marquées « Manquant ») ne sont pas disponibles dans le système, par exemple un parent non enregistré.
-              Rendez-vous au guichet avec les documents correspondants : l'agent les saisira et la demande reprendra automatiquement.</span>
+              <span>Une pièce n'est pas encore numérisée dans son registre. L'administration qui la détient doit la numériser :
+              votre demande reprendra automatiquement et vous serez prévenu par SMS.</span>
+            </div>` : ''}
+          ${d.statut === 'en_cours' ? `
+            <div class="alert alert-warning mt-4">
+              <span>Un registre nécessaire est momentanément hors service. Votre demande reprendra automatiquement
+              à son retour et vous serez prévenu par SMS.</span>
             </div>` : ''}
         </div>`;
     }
@@ -388,10 +393,15 @@
       btn.textContent = 'Résolution de la cascade…';
       try {
         const demande = await demandesApi.create(type_piece_id, pour_enfant_iue);
+        // Une demande peut être créée sans être terminée : pièce à numériser, ou registre hors service.
         if (demande.statut === 'fallback_physique') {
-          showToast('Demande créée : une pièce doit être fournie au guichet', 'warning');
-        } else {
+          showToast('Demande créée : une pièce n\'est pas encore numérisée dans son registre', 'warning');
+        } else if (demande.statut === 'en_cours') {
+          showToast('Demande créée : un registre est momentanément indisponible, elle reprendra automatiquement', 'warning');
+        } else if (demande.statut === 'complete') {
           showToast('Demande complétée : toutes les pièces ont été récupérées', 'success');
+        } else {
+          showToast('Demande créée, mais elle n\'a pas pu aboutir', 'error');
         }
         closeNewDemande();
         loadDemandes();

@@ -115,7 +115,7 @@
             ${j.pour_enfant ? `<div style="font-size:var(--font-size-xs);color:var(--or-fonce)">Pour ${escapeHtml(j.pour_enfant.nom || j.pour_enfant.iue)}</div>` : ''}
           </td>
           <td style="font-size:var(--font-size-xs);color:var(--gris-500);max-width:200px">
-            ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(j.champs_consultes.join(', ')) : VIDE}
+            ${Array.isArray(j.champs_consultes) && j.champs_consultes.length ? escapeHtml(libellesDonnees(j.champs_consultes).join(', ')) : VIDE}
           </td>
         </tr>`;
     }
@@ -136,7 +136,8 @@
       const type = el('f-type').value;
       resultats = entrees.filter(j =>
         (!type || j.type_acces === type) &&
-        correspond(recherche, j.administration_nom, j.demarche, j.champs_consultes, j.pour_enfant?.nom));
+        correspond(recherche, j.administration_nom, j.demarche, j.champs_consultes,
+          libellesDonnees(j.champs_consultes), j.pour_enfant?.nom));
       page = 1;
       afficher();
     }
@@ -197,7 +198,11 @@
       }
       el('tbody-journal').innerHTML = squeletteLignes(5);
       try {
-        const data = await journalApi.list({ date_debut, date_fin, limite: LIMITE_CHARGEMENT });
+        // Le dictionnaire donne les libellés des données ; sans lui, les noms techniques restent affichés.
+        const [data] = await Promise.all([
+          journalApi.list({ date_debut, date_fin, limite: LIMITE_CHARGEMENT }),
+          dictionnaireApi.charger(),
+        ]);
         entrees = data.entrees || [];
         totalPeriode = data.pagination?.total ?? entrees.length;
         appliquerFiltres();

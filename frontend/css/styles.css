@@ -462,6 +462,13 @@ input[type="password"]::-ms-clear {
   color: var(--gris-500);
   font-size: var(--font-size-xs);
 }
+/* Démarche à suivre sous une pièce à numériser (demarche_si_absente du catalogue). */
+.cascade-demarche {
+  margin-top: var(--space-1);
+  max-width: 60ch;
+  font-size: var(--font-size-xs);
+  color: var(--gris-600);
+}
 
 /* --- Tables --- */
 .table-container {
@@ -1405,7 +1412,10 @@ input[type="password"]::-ms-clear {
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--rouge);
+  /* Vert : simple information (filtres actifs), pas une alerte. Le liseré blanc la détache
+     du bouton, qui devient vert lui aussi quand le panneau est ouvert. */
+  background: var(--vert);
+  box-shadow: 0 0 0 2px var(--blanc);
   color: var(--blanc);
   font-size: 11px;
   font-weight: 700;
