@@ -21,7 +21,7 @@ Légende : **R** = responsable (conçoit et réalise), **C** = contribue.
 | **5. Espace usager : frontend** | non concerné | **R** : toutes les pages (connexion, inscription, mot de passe en 3 étapes, tableau de bord, profil, consentements, demandes, pièce, journal, enfants), interface de test (état des registres, mise en attente d'une requête, remise unique), libellés du dictionnaire, démarche à suivre, recherche et filtres, style |
 | **Contrats OpenAPI** (7) | **R** : compléments (réponses d'erreur, statuts de panne, état des registres, dictionnaire, démarche à suivre), validation, documentation Swagger | **R** : premières versions des 7 contrats, à l'initialisation du dépôt |
 | **Déploiement** (Docker Compose, Swagger UI) | **R** : déploiement en une commande, redémarrage automatique, configuration | **C** : service du frontend |
-| **Tests d'interopérabilité** | **R** : registre externe, registres d'un autre format, registres sans IUE (table de correspondance), panne en direct, donnée numérique manquante, altération du journal (427 vérifications) | non concerné |
+| **Tests d'interopérabilité** | **R** : registre externe, registres d'un autre format, registres sans IUE (table de correspondance), panne en direct, donnée numérique manquante, altération du journal (430 vérifications) | non concerné |
 | **Documentation** | **R** : README, conception de l'interopérabilité, conventions du projet | **C** : sections du CLAUDE.md (acteurs du système, recherche et filtres, gestion du catalogue) |
 
 ## 2. Par livrable
