@@ -22,7 +22,8 @@
           <span id="registres-maj" style="font-size:var(--font-size-xs);color:var(--gris-500)" aria-live="polite"></span>
         </div>
         <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-4)">
-          La passerelle sonde chaque registre toutes les 5 secondes.
+          La passerelle sonde chaque registre toutes les 5 secondes. Si un registre tombe, une requête qui en dépend
+          est mise en attente, sans rien transmettre, puis se complète à une consultation suivante.
         </p>
         <div id="registres-etat"></div>
       </div>
@@ -206,7 +207,30 @@
       try {
         const result = await testApi.simulerRequete(administration_id, demarche_id, iue_citoyen);
 
-        if (result.type_admin === 'privee') {
+        if (result.statut === 'en_attente_registre') {
+          // 202 : un registre nécessaire est hors service. Rien n'est transmis ni copié ;
+          // la requête se complète à une consultation suivante, sans nouvelle demande.
+          requeteSuivie = { requete_id: result.requete_id, administration_id };
+          const indispo = result.registres_indisponibles || [];
+          showResult({
+            alertClass: 'alert-warning',
+            text: 'Registre momentanément indisponible : requête mise en attente',
+            resume: `Registre${indispo.length > 1 ? 's' : ''} hors service : ${nomsRegistres(indispo)}.`,
+            body: `
+              <p style="font-size:var(--font-size-sm);color:var(--gris-600);margin-bottom:var(--space-4)">
+                Aucune donnée n'est transmise tant que tous les registres nécessaires ne répondent pas (tout ou rien).
+                Quand le registre est de nouveau disponible (voir « État des registres »), vérifiez le statut :
+                la requête se complète sans nouvelle demande.
+              </p>
+              <div style="font-size:var(--font-size-xs);color:var(--gris-500);margin-bottom:var(--space-4)">
+                Requête : <code>${escapeHtml(result.requete_id)}</code>
+              </div>
+              <button class="btn btn-outline btn-sm" id="btn-suivi" onclick="suivreRequete()">Vérifier le statut de la requête</button>
+              <div id="suivi-resultat" class="mt-4"></div>`,
+            json: result,
+          });
+          chargerRegistres();
+        } else if (result.type_admin === 'privee') {
           // 202 : administration privée, le consentement explicite du citoyen est requis.
           requeteSuivie = { requete_id: result.requete_id, administration_id };
           showResult({
@@ -273,8 +297,9 @@
         const r = await testApi.getRequete(requeteSuivie.requete_id, requeteSuivie.administration_id);
         const messages = {
           en_attente_consentement: ['alert-warning', 'Toujours en attente de la réponse du citoyen'],
+          en_attente_registre: ['alert-warning', `Toujours en attente : registre hors service (${nomsRegistres(r.registres_indisponibles)})`],
           consentement_accepte: ['alert-success', 'Consentement accepté'],
-          complete: ['alert-success', 'Consentement accepté, données transmises à l\'administration'],
+          complete: ['alert-success', 'Requête complète : données transmises à l\'administration'],
           consentement_refuse: ['alert-error', 'Le citoyen a refusé : aucune donnée transmise'],
           expire: ['alert-error', 'Demande expirée (30 jours sans réponse)'],
           echouee: ['alert-error', 'Requête échouée : aucune donnée transmise'],
@@ -293,6 +318,7 @@
               Remise unique : la passerelle transmet les données une seule fois et n'en garde pas de copie.
               Seule la trace de l'accès reste au journal du citoyen.
             </p>` : '');
+        if (r.statut === 'en_attente_registre') chargerRegistres();
         document.getElementById('resultat-json').textContent = JSON.stringify(r, null, 2);
       } catch (e) {
         out.innerHTML = `<div class="alert alert-error"><strong>${escapeHtml(e.message)}</strong></div>`;
@@ -307,9 +333,15 @@
         une nouvelle consultation de la requête ne les renverra pas.
       </p>`;
 
-    // Dernier état connu des registres.
+    // Dernier état connu des registres : sert aussi à nommer les registres indisponibles.
     let etatRegistres = [];
     const ACTUALISATION_REGISTRES_MS = 5000;
+
+    /** Noms lisibles d'une liste d'identifiants de registres (identifiant brut si inconnu). */
+    function nomsRegistres(ids) {
+      if (!Array.isArray(ids) || !ids.length) return 'non précisé';
+      return ids.map(id => etatRegistres.find(r => r.id === id)?.nom || id).join(', ');
+    }
 
     /** Badge de disponibilité. Un registre suspendu par configuration n'est pas interrogé. */
     function badgeRegistre(r) {
@@ -321,7 +353,7 @@
 
     /**
      * GET /registres : disponibilité des registres et sources de secours.
-     * Appelée au chargement, puis toutes les 5 s tant que l'onglet est visible.
+     * Appelée au chargement, toutes les 5 s tant que l'onglet est visible, et après une mise en attente.
      */
     async function chargerRegistres() {
       const container = document.getElementById('registres-etat');
