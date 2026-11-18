@@ -74,9 +74,7 @@
                 <th>Champs consultés</th>
               </tr>
             </thead>
-            <tbody id="tbody-journal">
-              <tr><td colspan="5" class="text-center" style="padding:var(--space-6);color:var(--gris-400)">Chargement…</td></tr>
-            </tbody>
+            <tbody id="tbody-journal" data-squelette="lignes" data-colonnes="5"></tbody>
           </table>
         </div>
         <div class="flex-between" style="padding:var(--space-4);border-top:1px solid var(--gris-200)" id="pagination">
@@ -197,7 +195,7 @@
         el('f-count').textContent = 'La date de début doit précéder la date de fin.';
         return;
       }
-      el('tbody-journal').innerHTML = emptyRow(5, 'Chargement…');
+      el('tbody-journal').innerHTML = squeletteLignes(5);
       try {
         const data = await journalApi.list({ date_debut, date_fin, limite: LIMITE_CHARGEMENT });
         entrees = data.entrees || [];
