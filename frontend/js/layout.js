@@ -64,6 +64,9 @@ function injectLayout() {
     </div>
   `;
 
+  // Page courante, pour signaler le lien Mon profil de la barre du haut comme actif.
+  const page = window.location.pathname.split('/').pop();
+
   const topbar = document.createElement('div');
   topbar.className = 'topbar';
   topbar.innerHTML = `
@@ -72,10 +75,10 @@ function injectLayout() {
       <span style="font-size:var(--font-size-sm);color:var(--gris-500)">IUE : <strong>${escapeHtml(citoyen.iue) || VIDE}</strong></span>
     </div>
     <div class="topbar-actions">
-      <div class="user-info">
+      <a href="/pages/profil.html" class="user-info" title="Mon profil"${page === 'profil.html' ? ' aria-current="page"' : ''}>
         <span>${nomAffiche}</span>
-        <div class="user-avatar">${initials}</div>
-      </div>
+        <span class="user-avatar" aria-hidden="true">${initials}</span>
+      </a>
       <button class="btn btn-sm btn-outline" onclick="deconnexion()">Déconnexion</button>
     </div>
   `;

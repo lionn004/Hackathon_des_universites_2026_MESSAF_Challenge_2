@@ -930,8 +930,17 @@ input[type="password"]::-ms-clear {
   gap: var(--space-3);
   font-size: var(--font-size-sm);
   font-weight: 500;
+  /* Lien vers Mon profil : garde l'apparence du texte. */
+  color: var(--gris-700);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
 }
-.topbar .user-avatar {
+.topbar .user-info:hover { background: var(--gris-50); color: var(--vert); text-decoration: none; }
+.topbar .user-info[aria-current="page"] { color: var(--vert); }
+/* Pastille d'initiales : barre du haut, Mon profil, Mes enfants. */
+.user-avatar {
+  flex-shrink: 0;
   width: 36px;
   height: 36px;
   background: var(--or-clair);
