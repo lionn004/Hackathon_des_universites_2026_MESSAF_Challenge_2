@@ -1,6 +1,16 @@
 /* Styles de l'espace usager e-FASO.
    Couleurs du drapeau du Burkina Faso : vert #009E49, rouge #EF2B2D, or #FCD116. */
 
+/* --- Transition entre les pages ---
+   Fondu bref lors d'une navigation interne (View Transitions API). Un navigateur
+   qui ne la gère pas charge la page normalement. Désactivée si l'utilisateur
+   demande moins d'animations. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation-duration: 0.2s; }
+}
+
 /* --- Reset & Base --- */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -136,6 +146,8 @@ img { max-width: 100%; }
   border: 2px solid var(--vert);
 }
 .btn-outline:hover { background: var(--vert-clair); text-decoration: none; }
+/* Le bouton contour se remplit au survol, sauf s'il est désactivé. */
+.btn-outline:hover:not(:disabled) { background: var(--vert); color: var(--blanc); }
 
 .btn-danger {
   background: var(--rouge);
@@ -1065,6 +1077,8 @@ input[type="password"]::-ms-clear {
   border-color: var(--vert);
   box-shadow: var(--shadow-sm);
   text-decoration: none;
+  /* Léger soulèvement : ces accès rapides sont des liens. */
+  transform: translateY(-2px);
 }
 .quick-access-item .qa-text {
   font-size: var(--font-size-sm);
@@ -1586,4 +1600,16 @@ input[type="password"]::-ms-clear {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* --- Réduction des animations ---
+   Si l'utilisateur a demandé moins d'animations dans son système, toutes les
+   animations et transitions deviennent instantanées, y compris celles ajoutées plus tard. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
